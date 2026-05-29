@@ -7,10 +7,10 @@ Updated: 2026-05-29.
 - Active objective: implement `docs/plan/v0-implementation-plan.md` via
   `intuitive-flow`.
 - Latest completed slice: Mac + Docker + ADB development is working, and a
-  Snapdragon 8 Gen 2 phone exposed model-specific QNN delegate rejection for
-  both YOLO and Depth Anything.
-- Current V0b slice: QNN model compatibility diagnosis is active; do not add a
-  CPU fallback performance profile until the delegate rejection root cause is
+  Snapdragon 8 Gen 2 phone exposed QNN DSP transport/skeleton setup failure
+  before model-specific offload can be evaluated.
+- Current V0b slice: QNN DSP transport diagnosis is active; do not add a CPU
+  fallback performance profile until the QNN transport/skeleton root cause is
   known.
 - Proven locally:
   - `scripts/check-android-env.sh` passes host requirements.
@@ -152,6 +152,16 @@ Updated: 2026-05-29.
   - Strict QNN smoke gate artifact: `logs/qnn-smoke-20260529T152836Z.log`.
     `scripts/verify-qnn-smoke-device.sh` correctly returns failed with
     `QNN delegate rejected model(s): yolo depth`.
+  - Full logcat QNN probe artifact: `logs/qnn-smoke-full-20260529T154349Z.log`.
+    Native `QnnDsp` logs show `loadRemoteSymbols failed with err 4000`,
+    `Failed to create transport for device`, `Failed to load skel`, and
+    `Transport layer setup failed: 14001` before the TFLite interpreter reports
+    delegate application failure.
+  - The QNN smoke gate now captures full logcat by default and classifies this
+    case as a DSP transport/skeleton setup failure. Artifact
+    `logs/qnn-smoke-20260529T155527Z.log` returns
+    `QNN DSP transport/skeleton setup failed before model-specific offload:
+    yolo depth`.
 
 ## Stop Condition
 
@@ -160,22 +170,24 @@ loading, reusable Depth Anything preprocessing/inference, Depth Anything-sized
 downsampling plus YOLO detection fusion into the 15x15 planner, a reusable
 corridor pipeline, and a pure-Kotlin 3-frame command confirmation state
 machine. A debug-gated live CameraX -> Depth Anything -> corridor pipeline path
-exists, but the current target-class Snapdragon 8 Gen 2 phone rejects both
-models at QNN delegate application time and falls back to CPU. Emergency STOP
-behavior for near obstacles, frame loss, and low confidence is covered in unit
-tests. The full V0b corridor demo is not proven on this device because the
-current TFLite models are not yet accepted by the QNN delegate, despite device
-HTP quantized/fp16 capability being reported as available.
+exists, but the current target-class Snapdragon 8 Gen 2 phone fails QNN DSP
+transport/skeleton setup before model-specific delegate compatibility can be
+evaluated, then falls back to CPU. Emergency STOP behavior for near obstacles,
+frame loss, and low confidence is covered in unit tests. The full V0b corridor
+demo is not proven on this device because QNN HTP is not operational yet,
+despite device HTP quantized/fp16 capability being reported as available.
 
 ## Next Agent-Owned Step
 
 Use `scripts/verify-qnn-smoke-device.sh` as the next machine gate while
 diagnosing QNN compatibility. The next agent-owned step is to determine whether
-delegate rejection is caused by model export/operator support, tensor layout,
-quantization format, dependency/version mismatch, or QNN option setup. Do not
-add a lower-performance CPU fallback profile before that root cause is known.
-After QNN accepts both models, rerun `scripts/verify-v0b-device.sh` for the
-short live-corridor gate; only then run
+the QNN DSP transport/skeleton failure is caused by packaging/signing of HTP
+skel/stub libraries, unsigned PD requirements, dependency/version mismatch, or
+QNN delegate option setup. Only after transport succeeds should model
+export/operator support, tensor layout, and quantization format be treated as
+the primary suspects. Do not add a lower-performance CPU fallback profile before
+that root cause is known. After QNN accepts both models, rerun
+`scripts/verify-v0b-device.sh` for the short live-corridor gate; only then run
 `RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` and the known-corridor
 sighted-spotter proof.
 

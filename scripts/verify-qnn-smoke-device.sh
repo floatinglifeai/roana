@@ -9,6 +9,7 @@ LOG_SECONDS="${LOG_SECONDS:-30}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 MODEL="${MODEL:-all}"
 REQUIRE_QNN_SUCCESS="${REQUIRE_QNN_SUCCESS:-1}"
+CAPTURE_FULL_LOGCAT="${CAPTURE_FULL_LOGCAT:-1}"
 ADB_BIN="${ADB_BIN:-}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_PATH="$LOG_DIR/qnn-smoke-$TIMESTAMP.log"
@@ -103,10 +104,16 @@ fi
 "$ADB_BIN" "${DEVICE_ARG[@]}" shell am start "${start_args[@]}" >/dev/null
 
 set +e
-if command -v timeout >/dev/null 2>&1; then
-  timeout "${LOG_SECONDS}s" "$ADB_BIN" "${DEVICE_ARG[@]}" logcat -v time RoanaV0a:I '*:S' >"$LOG_PATH"
+if [ "$CAPTURE_FULL_LOGCAT" = "1" ]; then
+  logcat_args=(logcat -v time)
 else
-  "$ADB_BIN" "${DEVICE_ARG[@]}" logcat -v time RoanaV0a:I '*:S' >"$LOG_PATH" &
+  logcat_args=(logcat -v time RoanaV0a:I '*:S')
+fi
+
+if command -v timeout >/dev/null 2>&1; then
+  timeout "${LOG_SECONDS}s" "$ADB_BIN" "${DEVICE_ARG[@]}" "${logcat_args[@]}" >"$LOG_PATH"
+else
+  "$ADB_BIN" "${DEVICE_ARG[@]}" "${logcat_args[@]}" >"$LOG_PATH" &
   logcat_pid=$!
   sleep "$LOG_SECONDS"
   kill "$logcat_pid" >/dev/null 2>&1 || true
@@ -122,6 +129,15 @@ fi
 
 missing=()
 rejected=()
+transport_failed=()
+
+if grep -q "QnnDsp .*Failed to load skel" "$LOG_PATH" ||
+  grep -q "QnnDsp .*Transport layer setup failed" "$LOG_PATH" ||
+  grep -q "QnnDsp .*loadRemoteSymbols failed" "$LOG_PATH"; then
+  native_transport_failed=1
+else
+  native_transport_failed=0
+fi
 
 check_model() {
   local model="$1"
@@ -130,7 +146,11 @@ check_model() {
     return
   fi
   if grep -q "qnn_model_smoke status=failed model=$model " "$LOG_PATH"; then
-    rejected+=("$model")
+    if [ "$native_transport_failed" = "1" ]; then
+      transport_failed+=("$model")
+    else
+      rejected+=("$model")
+    fi
     return
   fi
   if grep -q "qnn_model_smoke status=unavailable model=$model " "$LOG_PATH"; then
@@ -154,6 +174,11 @@ fi
 
 if [ "$REQUIRE_QNN_SUCCESS" = "1" ] && [ "${#rejected[@]}" -gt 0 ]; then
   json_result "failed" "$LOG_PATH" "QNN delegate rejected model(s): ${rejected[*]}."
+  exit 1
+fi
+
+if [ "$REQUIRE_QNN_SUCCESS" = "1" ] && [ "${#transport_failed[@]}" -gt 0 ]; then
+  json_result "failed" "$LOG_PATH" "QNN DSP transport/skeleton setup failed before model-specific offload: ${transport_failed[*]}."
   exit 1
 fi
 
