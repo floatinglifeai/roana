@@ -92,9 +92,11 @@ roana/
 │   │   ├── 02-tech-stack.md             # Mac → Android stack selection (native Kotlin recommended)
 │   │   ├── 03-web-route-evaluation.md   # PWA / Capacitor / Termux — why we chose native
 │   │   ├── 04-build-and-distribution.md # Docker-based headless build + Google Play / Xiaomi / Huawei
-│   │   └── 05-domain-and-trademark.md   # name + domain availability landscape
+│   │   ├── 05-domain-and-trademark.md   # name + domain availability landscape
+│   │   └── 06-acceleration-strategy.md  # iOS Core ML + layered Android NPU strategy
 │   ├── plan/                            # implementation plans
-│   │   └── v0-implementation-plan.md    # accepted V0 implementation boundary
+│   │   ├── v0-implementation-plan.md    # accepted V0 implementation boundary
+│   │   └── ios-port-plan.md             # iOS port plan (native Swift + Core ML)
 │   └── discussions/                     # condensed decision logs from design conversations
 └── .gitignore
 ```
