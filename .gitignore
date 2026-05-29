@@ -1,0 +1,89 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.aar
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+release/
+build/
+.gradle/
+
+# Gradle
+.gradle
+local.properties
+
+# Keystore files
+*.jks
+*.keystore
+keystore/
+secrets/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+.navigation/
+captures/
+.externalNativeBuild
+.cxx/
+
+# Proguard
+proguard/
+
+# Log files
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Python (helper scripts, model conversion)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Models (large binaries — track separately with Git LFS or HF Hub)
+*.tflite
+*.onnx
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Node (potential web tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Local notes
+NOTES.local.md
+TODO.local.md
+.env
+.env.local
