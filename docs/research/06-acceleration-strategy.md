@@ -6,10 +6,11 @@
 > ([../plan/ios-port-plan.md](../plan/ios-port-plan.md)) and revisits the
 > Android acceleration decision in [02-tech-stack.md](02-tech-stack.md).
 
-**Status:** research / 2026-05-29.
+**Status:** research / updated 2026-05-30.
 **Audience:** engineering, platform decision-makers.
 **Next update trigger:** on-device benchmarks on the iPhone 17 Air dev unit and a
-flagship Snapdragon device; any LiteRT Next / ExecuTorch major release.
+flagship Snapdragon device; any LiteRT Next / ONNX Runtime QNN / ExecuTorch
+major release.
 
 ---
 
@@ -37,6 +38,15 @@ flagship Snapdragon device; any LiteRT Next / ExecuTorch major release.
   2025-12-08 (MediaTek). This is the "newer, more universal, more
   actively-maintained acceleration library" we were looking for on Android — it
   is the right portable layer for Roana going forward.
+- **Current local Snapdragon 8 Gen 2 evidence points below model compatibility.**
+  On Xiaomi `2211133C` / SM8550 (`kalama`), the legacy TFLite QNN delegate
+  reports HTP FP16 and quantized capability, but full logcat shows
+  `QnnDsp loadRemoteSymbols failed`, `Failed to create transport for device`,
+  `Failed to load skel`, and `Transport layer setup failed: 14001` before either
+  YOLO11n or Depth Anything can prove operator compatibility. Treat packaging,
+  QNN runtime/skel layout, signing/unsigned-PD setup, and delegate options as
+  the current root-cause track. Do not tune CPU fallback performance until this
+  transport layer is explained.
 
 ---
 
@@ -117,6 +127,15 @@ flagship Snapdragon device; any LiteRT Next / ExecuTorch major release.
    vision app already on LiteRT/TFLite with a `.tflite` Depth Anything V2 model,
    switching to a PyTorch `.pte` flow has migration cost that LiteRT Next (which
    already understands the existing model) avoids. Re-evaluate in 2026 H2.
+
+9. **Local SM8550 testing has not yet reached the model-operator question.** The
+   phone-side QNN smoke gate now separates metadata/delegate errors from native
+   DSP transport failures. On the Xiaomi Snapdragon 8 Gen 2 device, both the
+   quantized YOLO11n model and FP32 Depth Anything model fail after the same
+   native transport/skeleton setup errors, so the immediate question is whether
+   the app is packaging and invoking QAIRT/QNN correctly on this device. Only
+   after transport succeeds should op coverage, tensor layout, and quantization
+   be treated as the primary suspects.
 
 ---
 
@@ -255,7 +274,58 @@ without external airflow.
 
 ## PART B — Android Acceleration Libraries (Layered Strategy)
 
-### B.0 The 2024-2026 reshuffle in one paragraph
+### B.0 Current Android root-cause track: QNN transport before fallback tuning
+
+The current Snapdragon 8 Gen 2 test device is **not** merely slow. It reports
+QNN HTP capability, then fails before either model can be evaluated on HTP:
+
+- Device: Xiaomi `2211133C`, `SM8550`, board `kalama`, Android 16 / HyperOS
+  `OS3.0.307.0.WMCCNXM`.
+- Artifacts:
+  - `logs/v0a-device-20260529T135914Z.log`: V0a loop works, but YOLO falls back
+    to CPU/XNNPACK and averages about 1.65 s per inference.
+  - `logs/v0a-device-20260529T140409Z.log`: V0b live corridor loses frames
+    after both YOLO and Depth Anything fall back to CPU.
+  - `logs/qnn-smoke-full-20260529T154349Z.log`: native QNN DSP transport logs
+    include `loadRemoteSymbols failed with err 4000`,
+    `Failed to create transport for device`, `Failed to load skel`, and
+    `Transport layer setup failed: 14001`.
+  - `logs/qnn-smoke-20260529T155527Z.log`: the strict gate now classifies this
+    as `QNN DSP transport/skeleton setup failed before model-specific offload:
+    yolo depth`.
+
+Immediate experiments, in order:
+
+1. **Package/layout audit of installed QNN artifacts.** Confirm the APK and
+   installed app contain the expected QNN delegate, QAIRT libraries, HTP stub,
+   and skel files for the device ABI, and that Android can load them from their
+   runtime location.
+2. **QNN delegate option spike.** Exercise any exposed options around unsigned
+   process domain, performance control, target backend/architecture, library
+   path, and skel path. The goal is to make transport creation succeed, not to
+   tune FPS.
+3. **LiteRT Next `CompiledModel` spike.** Use the same `.tflite` model through
+   the newer LiteRT Qualcomm accelerator to determine whether Google Play AI
+   Pack / PODAI distribution avoids the current skel/stub failure mode.
+4. **Qualcomm AI Hub context-binary spike.** Try a precompiled AI Hub path for
+   the exact Snapdragon tier if LiteRT Next still exposes transport setup
+   issues, because it removes on-device compilation variables.
+5. **ONNX Runtime QNN cross-check.** Use ORT QNN as a diagnostic only. If ORT
+   fails with equivalent transport/skel errors, the root cause is below model
+   export and likely in device runtime, packaging, or unsigned-PD setup. If ORT
+   transport succeeds while TFLite QNN fails, compare delegate packaging and
+   option defaults.
+
+Decision rule:
+
+- If transport fails across runtimes, keep focus on QAIRT/QNN packaging,
+  device/runtime version compatibility, signing/unsigned-PD, and delegate setup.
+- If transport succeeds but one model fails, then investigate ops, tensor
+  formats, quantization, static shapes, and model conversion.
+- Do **not** add a lower-performance CPU fallback profile as the fix for this
+  target-class phone until the QNN transport/skeleton root cause is known.
+
+### B.1 The 2024-2026 reshuffle in one paragraph
 
 NNAPI was deprecated in Android 15 (2024); Google's migration guide says they
 "expect the majority of devices in the future to use the CPU backend" for NNAPI
@@ -269,9 +339,9 @@ Apple/Qualcomm/MediaTek/Samsung backends. The cleanest 2026 strategy is
 therefore **LiteRT Next as the portable layer + Qualcomm AI Hub context binaries
 on Snapdragon flagships**.
 
-### B.1 General-purpose / portable layers
+### B.2 General-purpose / portable layers
 
-#### B.1.1 Google LiteRT Next (recommended portable layer)
+#### B.2.1 Google LiteRT Next (recommended portable layer)
 
 - **What it is:** the successor to TensorFlow Lite, with a new C++/Kotlin
   `CompiledModel` API that abstracts CPU / GPU / NPU behind one call:
@@ -301,17 +371,20 @@ on Snapdragon flagships**.
   Accelerator is the productionised version of the same path). YOLO11n ≈
   **0.7-2 ms**. Total dual-model frame budget ≈ **35 ms ⇒ ~28 FPS**.
 
-#### B.1.2 ONNX Runtime + QNN Execution Provider
+#### B.2.2 ONNX Runtime + QNN Execution Provider
 
 - **AAR:** `com.microsoft.onnxruntime:onnxruntime-android-qnn` (1.24.x late
   2025), Maven Central.
 - **Coverage:** Qualcomm only (Hexagon HTP + Adreno GPU as of the May 2025
   GPU-backend preview). No MediaTek/Samsung/Tensor EP. The NNAPI EP inherits
   Android 15's deprecation.
-- **Verdict:** useful only if your model already ships in `.onnx`. For Roana
-  (already TFLite, already Qualcomm), ORT is a redundant second runtime — skip.
+- **Verdict:** not the primary Roana runtime, because the current app and model
+  assets are already TFLite/LiteRT. Keep ORT QNN as a **diagnostic cross-check**
+  while the SM8550 QNN transport issue is unresolved: if ORT fails with the same
+  DSP transport/skel errors, the problem is below the TFLite delegate; if ORT
+  succeeds, compare runtime packaging and QNN option defaults.
 
-#### B.1.3 Other cross-vendor runtimes
+#### B.2.3 Other cross-vendor runtimes
 
 - **MNN (Alibaba), ncnn (Tencent):** mature CPU/GPU (Vulkan), but neither has a
   first-class Snapdragon HTP / Dimensity NPU path beating LiteRT Next in 2026.
@@ -323,11 +396,11 @@ on Snapdragon flagships**.
   all silicon". Not Roana's primary recommendation only because of migration
   cost from the existing `.tflite`. Re-evaluate 2026 H2.
 
-### B.2 Vendor-specific fast paths
+### B.3 Vendor-specific fast paths
 
-#### B.2.1 Qualcomm — the strongest fast path
+#### B.3.1 Qualcomm — the strongest fast path
 
-1. **LiteRT QNN Accelerator (default).** See B.1.1.
+1. **LiteRT QNN Accelerator (default).** See B.2.1.
 2. **Qualcomm AI Hub pre-compiled context binaries.** For Depth Anything
    V2-Small (`qualcomm/Depth-Anything-V2`):
 
@@ -349,7 +422,7 @@ on Snapdragon flagships**.
    8 Gen 3, ~52 ms ⇒ ~19 FPS. Both above the 10 FPS floor.
 3. **Qualcomm Genie** — GenAI/LLM SDK; not relevant for Roana's CV models. Skip.
 
-#### B.2.2 MediaTek
+#### B.3.2 MediaTek
 
 - **NeuroPilot SDK:** still gated behind a public/basic/partner application
   process; the `ncc-tflite` compiler and Neuron stack require registration.
@@ -362,7 +435,7 @@ on Snapdragon flagships**.
   Expect 8 Gen 3-class performance for D9300/9400 (~40-60 ms) by TOPS parity;
   confirm on-device.
 
-#### B.2.3 Xiaomi — what was remembered, and what it actually is
+#### B.3.3 Xiaomi — what was remembered, and what it actually is
 
 The cross-platform Xiaomi library in question was **MACE (Mobile AI Compute
 Engine, `XiaoMi/mace`)** — a 2018-era Apache-2.0 inference framework with
@@ -379,7 +452,7 @@ Snapdragon/Dimensity NPU — **not** a developer SDK for third-party NPU access.
 On Xiaomi 17 Pro Max (Snapdragon 8 Elite Gen 5), Roana should use the standard
 LiteRT Next QNN Accelerator.
 
-#### B.2.4 Samsung
+#### B.3.4 Samsung
 
 - **Samsung Neural SDK:** "no longer provided to third-party developers" per the
   developer-site banner. Closed.
@@ -393,7 +466,7 @@ LiteRT Next QNN Accelerator.
   globally) the Snapdragon QNN path applies; on Exynos SKUs and Tensor Pixels,
   fall back to LiteRT GPU delegate.
 
-### B.3 Side-by-side: dual-model frame budget
+### B.4 Side-by-side: dual-model frame budget
 
 (Depth Anything V2-Small + YOLO11n, NPU/ANE float/FP16 unless noted)
 
@@ -521,3 +594,8 @@ quality for navigation.
 8. **Xiaomi MACE could in principle be forked and revived**, but four years of
    inactivity, no DPT/DINOv2 attention-op support, and no 8 Elite Gen 5 device
    support make this more effort than adopting LiteRT Next. Recommend against.
+9. **The current SM8550 QNN failure is a transport failure, not yet a model
+   rejection.** Keep using `scripts/verify-qnn-smoke-device.sh` as the gate.
+   The first success criterion is native DSP transport/skel setup for any model;
+   only then should Roana spend time on model-op compatibility or fallback FPS
+   tuning.

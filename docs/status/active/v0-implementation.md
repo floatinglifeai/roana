@@ -1,6 +1,6 @@
 # V0 Implementation Active Status
 
-Updated: 2026-05-29.
+Updated: 2026-05-30.
 
 ## Current State
 
@@ -12,6 +12,10 @@ Updated: 2026-05-29.
 - Current V0b slice: QNN DSP transport diagnosis is active; do not add a CPU
   fallback performance profile until the QNN transport/skeleton root cause is
   known.
+- Rebased onto `origin/main` after the QNN smoke-gate work. The acceleration
+  research now tracks the Android speedup-library direction (LiteRT Next
+  primary, ONNX Runtime QNN diagnostic, ExecuTorch later candidate) and the iOS
+  port plan now tracks a skeleton-first iPhone test handoff.
 - Proven locally:
   - `scripts/check-android-env.sh` passes host requirements.
   - `scripts/build-debug.sh` builds `app/build/outputs/apk/debug/app-debug.apk`.
@@ -183,13 +187,15 @@ Use `scripts/verify-qnn-smoke-device.sh` as the next machine gate while
 diagnosing QNN compatibility. The next agent-owned step is to determine whether
 the QNN DSP transport/skeleton failure is caused by packaging/signing of HTP
 skel/stub libraries, unsigned PD requirements, dependency/version mismatch, or
-QNN delegate option setup. Only after transport succeeds should model
-export/operator support, tensor layout, and quantization format be treated as
-the primary suspects. Do not add a lower-performance CPU fallback profile before
-that root cause is known. After QNN accepts both models, rerun
-`scripts/verify-v0b-device.sh` for the short live-corridor gate; only then run
-`RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` and the known-corridor
-sighted-spotter proof.
+QNN delegate option setup. The research follow-up order is: package/layout
+audit, QNN delegate-option spike, LiteRT Next `CompiledModel` spike, Qualcomm AI
+Hub context-binary spike, then ONNX Runtime QNN cross-check if needed. Only
+after transport succeeds should model export/operator support, tensor layout,
+and quantization format be treated as the primary suspects. Do not add a
+lower-performance CPU fallback profile before that root cause is known. After
+QNN accepts both models, rerun `scripts/verify-v0b-device.sh` for the short
+live-corridor gate; only then run `RUN_THERMAL_GATE=1
+scripts/verify-v0b-device.sh` and the known-corridor sighted-spotter proof.
 
 ## No-Touch Scope
 

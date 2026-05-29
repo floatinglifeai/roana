@@ -8,7 +8,8 @@
 > numbers and the cross-platform NPU landscape behind this plan are documented
 > in [research/06-acceleration-strategy.md](../research/06-acceleration-strategy.md).
 
-**Status:** proposed / 2026-05-29. Pending founder review before the first iOS commit.
+**Status:** accepted research direction / updated 2026-05-30. Skeleton-first;
+wait for the real iPhone before model-performance claims.
 
 ---
 
@@ -221,6 +222,28 @@ iPhone (mirrors the Android "skeleton first" rule):
 The first iOS commit should prove build + on-device camera preview, no models
 yet. Suggested branch/PR per repo convention:
 `feat(ios): bootstrap SwiftUI skeleton with AVCaptureSession preview`.
+
+### iPhone test handoff
+
+When the iPhone is plugged in, run this handoff before adding Core ML models:
+
+1. Record device model, iOS version, chip family, available storage, battery
+   state, and `ProcessInfo.thermalState` at launch.
+2. Verify Xcode build, signing, install, and first launch on the physical
+   device.
+3. Verify camera permission copy, permission prompt, denied-permission behavior,
+   and successful `AVCaptureSession` start after permission is granted.
+4. Verify the preview renders with the intended orientation, no stretching, no
+   visible frame stalls, and no UI overlap with system camera indicators.
+5. Log `AVCaptureVideoDataOutput` callback cadence for at least 60 seconds:
+   frame dimensions, pixel format, callback interval p50/p95, dropped-frame
+   count, queue backlog, and app-visible thermal state.
+6. Confirm `alwaysDiscardsLateVideoFrames = true`, foreground-only camera
+   behavior, and `UIApplication.isIdleTimerDisabled = true` while the camera
+   view is active.
+7. Stop here if the skeleton cannot sustain stable callbacks. Do not load the
+   Apple Depth Anything or YOLO Core ML packages until build/install, preview,
+   permissions, callback cadence, and lifecycle behavior are proven.
 
 ---
 
