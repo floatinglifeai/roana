@@ -2,13 +2,8 @@ package com.roana.app
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.ImageFormat
-import android.graphics.Matrix
-import android.graphics.Rect
-import android.graphics.YuvImage
 import android.util.Log
 import androidx.camera.core.ImageProxy
-import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -75,8 +70,12 @@ class YoloObstacleDetector(
 
     fun detect(image: ImageProxy): YoloResult {
         val startedNs = System.nanoTime()
-        val bitmap = image.toBitmap(inputWidth, inputHeight)
-        fillInput(bitmap)
+        val bitmap = CameraFrameConverter.toBitmap(image, inputWidth, inputHeight)
+        try {
+            fillInput(bitmap)
+        } finally {
+            bitmap.recycle()
+        }
 
         outputTensors.forEach { it.buffer.rewind() }
         interpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputMap)
@@ -253,78 +252,6 @@ class YoloObstacleDetector(
     private fun dequantize(value: Byte, quantization: Quantization): Float =
         quantization.scale * (value.toInt() - quantization.zeroPoint)
 
-    private fun ImageProxy.toBitmap(targetWidth: Int, targetHeight: Int): Bitmap {
-        require(format == ImageFormat.YUV_420_888) { "Expected YUV_420_888 image, got $format" }
-
-        val nv21 = yuv420888ToNv21()
-        val jpegOutput = ByteArrayOutputStream()
-        YuvImage(nv21, ImageFormat.NV21, width, height, null)
-            .compressToJpeg(Rect(0, 0, width, height), JPEG_QUALITY, jpegOutput)
-
-        val source = android.graphics.BitmapFactory.decodeByteArray(
-            jpegOutput.toByteArray(),
-            0,
-            jpegOutput.size(),
-        )
-        val matrix = Matrix().apply {
-            postRotate(imageInfo.rotationDegrees.toFloat())
-        }
-        val rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
-        return Bitmap.createScaledBitmap(rotated, targetWidth, targetHeight, true)
-    }
-
-    private fun ImageProxy.yuv420888ToNv21(): ByteArray {
-        val yPlane = planes[0]
-        val uPlane = planes[1]
-        val vPlane = planes[2]
-        val output = ByteArray(width * height * 3 / 2)
-        var outputOffset = 0
-
-        copyPlane(
-            buffer = yPlane.buffer,
-            width = width,
-            height = height,
-            rowStride = yPlane.rowStride,
-            pixelStride = yPlane.pixelStride,
-            output = output,
-            outputOffset = outputOffset,
-            outputPixelStride = 1,
-        )
-        outputOffset += width * height
-
-        val chromaWidth = width / 2
-        val chromaHeight = height / 2
-        for (row in 0 until chromaHeight) {
-            for (col in 0 until chromaWidth) {
-                output[outputOffset++] =
-                    vPlane.buffer.get(row * vPlane.rowStride + col * vPlane.pixelStride)
-                output[outputOffset++] =
-                    uPlane.buffer.get(row * uPlane.rowStride + col * uPlane.pixelStride)
-            }
-        }
-
-        return output
-    }
-
-    private fun copyPlane(
-        buffer: ByteBuffer,
-        width: Int,
-        height: Int,
-        rowStride: Int,
-        pixelStride: Int,
-        output: ByteArray,
-        outputOffset: Int,
-        outputPixelStride: Int,
-    ) {
-        var offset = outputOffset
-        for (row in 0 until height) {
-            for (col in 0 until width) {
-                output[offset] = buffer.get(row * rowStride + col * pixelStride)
-                offset += outputPixelStride
-            }
-        }
-    }
-
     data class YoloResult(
         val inferenceMs: Double,
         val bestDetection: YoloDetection?,
@@ -382,7 +309,6 @@ class YoloObstacleDetector(
         private const val DFL_BINS = 16
         private const val YOLO_SCALE_COUNT = 3
         private const val ANCHOR_CENTER_OFFSET = 0.5f
-        private const val JPEG_QUALITY = 80
         private const val NS_PER_MS = 1_000_000.0
         private const val PERSON_LABEL = "person"
         private const val PERSON_ALERT_THRESHOLD = 0.35f

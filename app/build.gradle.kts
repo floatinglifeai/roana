@@ -51,4 +51,5 @@ dependencies {
     implementation("com.qualcomm.qti:qnn-runtime:2.46.0")
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.46.0")
     implementation("org.tensorflow:tensorflow-lite:2.17.0")
+    testImplementation("junit:junit:4.13.2")
 }

@@ -12,8 +12,13 @@ REQUIRE_YOLO="${REQUIRE_YOLO:-1}"
 REQUIRE_PERSON_TTS="${REQUIRE_PERSON_TTS:-1}"
 REQUIRE_BACKEND="${REQUIRE_BACKEND:-0}"
 REQUIRE_DEPTH_SMOKE="${REQUIRE_DEPTH_SMOKE:-0}"
+REQUIRE_DEPTH_PLAN="${REQUIRE_DEPTH_PLAN:-0}"
+REQUIRE_LIVE_CORRIDOR="${REQUIRE_LIVE_CORRIDOR:-0}"
+REQUIRE_CORRIDOR_FEEDBACK="${REQUIRE_CORRIDOR_FEEDBACK:-$REQUIRE_DEPTH_PLAN}"
 DEBUG_PERSON_EXTRA="com.roana.app.extra.DEBUG_PERSON_DETECTION"
 DEBUG_DEPTH_EXTRA="com.roana.app.extra.DEBUG_DEPTH_SMOKE"
+DEBUG_DEPTH_PLAN_EXTRA="com.roana.app.extra.DEBUG_DEPTH_PLAN"
+DEBUG_LIVE_CORRIDOR_EXTRA="com.roana.app.extra.DEBUG_LIVE_CORRIDOR"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_PATH="$LOG_DIR/v0a-device-$TIMESTAMP.log"
 
@@ -105,6 +110,12 @@ fi
 if [ "$REQUIRE_DEPTH_SMOKE" = "1" ]; then
   start_args+=(--ez "$DEBUG_DEPTH_EXTRA" true)
 fi
+if [ "$REQUIRE_DEPTH_PLAN" = "1" ]; then
+  start_args+=(--ez "$DEBUG_DEPTH_EXTRA" true --ez "$DEBUG_DEPTH_PLAN_EXTRA" true)
+fi
+if [ "$REQUIRE_LIVE_CORRIDOR" = "1" ]; then
+  start_args+=(--ez "$DEBUG_LIVE_CORRIDOR_EXTRA" true)
+fi
 adb "${DEVICE_ARG[@]}" shell am start "${start_args[@]}" >/dev/null
 
 set +e
@@ -147,6 +158,18 @@ if [ "$REQUIRE_DEPTH_SMOKE" = "1" ]; then
   grep -q "qnn_probe precision=fp16" "$LOG_PATH" || missing+=("depth_qnn_probe")
   grep -q "depth_smoke status=loaded" "$LOG_PATH" || missing+=("depth_smoke_loaded")
   ! grep -q "depth_smoke status=failed" "$LOG_PATH" || missing+=("no_depth_smoke_failed")
+fi
+if [ "$REQUIRE_DEPTH_PLAN" = "1" ]; then
+  grep -q "depth_plan status=ok" "$LOG_PATH" || missing+=("depth_plan_ok")
+fi
+if [ "$REQUIRE_LIVE_CORRIDOR" = "1" ]; then
+  grep -q "corridor_live enabled=true" "$LOG_PATH" || missing+=("corridor_live_enabled")
+  grep -q "corridor_live status=ok" "$LOG_PATH" || missing+=("corridor_live_ok")
+  ! grep -q "corridor_live status=failed" "$LOG_PATH" || missing+=("no_corridor_live_failed")
+fi
+if [ "$REQUIRE_CORRIDOR_FEEDBACK" = "1" ]; then
+  grep -q "corridor_feedback status=spoken" "$LOG_PATH" || missing+=("corridor_feedback_spoken")
+  grep -q "id=roana-corridor-" "$LOG_PATH" || missing+=("corridor_feedback_utterance")
 fi
 
 if [ "${#missing[@]}" -gt 0 ]; then

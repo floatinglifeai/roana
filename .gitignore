@@ -42,6 +42,7 @@ proguard/
 
 # Log files
 *.log
+logs/*.json
 
 # OS junk
 .DS_Store

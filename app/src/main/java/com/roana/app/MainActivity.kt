@@ -30,6 +30,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var obstacleDetector: YoloObstacleDetector
+    private var depthRunner: DepthAnythingRunner? = null
+    private var corridorPipeline: CorridorPipeline? = null
 
     private var ttsReady = false
     private var cameraBound = false
@@ -37,6 +39,30 @@ class MainActivity : ComponentActivity() {
     private var personAlertSpoken = false
     private var debugDetectionProofSpoken = false
     private var debugDepthSmokeStarted = false
+    private var pendingCorridorFeedback: PendingCorridorFeedback? = null
+
+    private val corridorFeedbackDispatcher: FeedbackDispatcher by lazy {
+        FeedbackDispatcher(
+            speaker = FeedbackDispatcher.Speaker { message, queueMode, utteranceId ->
+                val queueModeValue = when (queueMode) {
+                    FeedbackDispatcher.QueueMode.FLUSH -> TextToSpeech.QUEUE_FLUSH
+                }
+                textToSpeech.speak(message, queueModeValue, null, utteranceId)
+            },
+            logger = { event ->
+                Log.i(
+                    TAG,
+                    "corridor_feedback status=${if (event.spoken) "spoken" else "suppressed"} " +
+                        "id=${event.utteranceId ?: "none"} command=${event.command} " +
+                        "message=${event.messageKey} reason=${event.reason} " +
+                        "changed=${event.changed} forced=${event.forced} " +
+                        "pending=${event.pendingCommand ?: "none"} " +
+                        "pending_count=${event.pendingCount}",
+                )
+            },
+            utteranceIdFactory = { "roana-corridor-${SystemClock.uptimeMillis()}" },
+        )
+    }
 
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -58,6 +84,7 @@ class MainActivity : ComponentActivity() {
             context = this,
             backend = InferenceBackend.create(precision = InferenceBackend.Precision.QUANTIZED),
         )
+        maybeSetupDebugLiveCorridor()
         setupTextToSpeech()
         maybeRunDebugDepthSmoke()
         requestCameraPermissionOrStart()
@@ -72,6 +99,7 @@ class MainActivity : ComponentActivity() {
         if (::obstacleDetector.isInitialized) {
             obstacleDetector.close()
         }
+        depthRunner?.close()
         super.onDestroy()
     }
 
@@ -117,6 +145,7 @@ class MainActivity : ComponentActivity() {
                 Log.i(TAG, "tts_language locale=$locale result=$result")
                 Log.i(TAG, "tts_init status=success ready=$ttsReady")
                 maybeAnnounceReady()
+                maybeFlushPendingCorridorFeedback()
             } else {
                 Log.w(TAG, "tts_init status=failure code=$status")
             }
@@ -161,8 +190,13 @@ class MainActivity : ComponentActivity() {
                             cameraExecutor,
                             TimingAnalyzer(
                                 detector = obstacleDetector,
+                                depthRunner = depthRunner,
+                                corridorPipeline = corridorPipeline,
                                 onStats = { stats -> updateStats(stats) },
                                 onDetection = { detection -> announceDetection(detection) },
+                                onCorridorState = { state ->
+                                    dispatchCorridorFeedback(state, force = false)
+                                },
                             ),
                         )
                     }
@@ -194,8 +228,11 @@ class MainActivity : ComponentActivity() {
             val detectionText = stats.bestDetection?.let {
                 " | ${it.label} ${it.scorePercent()}%"
             }.orEmpty()
+            val corridorText = stats.corridorCommand?.let {
+                " | corridor $it ${stats.depthInferenceMs.roundToInt()} ms"
+            }.orEmpty()
             statusView.text =
-                "Frames ${stats.frames} | yolo ${stats.inferenceMs.roundToInt()} ms | gaps ${stats.gapCount}$detectionText"
+                "Frames ${stats.frames} | yolo ${stats.inferenceMs.roundToInt()} ms | gaps ${stats.gapCount}$detectionText$corridorText"
         }
     }
 
@@ -261,7 +298,10 @@ class MainActivity : ComponentActivity() {
         debugDepthSmokeStarted = true
         Thread {
             try {
-                DepthAnythingSmoke(this).run()
+                DepthAnythingSmoke(this).run(
+                    runPlanner = intent.getBooleanExtra(EXTRA_DEBUG_DEPTH_PLAN, false),
+                    onCorridorState = { state -> dispatchCorridorFeedback(state, force = true) },
+                )
             } catch (error: Exception) {
                 Log.e(TAG, "depth_smoke status=failed", error)
             }
@@ -271,10 +311,60 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun maybeSetupDebugLiveCorridor() {
+        if (
+            !BuildConfig.DEBUG ||
+            !intent.getBooleanExtra(EXTRA_DEBUG_LIVE_CORRIDOR, false)
+        ) {
+            return
+        }
+
+        try {
+            val runner = DepthAnythingRunner(this)
+            depthRunner = runner
+            corridorPipeline = CorridorPipeline()
+            Log.i(TAG, "corridor_live enabled=true backend=${runner.backendName}")
+        } catch (error: Exception) {
+            Log.e(TAG, "corridor_live enabled=false", error)
+        }
+    }
+
+    private fun dispatchCorridorFeedback(
+        state: CorridorStateMachine.CorridorState,
+        force: Boolean,
+    ) {
+        runOnUiThread {
+            if (!ttsReady) {
+                pendingCorridorFeedback = PendingCorridorFeedback(state = state, force = force)
+                Log.i(
+                    TAG,
+                    "corridor_feedback status=pending command=${state.command} " +
+                        "reason=${state.sourceDecision.reason} forced=$force",
+                )
+                return@runOnUiThread
+            }
+
+            corridorFeedbackDispatcher.dispatch(state, force = force)
+        }
+    }
+
+    private fun maybeFlushPendingCorridorFeedback() {
+        val pending = pendingCorridorFeedback ?: return
+        if (!ttsReady) {
+            return
+        }
+
+        pendingCorridorFeedback = null
+        corridorFeedbackDispatcher.dispatch(pending.state, force = pending.force)
+    }
+
     private class TimingAnalyzer(
         private val detector: YoloObstacleDetector,
+        private val depthRunner: DepthAnythingRunner?,
+        private val corridorPipeline: CorridorPipeline?,
         private val onStats: (FrameStats) -> Unit,
         private val onDetection: (YoloObstacleDetector.YoloDetection) -> Unit,
+        private val onCorridorState: (CorridorStateMachine.CorridorState) -> Unit,
     ) : ImageAnalysis.Analyzer {
         private var frames = 0L
         private var gapCount = 0L
@@ -284,6 +374,8 @@ class MainActivity : ComponentActivity() {
             inferenceMs = 0.0,
             bestDetection = null,
         )
+        private var lastDepthInferenceMs = 0.0
+        private var lastCorridorCommand: CorridorPlanner.CorridorCommand? = null
 
         override fun analyze(image: ImageProxy) {
             val analysisStartNs = SystemClock.elapsedRealtimeNanos()
@@ -327,6 +419,7 @@ class MainActivity : ComponentActivity() {
                         Log.e(TAG, "yolo_error", error)
                     }
                 }
+                maybeRunLiveCorridor(image)
                 val analysisMs =
                     (SystemClock.elapsedRealtimeNanos() - analysisStartNs).toDouble() / NS_PER_MS
 
@@ -338,6 +431,8 @@ class MainActivity : ComponentActivity() {
                         "frame_stats frames=$frames gap_count=$gapCount " +
                             "analysis_ms=${"%.2f".format(Locale.US, analysisMs)} " +
                             "inference_ms=${"%.2f".format(Locale.US, lastResult.inferenceMs)} " +
+                            "depth_ms=${"%.2f".format(Locale.US, lastDepthInferenceMs)} " +
+                            "corridor=${lastCorridorCommand ?: "none"} " +
                             "detection=${lastResult.bestDetection?.label ?: "none"} " +
                             "image=${image.width}x${image.height}",
                     )
@@ -347,12 +442,45 @@ class MainActivity : ComponentActivity() {
                             gapCount = gapCount,
                             analysisMs = analysisMs,
                             inferenceMs = lastResult.inferenceMs,
+                            depthInferenceMs = lastDepthInferenceMs,
+                            corridorCommand = lastCorridorCommand,
                             bestDetection = lastResult.bestDetection,
                         ),
                     )
                 }
             } finally {
                 image.close()
+            }
+        }
+
+        private fun maybeRunLiveCorridor(image: ImageProxy) {
+            val runner = depthRunner ?: return
+            val pipeline = corridorPipeline ?: return
+            if (frames % DEPTH_FRAME_INTERVAL != 1L) {
+                return
+            }
+
+            try {
+                val depthResult = runner.infer(CameraFrameConverter.toRgbFrame(image))
+                val corridorResult = pipeline.process(
+                    depthMap = depthResult.depthMap,
+                    detections = listOfNotNull(lastResult.bestDetection),
+                )
+                lastDepthInferenceMs = depthResult.inferenceMs
+                lastCorridorCommand = corridorResult.state.command
+                Log.i(
+                    TAG,
+                    "corridor_live status=ok depth_ms=" +
+                        "${"%.2f".format(Locale.US, depthResult.inferenceMs)} " +
+                        "decision=${corridorResult.decision.command} " +
+                        "state=${corridorResult.state.command} " +
+                        "reason=${corridorResult.decision.reason} " +
+                        "detections=${if (lastResult.bestDetection == null) 0 else 1} " +
+                        "path_cells=${corridorResult.decision.path.size}",
+                )
+                onCorridorState(corridorResult.state)
+            } catch (error: Exception) {
+                Log.e(TAG, "corridor_live status=failed", error)
             }
         }
     }
@@ -362,7 +490,14 @@ class MainActivity : ComponentActivity() {
         val gapCount: Long,
         val analysisMs: Double,
         val inferenceMs: Double,
+        val depthInferenceMs: Double,
+        val corridorCommand: CorridorPlanner.CorridorCommand?,
         val bestDetection: YoloObstacleDetector.YoloDetection?,
+    )
+
+    private data class PendingCorridorFeedback(
+        val state: CorridorStateMachine.CorridorState,
+        val force: Boolean,
     )
 
     private companion object {
@@ -371,8 +506,13 @@ class MainActivity : ComponentActivity() {
             "com.roana.app.extra.DEBUG_PERSON_DETECTION"
         private const val EXTRA_DEBUG_DEPTH_SMOKE =
             "com.roana.app.extra.DEBUG_DEPTH_SMOKE"
+        private const val EXTRA_DEBUG_DEPTH_PLAN =
+            "com.roana.app.extra.DEBUG_DEPTH_PLAN"
+        private const val EXTRA_DEBUG_LIVE_CORRIDOR =
+            "com.roana.app.extra.DEBUG_LIVE_CORRIDOR"
         private const val LOG_INTERVAL_MS = 1_000L
         private const val YOLO_FRAME_INTERVAL = 10L
+        private const val DEPTH_FRAME_INTERVAL = 1L
         private const val FRAME_GAP_WARNING_MS = 150L
         private const val NS_PER_MS = 1_000_000L
     }
