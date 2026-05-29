@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roana — Walk your world.</title>
+<meta name="description" content="Roana is an open-source assistive navigation system for blind and low-vision users. On-device computer vision turns a phone (and later, smart glasses) into a real-time perception companion.">
+
+<!-- Open Graph / Twitter -->
+<meta property="og:title" content="Roana — Walk your world.">
+<meta property="og:description" content="Open-source assistive navigation for blind and low-vision users.">
+<meta property="og:image" content="https://roana.app/social-preview.png">
+<meta property="og:url" content="https://roana.app">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Roana — Walk your world.">
+<meta name="twitter:description" content="Open-source assistive navigation for blind and low-vision users.">
+<meta name="twitter:image" content="https://roana.app/social-preview.png">
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate" hreflang="en" href="https://roana.app/">
+<link rel="alternate" hreflang="zh" href="https://roana.app/zh/">
+
+<style>
+  :root {
+    --bg: #faf6ed;
+    --bg-deep: #f0e9d8;
+    --ink: #2a2620;
+    --ink-soft: #3a3530;
+    --muted: #8a7f6f;
+    --muted-soft: #a89e8c;
+    --accent: #6b8e4e;
+    --warm: #c4956b;
+    --line: #d9d0c1;
+    --card: #ffffff;
+    --max-width: 760px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: Georgia, "Times New Roman", "Songti SC", "Source Han Serif SC", serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Background decoration */
+  .bg-decoration {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+  .bg-decoration svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Container */
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 80px 32px 100px;
+  }
+
+  /* Top bar */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 60px;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .topbar a {
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .topbar a:hover {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+  }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    margin-bottom: 80px;
+  }
+  .hero-logo {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 32px;
+  }
+  .hero-name {
+    font-size: 72px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .hero-cn {
+    font-family: "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 18px;
+    color: var(--muted);
+    letter-spacing: 16px;
+    padding-left: 16px;
+    margin-bottom: 36px;
+  }
+  .hero-tagline {
+    font-size: 28px;
+    font-style: italic;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+  .hero-subtitle {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 16px;
+    color: var(--muted);
+    font-style: normal;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* Section common */
+  section {
+    margin-bottom: 80px;
+  }
+  h2 {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 24px;
+    font-weight: 600;
+  }
+  p {
+    font-size: 18px;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+  p:last-child { margin-bottom: 0; }
+  p strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  em {
+    color: var(--ink);
+    font-style: italic;
+  }
+
+  /* Quote */
+  .quote {
+    border-left: 3px solid var(--accent);
+    padding-left: 24px;
+    margin: 32px 0;
+    font-size: 22px;
+    color: var(--ink);
+    font-style: italic;
+    line-height: 1.55;
+  }
+
+  /* Cards / What it is */
+  .what-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 12px;
+  }
+  .what-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--line);
+  }
+  .what-card h3 {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .what-card.not h3 {
+    color: var(--warm);
+  }
+  .what-card ul {
+    list-style: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 15px;
+    color: var(--ink-soft);
+  }
+  .what-card li {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .what-card li:last-child { border-bottom: none; }
+
+  /* How it feels */
+  .feels {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 40px;
+    border: 1px solid var(--line);
+  }
+  .feels-item {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 24px;
+    align-items: baseline;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .feels-item:last-child { border-bottom: none; }
+  .feels-channel {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .feels-channel.haptic { color: var(--warm); }
+  .feels-text {
+    font-size: 17px;
+    color: var(--ink-soft);
+  }
+
+  /* Waitlist */
+  .waitlist {
+    background: linear-gradient(135deg, #faf6ed, #f5ecd9);
+    border-radius: 16px;
+    padding: 40px;
+    text-align: center;
+    border: 1px solid var(--line);
+  }
+  .waitlist h2 {
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .waitlist-text {
+    font-size: 18px;
+    color: var(--ink-soft);
+    margin-bottom: 24px;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .email-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: var(--ink);
+    color: var(--bg);
+    text-decoration: none;
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: all 0.2s;
+  }
+  .email-link:hover {
+    background: var(--accent);
+    transform: translateY(-1px);
+  }
+  .waitlist-note {
+    margin-top: 18px;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--line);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  footer a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  footer a:hover {
+    color: var(--ink);
+  }
+  .footer-links {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    main { padding: 48px 20px 60px; }
+    .hero-name { font-size: 52px; }
+    .hero-tagline { font-size: 22px; }
+    .hero-subtitle { font-size: 15px; }
+    .what-grid { grid-template-columns: 1fr; }
+    .feels { padding: 24px; }
+    .feels-item { grid-template-columns: 1fr; gap: 4px; }
+    .waitlist { padding: 28px 20px; }
+    h2 { font-size: 12px; }
+    p { font-size: 16px; }
+    .quote { font-size: 19px; }
+    footer { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; }
+  }
+
+  /* Skip link for accessibility */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    z-index: 100;
+  }
+  .skip-link:focus {
+    top: 8px;
+    left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<!-- Background flowing lines -->
+<div class="bg-decoration" aria-hidden="true">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <g opacity="0.4" stroke="#6b8e4e" stroke-width="1.2" fill="none" stroke-linecap="round">
+      <path d="M -100 720 Q 280 640, 520 690 T 1020 660 T 1540 620" />
+      <path d="M -100 760 Q 280 690, 520 735 T 1020 705 T 1540 670" />
+      <path d="M -100 800 Q 280 740, 520 780 T 1020 750 T 1540 720" />
+    </g>
+    <g opacity="0.18" stroke="#c4956b" stroke-width="1" fill="none" stroke-linecap="round">
+      <path d="M -100 180 Q 280 110, 520 160 T 1020 130 T 1540 90" />
+      <path d="M -100 220 Q 280 160, 520 200 T 1020 170 T 1540 130" />
+    </g>
+  </svg>
+</div>
+
+<main id="main-content">
+
+  <!-- Top bar -->
+  <nav class="topbar" aria-label="Primary">
+    <span>ROANA · 漫行</span>
+    <span>
+      <a href="/zh/">中文</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/floatinglifeai/roana">GitHub</a>
+    </span>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <svg class="hero-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Roana mark">
+      <defs>
+        <linearGradient id="hero-r" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stop-color="#c4956b" />
+          <stop offset="50%" stop-color="#a8853d" />
+          <stop offset="100%" stop-color="#6b8e4e" />
+        </linearGradient>
+      </defs>
+      <g transform="translate(20, 30)">
+        <path d="M 18 130 L 18 22 Q 18 18, 22 18 L 64 18 Q 92 18, 92 44 Q 92 68, 64 68 L 38 68 Q 32 68, 36 74 L 108 130 Q 142 120, 160 90"
+              stroke="url(#hero-r)" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="18" cy="130" r="7" fill="#c4956b"/>
+        <circle cx="160" cy="90" r="7" fill="#6b8e4e"/>
+      </g>
+    </svg>
+    <h1 class="hero-name">Roana</h1>
+    <div class="hero-cn" aria-label="漫行">漫行</div>
+    <p class="hero-tagline">Walk your world.</p>
+    <p class="hero-subtitle">An open-source assistive navigation system for blind and low-vision users.</p>
+  </header>
+
+  <!-- The idea -->
+  <section>
+    <h2>The Idea</h2>
+    <p>
+      Roana turns a smartphone — and later, a pair of smart glasses — into a quiet companion for going where you want to go. On-device computer vision watches what's ahead. The world arrives back to you as <strong>bone-conduction speech</strong> (what's around) and <strong>wrist haptics</strong> (which way to go). Your ears stay free for everything else.
+    </p>
+    <div class="quote">
+      The name comes from <em>roam</em> — the freedom and dignity of going wherever you want, on your own pace.
+    </div>
+  </section>
+
+  <!-- What it is / isn't -->
+  <section>
+    <h2>What Roana Is — and Isn't</h2>
+    <div class="what-grid">
+      <div class="what-card">
+        <h3>It is</h3>
+        <ul>
+          <li>An electronic travel aid that <em>augments</em> the white cane and guide dog</li>
+          <li>Multi-modal: audio and haptic, working together</li>
+          <li>Built on off-the-shelf hardware you can buy today</li>
+          <li>Open source, AGPL-3.0</li>
+        </ul>
+      </div>
+      <div class="what-card not">
+        <h3>It is not</h3>
+        <ul>
+          <li>A medical device</li>
+          <li>A replacement for the cane, the dog, or O&amp;M training</li>
+          <li>A vision-restoration product</li>
+          <li>For sale to anyone vulnerable as a paywalled service</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it feels -->
+  <section>
+    <h2>How It Feels to Use</h2>
+    <div class="feels">
+      <div class="feels-item">
+        <div class="feels-channel">Audio</div>
+        <div class="feels-text">A quiet voice in your bone-conduction headset describes what matters: <em>"step ahead, two meters,"</em> <em>"crosswalk on your right."</em> Your ear canal stays open. You still hear the world.</div>
+      </div>
+      <div class="feels-item">
+        <div class="feels-channel haptic">Haptic</div>
+        <div class="feels-text">A short buzz on your left or right wrist nudges you toward the safe path. Both wrists at once means stop. You learn it in an hour.</div>
+      </div>
+      <div class="feels-item">
+        <div class="feels-channel">On demand</div>
+        <div class="feels-text">Press a button: <em>"What's in front of me?"</em> A larger model takes a closer look and tells you. Otherwise it stays quiet, watching.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why this license matters -->
+  <section>
+    <h2>Why Open Source</h2>
+    <p>
+      The blind and low-vision community has been burned too many times by accessibility tech that started open or free, then got acquired, locked down, and paywalled back. <strong>Roana is licensed AGPL-3.0</strong>, the strongest practical guarantee we can make that this won't happen here. Any modified version — including services built on top — must also be released under the same terms.
+    </p>
+    <p>
+      The code is on GitHub, free to study, free to fork, free to build with.
+    </p>
+  </section>
+
+  <!-- Waitlist -->
+  <section class="waitlist" id="waitlist">
+    <h2>Stay in touch</h2>
+    <p class="waitlist-text">
+      Roana is in the design phase — no code yet, no app to download. If you'd like updates when there's something to walk with, or if you have something to share (you're a blind user, an O&amp;M instructor, a researcher, a developer who's been through this) — write to us.
+    </p>
+    <a class="email-link" href="mailto:talk@roana.app?subject=Roana%20waitlist&body=Hi%2C%20I%27d%20like%20to%20follow%20along%20with%20Roana.%0A%0A%5BOptional%3A%20a%20bit%20about%20yourself%20or%20what%20interests%20you%5D%0A%0AThanks%21">
+      <span>talk@roana.app</span>
+      <span>→</span>
+    </a>
+    <p class="waitlist-note">We read every message. No mailing list software, no tracking pixels.</p>
+  </section>
+
+</main>
+
+<footer>
+  <div>© 2026 The Roana Authors · AGPL-3.0</div>
+  <div class="footer-links">
+    <a href="https://github.com/floatinglifeai/roana">GitHub</a>
+    <a href="https://github.com/floatinglifeai/roana/blob/main/LICENSE">License</a>
+    <a href="/zh/">中文</a>
+    <a href="mailto:talk@roana.app">Contact</a>
+  </div>
+</footer>
+
+</body>
+</html>

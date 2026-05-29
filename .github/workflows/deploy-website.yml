@@ -1,0 +1,36 @@
+name: Deploy website to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Build & deploy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify website directory
+        run: |
+          test -f website/index.html || (echo "missing website/index.html" && exit 1)
+          test -f website/zh/index.html || (echo "missing website/zh/index.html" && exit 1)
+          echo "Website files OK:"
+          find website -type f | sort
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy website --project-name=roana --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

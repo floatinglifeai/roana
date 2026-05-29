@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200" role="img" aria-label="Roana — Walk your world. 漫行">
+  <title>Roana — Walk your world.</title>
+  <defs>
+    <linearGradient id="banner-r" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#c4956b" />
+      <stop offset="50%" stop-color="#a8853d" />
+      <stop offset="100%" stop-color="#6b8e4e" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(60, 45)">
+    <path d="M 18 110 L 18 18 Q 18 14, 22 14 L 60 14 Q 84 14, 84 40 Q 84 64, 60 64 L 36 64 Q 30 64, 34 70 L 98 110 Q 132 100, 152 78 Q 175 55, 205 50"
+          stroke="url(#banner-r)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="18" cy="110" r="6" fill="#c4956b"/>
+    <circle cx="205" cy="50" r="6" fill="#6b8e4e"/>
+  </g>
+  <text x="310" y="105" font-family="Georgia, 'Times New Roman', serif" font-size="56" font-weight="500" fill="#2a2620" letter-spacing="2">Roana</text>
+  <text x="310" y="142" font-family="'Noto Sans CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif" font-size="20" fill="#8a7f6f" letter-spacing="8">漫行</text>
+</svg>

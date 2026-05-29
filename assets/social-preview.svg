@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="sp-r" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#c4956b" />
+      <stop offset="50%" stop-color="#a8853d" />
+      <stop offset="100%" stop-color="#6b8e4e" />
+    </linearGradient>
+    <linearGradient id="sp-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#faf6ed" />
+      <stop offset="100%" stop-color="#f0e9d8" />
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#sp-bg)"/>
+
+  <g opacity="0.06" stroke="#6b8e4e" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M -50 540 Q 200 460, 400 510 T 800 480 T 1330 440" />
+    <path d="M -50 580 Q 200 510, 400 555 T 800 525 T 1330 490" />
+  </g>
+
+  <g transform="translate(140, 180) scale(2.4)">
+    <path d="M 18 110 L 18 18 Q 18 14, 22 14 L 60 14 Q 84 14, 84 40 Q 84 64, 60 64 L 36 64 Q 30 64, 34 70 L 98 110 Q 132 100, 152 78 Q 175 55, 205 50"
+          stroke="url(#sp-r)" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="18" cy="110" r="6" fill="#c4956b"/>
+    <circle cx="205" cy="50" r="6" fill="#6b8e4e"/>
+  </g>
+
+  <text x="700" y="310" font-family="Georgia, 'Times New Roman', serif" font-size="148" font-weight="500" fill="#2a2620" letter-spacing="4">Roana</text>
+  <text x="703" y="368" font-family="Noto Sans CJK SC, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="42" fill="#8a7f6f" letter-spacing="20">漫行</text>
+
+  <text x="703" y="438" font-family="Georgia, serif" font-size="34" fill="#3a3530" font-style="italic">Walk your world.</text>
+
+  <text x="700" y="555" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="17" fill="#8a7f6f" letter-spacing="2">Open-source assistive navigation</text>
+  <text x="700" y="583" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif" font-size="13" fill="#a89e8c" letter-spacing="6">ROANA.APP</text>
+</svg>

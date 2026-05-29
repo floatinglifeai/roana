@@ -1,8 +1,18 @@
-# Roana
+<p align="center">
+  <img src="assets/banner.svg" alt="Roana 漫行 — 走你自己的路" width="640" />
+</p>
 
-> **Walk your world. 走你自己的路。** 一个为盲人和低视力用户设计的开源辅助导航系统。
+<h1 align="center">Roana 漫行</h1>
 
-> 🌐 English version: [README.md](README.md) · 当前页面:简体中文
+<p align="center">
+  <em>走你自己的路。</em> 一个为盲人和低视力用户设计的开源辅助导航系统。
+</p>
+
+<p align="center">
+  <a href="https://roana.app/zh/">roana.app/zh</a> ·
+  <a href="README.md">English</a> ·
+  <a href="mailto:talk@roana.app">talk@roana.app</a>
+</p>
 
 Roana 把一部智能手机(以及未来的智能眼镜)变成一个实时环境感知伙伴:端侧计算机视觉识别障碍物和可行走区域,然后通过**骨传导语音**(告诉你"周围有什么")和**腕部震动**(告诉你"该往哪走")这两个独立通道为用户导航——这种把语义放在听觉、把方向放在触觉的分工,在保持认知负担低的同时,把耳朵留给真实世界的环境声(对盲人和低视力用户来说,环境声本身就是关键的感知通道)。
 

@@ -1,8 +1,18 @@
-# Roana
+<p align="center">
+  <img src="assets/banner.svg" alt="Roana — Walk your world. 漫行" width="640" />
+</p>
 
-> **Walk your world.** An open-source assistive navigation system for blind and low-vision users.
+<h1 align="center">Roana</h1>
 
-> 🌐 简体中文版: [README.zh-CN.md](README.zh-CN.md) · Current page: English
+<p align="center">
+  <em>Walk your world.</em> An open-source assistive navigation system for blind and low-vision users.
+</p>
+
+<p align="center">
+  <a href="https://roana.app">roana.app</a> ·
+  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="mailto:talk@roana.app">talk@roana.app</a>
+</p>
 
 Roana turns a smartphone (and, later, smart glasses) into a real-time perception companion: on-device computer vision detects obstacles and walkable space; the system then guides the user through **bone-conduction speech** ("what's around you") and **wrist haptics** ("which way to go") — a two-channel feedback split that keeps cognitive load low while preserving environmental sound, which blind and low-vision users rely on.
 
