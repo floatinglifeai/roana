@@ -3,453 +3,242 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Roana 漫行 — 走你自己的路</title>
-<meta name="description" content="Roana 漫行,是一款为盲人和低视力用户设计的开源辅助导航系统。端侧计算机视觉把手机(以及未来的智能眼镜)变成实时的环境感知伙伴。">
-
-<meta property="og:title" content="Roana 漫行 — 走你自己的路">
-<meta property="og:description" content="为盲人和低视力用户设计的开源辅助导航系统">
+<title>Roana — 漫行</title>
+<meta name="description" content="Roana 是一个面向盲人与低视力用户的开源辅助导航系统——按自己的节奏，去你想去的地方。">
+<meta property="og:title" content="Roana — 漫行">
+<meta property="og:description" content="面向盲人与低视力用户的开源辅助导航。">
 <meta property="og:image" content="https://roana.app/social-preview.png">
 <meta property="og:url" content="https://roana.app/zh/">
 <meta property="og:type" content="website">
-<meta property="og:locale" content="zh_CN">
-
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate" hreflang="en" href="https://roana.app/">
 <link rel="alternate" hreflang="zh" href="https://roana.app/zh/">
-
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #faf6ed;
-    --bg-deep: #f0e9d8;
-    --ink: #2a2620;
-    --ink-soft: #3a3530;
-    --muted: #8a7f6f;
-    --muted-soft: #a89e8c;
-    --accent: #6b8e4e;
-    --warm: #c4956b;
-    --line: #d9d0c1;
-    --card: #ffffff;
-    --max-width: 760px;
+  :root{
+    --paper:#f6f1e4; --ink:#2a2620; --ink-soft:#4a4438; --muted:#8a7f6b;
+    --accent:#6b8e4e; --warm:#b06a36; --line:#ddd3c1; --max:1080px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body {
-    font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
-    background: var(--bg);
-    color: var(--ink);
-    line-height: 1.75;
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:"Noto Sans SC",system-ui,sans-serif;background:var(--paper);color:var(--ink);
+    -webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-  .bg-decoration {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.5;
-  }
-  .bg-decoration svg { width: 100%; height: 100%; }
+  .skip{position:absolute;top:-48px;left:8px;z-index:100;background:var(--ink);color:var(--paper);
+    padding:10px 16px;border-radius:8px;text-decoration:none;font-size:15px}
+  .skip:focus{top:8px}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:4px}
 
-  main {
-    position: relative;
-    z-index: 1;
-    max-width: var(--max-width);
-    margin: 0 auto;
-    padding: 80px 32px 100px;
-  }
+  .hero{position:relative;min-height:100svh;display:flex;flex-direction:column;
+    padding:30px clamp(24px,6vw,72px) 34px;overflow:hidden}
+  .hero canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+  .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(100deg, rgba(246,241,228,.96) 0%, rgba(246,241,228,.82) 38%, rgba(246,241,228,.35) 64%, rgba(246,241,228,0) 88%);}
+  .grain{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.04;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .hero > *:not(canvas):not(.scrim):not(.grain){position:relative;z-index:2}
 
-  .topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 60px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 13px;
-    color: var(--muted);
-    letter-spacing: 0.08em;
-  }
-  .topbar a {
-    color: var(--muted);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: all 0.2s;
-  }
-  .topbar a:hover {
-    color: var(--ink);
-    border-bottom-color: var(--ink);
-  }
+  .topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+  .brand{font-size:14px;letter-spacing:.14em;color:var(--ink-soft)}
+  .topnav{display:flex;gap:22px;font-size:15px}
+  .topnav a{color:var(--ink-soft);text-decoration:none;border-bottom:1px solid transparent;padding:6px 2px}
+  .topnav a:hover{color:var(--ink);border-bottom-color:var(--ink)}
 
-  .hero {
-    text-align: center;
-    margin-bottom: 80px;
-  }
-  .hero-logo {
-    width: 120px;
-    height: 120px;
-    margin: 0 auto 32px;
-  }
-  .hero-name {
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 72px;
-    font-weight: 500;
-    letter-spacing: 2px;
-    color: var(--ink);
-    margin-bottom: 8px;
-  }
-  .hero-cn {
-    font-size: 22px;
-    color: var(--ink);
-    letter-spacing: 18px;
-    padding-left: 18px;
-    margin-bottom: 36px;
-  }
-  .hero-tagline {
-    font-size: 26px;
-    color: var(--ink-soft);
-    margin-bottom: 12px;
-  }
-  .hero-subtitle {
-    font-size: 16px;
-    color: var(--muted);
-    max-width: 480px;
-    margin: 0 auto;
-  }
+  .center{margin:auto 0;max-width:640px;padding:40px 0}
+  .eyebrow{font-size:13px;letter-spacing:.16em;color:var(--accent);margin-bottom:22px}
+  .wordmark{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(68px,13vw,150px);line-height:.9;
+    letter-spacing:-.02em;color:var(--ink)}
+  .cn{font-family:"Noto Serif SC",serif;font-size:clamp(18px,2.6vw,24px);letter-spacing:.5em;padding-left:.5em;
+    color:var(--muted);margin-top:14px}
+  .tagline{font-family:"Noto Serif SC",serif;font-weight:500;font-size:clamp(28px,4.6vw,48px);line-height:1.2;
+    color:var(--ink-soft);margin-top:30px}
+  .tagline em{font-style:normal;color:var(--ink);font-weight:600}
+  .lead{font-size:clamp(16px,2.1vw,19px);line-height:1.75;color:var(--ink-soft);max-width:30ch;margin-top:22px}
 
-  section { margin-bottom: 80px; }
-  h2 {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.24em;
-    color: var(--muted);
-    margin-bottom: 24px;
-    font-weight: 600;
-  }
-  p {
-    font-size: 18px;
-    color: var(--ink-soft);
-    margin-bottom: 16px;
-  }
-  p:last-child { margin-bottom: 0; }
-  p strong {
-    color: var(--ink);
-    font-weight: 600;
-  }
-  em {
-    color: var(--ink);
-    font-style: normal;
-    font-weight: 600;
-  }
+  .actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:34px}
+  .btn{display:inline-flex;align-items:center;gap:9px;min-height:52px;padding:0 26px;border-radius:11px;
+    font-size:16px;font-weight:500;text-decoration:none;transition:transform .18s,background .2s,box-shadow .2s}
+  .btn-primary{background:var(--ink);color:var(--paper);box-shadow:0 10px 24px -14px var(--ink)}
+  .btn-primary:hover{background:var(--accent);transform:translateY(-2px)}
+  .btn-ghost{color:var(--ink);border:1.5px solid var(--line);background:rgba(255,255,255,.4)}
+  .btn-ghost:hover{border-color:var(--ink);transform:translateY(-2px)}
 
-  .quote {
-    border-left: 3px solid var(--accent);
-    padding-left: 24px;
-    margin: 32px 0;
-    font-size: 21px;
-    color: var(--ink);
-    line-height: 1.65;
-  }
+  .status{font-size:13px;letter-spacing:.04em;color:var(--muted);margin-top:30px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .status .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(107,142,78,.15)}
 
-  .what-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-top: 12px;
-  }
-  .what-card {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 24px;
-    border: 1px solid var(--line);
-  }
-  .what-card h3 {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 14px;
-    letter-spacing: 0.1em;
-    margin-bottom: 12px;
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .what-card.not h3 { color: var(--warm); }
-  .what-card ul {
-    list-style: none;
-    font-size: 15px;
-    color: var(--ink-soft);
-  }
-  .what-card li {
-    padding: 6px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .what-card li:last-child { border-bottom: none; }
+  .herofoot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .scrollcue{display:inline-flex;align-items:center;gap:10px;color:var(--muted);text-decoration:none;font-size:14px}
+  .scrollcue .arr{display:inline-block;animation:bob 2.2s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(5px)}}
+  .scrollcue:hover{color:var(--ink)}
+  .motionbtn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:9px;
+    font-size:13px;letter-spacing:.04em;background:rgba(255,255,255,.55);border:1px solid var(--line);
+    color:var(--ink-soft);cursor:pointer;flex:none}
+  .motionbtn:hover{border-color:var(--muted);color:var(--ink)}
 
-  .feels {
-    background: var(--card);
-    border-radius: 16px;
-    padding: 40px;
-    border: 1px solid var(--line);
-  }
-  .feels-item {
-    display: grid;
-    grid-template-columns: 90px 1fr;
-    gap: 24px;
-    align-items: baseline;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .feels-item:last-child { border-bottom: none; }
-  .feels-channel {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.12em;
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .feels-channel.haptic { color: var(--warm); }
-  .feels-text {
-    font-size: 17px;
-    color: var(--ink-soft);
-  }
+  .feel{max-width:var(--max);margin:0 auto;padding:clamp(72px,13vh,128px) clamp(24px,6vw,72px) 70px}
+  .feel-lead{font-family:"Noto Serif SC",serif;font-weight:600;font-size:clamp(28px,4.6vw,46px);line-height:1.25;
+    color:var(--ink);margin-bottom:14px}
+  .feel-hint{font-size:14px;color:var(--muted);margin-bottom:40px}
+  .feel-list{list-style:none;display:flex;flex-direction:column;gap:30px}
+  .feel-list li{font-size:clamp(17px,2.3vw,20px);line-height:1.85;color:var(--ink-soft);max-width:40ch;
+    padding-left:22px;border-left:2px solid var(--line)}
+  .said{color:var(--ink)}
+  .play{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;
+    border:1.5px solid var(--line);background:#fff;color:var(--accent);cursor:pointer;vertical-align:-7px;
+    margin:0 2px;font-size:11px;line-height:1;transition:background .2s,border-color .2s,transform .15s}
+  .play:hover{background:var(--accent);color:#fff;border-color:var(--accent);transform:scale(1.08)}
+  .play.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .buzz{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 14px;border-radius:8px;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;font-family:inherit;
+    font-size:14px;margin-left:6px;vertical-align:middle;transition:border-color .2s,transform .15s}
+  .buzz:hover{border-color:var(--warm);color:var(--warm);transform:translateY(-1px)}
+  .buzz .ph{font-size:12px;color:var(--muted)}
+  .safety{margin-top:46px;font-size:14px;color:var(--muted);max-width:44ch;line-height:1.7}
 
-  .waitlist {
-    background: linear-gradient(135deg, #faf6ed, #f5ecd9);
-    border-radius: 16px;
-    padding: 40px;
-    text-align: center;
-    border: 1px solid var(--line);
-  }
-  .waitlist h2 {
-    color: var(--accent);
-    margin-bottom: 12px;
-  }
-  .waitlist-text {
-    font-size: 17px;
-    color: var(--ink-soft);
-    margin-bottom: 24px;
-    max-width: 520px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .email-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 28px;
-    background: var(--ink);
-    color: var(--bg);
-    text-decoration: none;
-    border-radius: 8px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    transition: all 0.2s;
-  }
-  .email-link:hover {
-    background: var(--accent);
-    transform: translateY(-1px);
-  }
-  .waitlist-note {
-    margin-top: 18px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 13px;
-    color: var(--muted);
-  }
+  footer{border-top:1px solid var(--line);max-width:var(--max);margin:0 auto;
+    padding:24px clamp(24px,6vw,72px);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-size:14px;color:var(--muted)}
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:var(--ink)}
+  .flinks{display:flex;gap:22px;flex-wrap:wrap}
 
-  footer {
-    margin-top: 80px;
-    padding-top: 32px;
-    border-top: 1px solid var(--line);
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 13px;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
+  @media (max-width:640px){
+    .scrim{background:linear-gradient(180deg, rgba(246,241,228,.92) 0%, rgba(246,241,228,.78) 55%, rgba(246,241,228,.5) 100%)}
+    .center{padding:24px 0}
+    .topnav{font-size:14px;gap:16px}
   }
-  footer a {
-    color: var(--muted);
-    text-decoration: none;
-  }
-  footer a:hover { color: var(--ink); }
-  .footer-links {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-  }
-
-  @media (max-width: 640px) {
-    main { padding: 48px 20px 60px; }
-    .hero-name { font-size: 52px; }
-    .hero-tagline { font-size: 21px; }
-    .hero-subtitle { font-size: 15px; }
-    .what-grid { grid-template-columns: 1fr; }
-    .feels { padding: 24px; }
-    .feels-item { grid-template-columns: 1fr; gap: 4px; }
-    .waitlist { padding: 28px 20px; }
-    h2 { font-size: 12px; }
-    p { font-size: 16px; }
-    .quote { font-size: 19px; }
-    footer { flex-direction: column; align-items: flex-start; gap: 12px; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    * { transition: none !important; }
-  }
-
-  .skip-link {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    background: var(--ink);
-    color: var(--bg);
-    padding: 8px 16px;
-    text-decoration: none;
-    border-radius: 4px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", sans-serif;
-    font-size: 14px;
-    z-index: 100;
-  }
-  .skip-link:focus { top: 8px; left: 8px; }
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} .scrollcue .arr{animation:none} }
 </style>
 </head>
 <body>
 
-<a href="#main-content" class="skip-link">跳到主要内容</a>
+<a class="skip" href="#feel">跳到主要内容</a>
 
-<div class="bg-decoration" aria-hidden="true">
-  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-    <g opacity="0.4" stroke="#6b8e4e" stroke-width="1.2" fill="none" stroke-linecap="round">
-      <path d="M -100 720 Q 280 640, 520 690 T 1020 660 T 1540 620" />
-      <path d="M -100 760 Q 280 690, 520 735 T 1020 705 T 1540 670" />
-      <path d="M -100 800 Q 280 740, 520 780 T 1020 750 T 1540 720" />
-    </g>
-    <g opacity="0.18" stroke="#c4956b" stroke-width="1" fill="none" stroke-linecap="round">
-      <path d="M -100 180 Q 280 110, 520 160 T 1020 130 T 1540 90" />
-      <path d="M -100 220 Q 280 160, 520 200 T 1020 170 T 1540 130" />
-    </g>
-  </svg>
-</div>
-
-<main id="main-content">
+<header class="hero">
+  <canvas id="field" aria-hidden="true"></canvas>
+  <div class="scrim" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
 
   <nav class="topbar" aria-label="主导航">
-    <span>ROANA · 漫行</span>
-    <span>
-      <a href="/">English</a>
-      &nbsp;·&nbsp;
+    <span class="brand">Roana · 漫行</span>
+    <div class="topnav">
+      <a href="/" lang="en">English</a>
       <a href="https://github.com/floatinglifeai/roana">GitHub</a>
-    </span>
+      <a href="mailto:talk@roana.app">联系</a>
+    </div>
   </nav>
 
-  <header class="hero">
-    <svg class="hero-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Roana 标志">
-      <defs>
-        <linearGradient id="hero-r" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stop-color="#c4956b" />
-          <stop offset="50%" stop-color="#a8853d" />
-          <stop offset="100%" stop-color="#6b8e4e" />
-        </linearGradient>
-      </defs>
-      <g transform="translate(20, 30)">
-        <path d="M 18 130 L 18 22 Q 18 18, 22 18 L 64 18 Q 92 18, 92 44 Q 92 68, 64 68 L 38 68 Q 32 68, 36 74 L 108 130 Q 142 120, 160 90"
-              stroke="url(#hero-r)" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="18" cy="130" r="7" fill="#c4956b"/>
-        <circle cx="160" cy="90" r="7" fill="#6b8e4e"/>
-      </g>
-    </svg>
-    <h1 class="hero-name">Roana</h1>
-    <div class="hero-cn">漫行</div>
-    <p class="hero-tagline">走你自己的路。</p>
-    <p class="hero-subtitle">为盲人和低视力用户设计的开源辅助导航系统。</p>
-  </header>
+  <div class="center" id="content">
+    <p class="eyebrow">开源 · 视障辅助导航</p>
+    <h1 class="wordmark">Roana</h1>
+    <div class="cn" aria-hidden="true">漫 行</div>
+    <p class="tagline">去<em>你想去</em>的地方。</p>
+    <p class="lead">按自己的节奏，走向任何地方。耳边一句安静的话，手腕上轻轻一震——你的耳朵始终敞开，世界依然属于你。</p>
 
-  <section>
-    <h2>关于</h2>
-    <p>
-      Roana 漫行,把一部智能手机——以及未来的智能眼镜——变成一个静静陪伴你出门的伙伴。端侧计算机视觉看着前方的路。世界以两种方式回到你身边:<strong>骨传导语音</strong>(告诉你周围有什么)和<strong>腕部震动</strong>(告诉你该往哪走)。耳朵留给世界本身。
-    </p>
-    <div class="quote">
-      名字来自 <em>roam</em>——想去哪儿就去哪儿的自由和尊严。
+    <div class="actions">
+      <a class="btn btn-primary" href="mailto:talk@roana.app?subject=Roana&body=%E4%BD%A0%E5%A5%BD%EF%BC%8C%E6%88%91%E6%83%B3%E6%8C%81%E7%BB%AD%E5%85%B3%E6%B3%A8%20Roana%E3%80%82">保持联系 <span aria-hidden="true">&rarr;</span></a>
+      <a class="btn btn-ghost" href="https://github.com/floatinglifeai/roana">在 GitHub 上看</a>
     </div>
-  </section>
 
-  <section>
-    <h2>我们【是】和【不是】什么</h2>
-    <div class="what-grid">
-      <div class="what-card">
-        <h3>是</h3>
-        <ul>
-          <li>电子辅助出行工具,<em>增强</em>白盲杖和导盲犬</li>
-          <li>多模态:语音和触觉,协同工作</li>
-          <li>基于今天就能买到的货架硬件</li>
-          <li>开源,AGPL-3.0 协议</li>
-        </ul>
-      </div>
-      <div class="what-card not">
-        <h3>不是</h3>
-        <ul>
-          <li>医疗器械</li>
-          <li>白盲杖、导盲犬、定向行走训练的替代品</li>
-          <li>视力恢复产品</li>
-          <li>有付费墙的商业服务</li>
-        </ul>
-      </div>
-    </div>
-  </section>
+    <p class="status"><span class="dot" aria-hidden="true"></span> 开源 · AGPL-3.0</p>
+  </div>
 
-  <section>
-    <h2>它用起来什么感觉</h2>
-    <div class="feels">
-      <div class="feels-item">
-        <div class="feels-channel">语音</div>
-        <div class="feels-text">骨传导耳机里有一个安静的声音,只告诉你重要的事情:<em>"前方有台阶,两米"</em>、<em>"右边是斑马线"</em>。耳道是开放的,世界的声音听得见。</div>
-      </div>
-      <div class="feels-item">
-        <div class="feels-channel haptic">震动</div>
-        <div class="feels-text">左手或右手腕短促一震,引导你走向安全的路径。两只手同时震,就是停下。学会大概只需要一个小时。</div>
-      </div>
-      <div class="feels-item">
-        <div class="feels-channel">按需</div>
-        <div class="feels-text">按一下按钮:<em>"前面是什么?"</em> 一个更大的模型仔细看一眼,然后告诉你。其他时候,它静静地在那儿,看着。</div>
-      </div>
-    </div>
-  </section>
+  <div class="herofoot">
+    <a class="scrollcue" href="#feel"><span class="arr" aria-hidden="true">↓</span> 体验一下</a>
+    <button class="motionbtn" id="motionbtn" type="button" aria-pressed="false">
+      <span id="motionicon" aria-hidden="true">⏸</span><span id="motionlabel">暂停动效</span>
+    </button>
+  </div>
+</header>
 
-  <section>
-    <h2>为什么开源</h2>
-    <p>
-      盲人和低视力群体被这种事情伤害过太多次:一个本来开放或免费的辅助技术,被收购、闭源、加上付费墙,再卖回给他们。<strong>Roana 选择 AGPL-3.0 协议</strong>,这是我们能给的最强保证——任何修改后的版本,包括上线的服务,都必须以同样的协议公开。
-    </p>
-    <p>
-      代码在 GitHub 上,任何人可以自由学习、自由 fork、自由用它来做事。
-    </p>
+<main>
+  <section class="feel" id="feel">
+    <p class="feel-lead">用起来，是这样的。</p>
+    <p class="feel-hint">试试看：点播放听一句提示，或在手机上感受那一下轻震。</p>
+    <ul class="feel-list">
+      <li>一个安静的声音告诉你周围有什么。
+        <span class="said">「前方有台阶，两米。」</span><button class="play" type="button" data-say="前方有台阶，两米。" aria-label="播放：前方有台阶，两米">&#9654;</button>
+        <span class="said">「右手边是人行横道。」</span><button class="play" type="button" data-say="右手边是人行横道。" aria-label="播放：右手边是人行横道">&#9654;</button>
+        你的耳朵始终敞开，依然听得见整个世界。</li>
+      <li>手腕上轻轻一震，为你指路；两只手腕同时震动，就是停。
+        <button class="buzz" id="buzzbtn" type="button" aria-label="感受这一下（会让手机震动）">感受这一下 <span class="ph">手机上</span></button></li>
+      <li>大多数时候，它安静地看着。你问一句——
+        <span class="said">「我面前是什么？」</span><button class="play" type="button" data-say="我面前是什么？" aria-label="播放：我面前是什么？">&#9654;</button>
+        ——它就替你仔细看看。</li>
+    </ul>
+    <p class="safety">Roana 是对白手杖和导盲犬的增强，而不是替代，也不是医疗器械。（你在这里听到的是浏览器的声音，并非 Roana 真正的语音，只是让你感受一下。）</p>
   </section>
-
-  <section class="waitlist" id="waitlist">
-    <h2>保持联系</h2>
-    <p class="waitlist-text">
-      Roana 现在还在设计阶段——还没有代码,也没有可下载的 App。如果你想在它能拿出来走的时候第一时间收到消息,或者你有想分享的事情(你是盲人用户、定向行走指导师、研究者、做过类似事情的工程师)——给我们写信。
-    </p>
-    <a class="email-link" href="mailto:talk@roana.app?subject=Roana%20%E5%BE%85%E6%9B%B4%E6%96%B0&body=%E4%BD%A0%E5%A5%BD%EF%BC%8C%E6%88%91%E6%83%B3%E5%85%B3%E6%B3%A8%20Roana%20%E7%9A%84%E8%BF%9B%E5%B1%95%E3%80%82%0A%0A%5B%E5%8F%AF%E9%80%89%EF%BC%9A%E7%AE%80%E5%8D%95%E4%BB%8B%E7%BB%8D%E4%B8%80%E4%B8%8B%E4%BD%A0%E8%87%AA%E5%B7%B1%EF%BC%8C%E6%88%96%E4%BD%A0%E5%85%B3%E6%B3%A8%E7%9A%84%E6%96%B9%E5%90%91%5D%0A%0A%E8%B0%A2%E8%B0%A2%EF%BC%81">
-      <span>talk@roana.app</span>
-      <span>→</span>
-    </a>
-    <p class="waitlist-note">我们读每一封信。没有邮件营销系统,没有追踪像素。</p>
-  </section>
-
 </main>
 
 <footer>
-  <div>© 2026 Roana 项目 · AGPL-3.0 协议</div>
-  <div class="footer-links">
+  <span>© 2026 The Roana Authors · AGPL-3.0</span>
+  <div class="flinks">
     <a href="https://github.com/floatinglifeai/roana">GitHub</a>
-    <a href="https://github.com/floatinglifeai/roana/blob/main/LICENSE">协议</a>
-    <a href="/">English</a>
-    <a href="mailto:talk@roana.app">联系</a>
+    <a href="https://github.com/floatinglifeai/roana/blob/main/LICENSE">许可证</a>
+    <a href="/" lang="en">English</a>
+    <a href="mailto:talk@roana.app">talk@roana.app</a>
   </div>
 </footer>
 
+<script>
+(function(){
+  var DPR=Math.min(window.devicePixelRatio||1,2);
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var canvas=document.getElementById('field'), ctx=canvas.getContext('2d'), hero=document.querySelector('.hero');
+  var PAPER=[246,241,228];
+  var W,H,parts=[],inited=false,raf=null,paused=false;
+  function size(){var r=hero.getBoundingClientRect();W=canvas.width=r.width*DPR;H=canvas.height=r.height*DPR;}
+  function init(){size();ctx.fillStyle='rgb('+PAPER.join(',')+')';ctx.fillRect(0,0,W,H);
+    parts=[];var n=Math.min(170,Math.round(W*H/(15000*DPR)));
+    for(var i=0;i<n;i++){var x=Math.random()*W,y=Math.random()*H;parts.push({x:x,y:y,s:0.4+Math.random()*1.0});}inited=true;}
+  function flow(x,y){return Math.sin(y/H*2.4)*0.8 + Math.cos(x/W*1.9)*0.5 + 0.3;}
+  function step(){
+    ctx.fillStyle='rgba('+PAPER[0]+','+PAPER[1]+','+PAPER[2]+',0.085)';ctx.fillRect(0,0,W,H);
+    for(var i=0;i<parts.length;i++){var p=parts[i];var a=flow(p.x,p.y)*0.85;
+      p.x+=Math.cos(a)*0.85*p.s*DPR; p.y+=Math.sin(a)*0.85*p.s*DPR-0.1*DPR;
+      if(p.x<0||p.x>W||p.y<0||p.y>H){p.x=Math.random()*W;p.y=Math.random()*H;}
+      var f=p.y/H;var r=(95-40*f)|0,g=(82-36*f)|0,b=(70-30*f)|0,al=0.16+p.s*0.16;
+      ctx.fillStyle='rgba('+r+','+g+','+b+','+al+')';
+      ctx.beginPath();ctx.arc(p.x,p.y,p.s*1.2*DPR,0,6.283);ctx.fill();
+    }
+  }
+  function loop(){step();raf=requestAnimationFrame(loop);}
+  function start(){if(!inited)init();if(reduce||paused){for(var k=0;k<80;k++)step();return;}if(!raf)loop();}
+  function stop(){if(raf){cancelAnimationFrame(raf);raf=null;}}
+  var mbtn=document.getElementById('motionbtn'),ic=document.getElementById('motionicon'),lb=document.getElementById('motionlabel');
+  if(reduce){mbtn.style.display='none';}
+  mbtn.addEventListener('click',function(){
+    paused=!paused;mbtn.setAttribute('aria-pressed',String(paused));
+    ic.textContent=paused?'▶':'⏸';lb.textContent=paused?'恢复动效':'暂停动效';
+    if(paused)stop(); else loop();
+  });
+  window.addEventListener('resize',function(){inited=false;size();if(!reduce&&!paused){stop();loop();}});
+  document.addEventListener('visibilitychange',function(){if(document.hidden)stop();else if(!reduce&&!paused&&!raf)loop();});
+  start();
+
+  var plays=[].slice.call(document.querySelectorAll('.play'));
+  if('speechSynthesis' in window){
+    plays.forEach(function(b){
+      b.addEventListener('click',function(){
+        try{ window.speechSynthesis.cancel();
+          var u=new SpeechSynthesisUtterance(b.dataset.say);
+          u.lang='zh-CN';u.rate=0.95;u.pitch=1;u.volume=1;
+          b.classList.add('on');
+          u.onend=function(){b.classList.remove('on');};u.onerror=function(){b.classList.remove('on');};
+          window.speechSynthesis.speak(u);
+        }catch(e){}
+      });
+    });
+  } else { plays.forEach(function(b){b.style.display='none';}); }
+
+  var buzz=document.getElementById('buzzbtn');
+  if(buzz){ if('vibrate' in navigator){ buzz.addEventListener('click',function(){try{navigator.vibrate(70);}catch(e){}}); }
+    else { buzz.style.display='none'; } }
+})();
+</script>
 </body>
 </html>
