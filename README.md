@@ -115,7 +115,21 @@ See [`docs/research/01-system-design.md`](docs/research/01-system-design.md) §8
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+**GNU Affero General Public License v3.0 (AGPL-3.0).** See [LICENSE](LICENSE).
+
+Why AGPL? Roana is built for blind and low-vision users — a community that has been burned too many times by accessibility tech that gets bought, locked down, or paywalled. AGPL is our way of making one promise concretely:
+
+> **Anyone can use, study, modify, and redistribute Roana — but any modified version, including network services, must also be released under AGPL-3.0.** This means companies cannot take Roana, close it up, add a paywall, and ship it back to blind users as a proprietary product.
+
+We picked AGPL specifically because:
+
+- It is **OSI-approved real open source** — the assistive-tech community (NVDA, Orca screen readers, etc.) has long-standing trust in the GPL family of licenses.
+- It is a **strong copyleft**: derivative works and SaaS deployments must also be AGPL. This is how we keep Roana from being absorbed into a closed product.
+- It does **not prevent commercial use** in principle — a company can run Roana commercially as long as they share their changes back under AGPL. We just don't want anyone to silently take and never give back.
+
+If you are a non-profit, school, hospital, blind association, O&M instructor, or individual — AGPL imposes no practical burden on you. If you are a company and the AGPL terms don't fit your business model, please reach out to discuss a commercial license.
+
+See [NOTICE.md](NOTICE.md) for the per-file copyright header template and contributor licensing notes.
 
 ---
 
