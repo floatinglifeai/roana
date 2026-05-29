@@ -15,11 +15,25 @@ android {
         versionName = "0.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 
@@ -34,4 +48,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("com.qualcomm.qti:qnn-runtime:2.46.0")
+    implementation("com.qualcomm.qti:qnn-litert-delegate:2.46.0")
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
 }

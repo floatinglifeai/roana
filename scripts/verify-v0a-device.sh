@@ -8,6 +8,12 @@ APK_PATH="${APK_PATH:-$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk}"
 LOG_SECONDS="${LOG_SECONDS:-30}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 DEVICE_APK_PATH="${DEVICE_APK_PATH:-/data/local/tmp/roana-v0a-debug.apk}"
+REQUIRE_YOLO="${REQUIRE_YOLO:-1}"
+REQUIRE_PERSON_TTS="${REQUIRE_PERSON_TTS:-1}"
+REQUIRE_BACKEND="${REQUIRE_BACKEND:-0}"
+REQUIRE_DEPTH_SMOKE="${REQUIRE_DEPTH_SMOKE:-0}"
+DEBUG_PERSON_EXTRA="com.roana.app.extra.DEBUG_PERSON_DETECTION"
+DEBUG_DEPTH_EXTRA="com.roana.app.extra.DEBUG_DEPTH_SMOKE"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_PATH="$LOG_DIR/v0a-device-$TIMESTAMP.log"
 
@@ -18,7 +24,7 @@ json_result() {
   cat <<JSON
 {
   "status": "$status",
-  "hypothesis": "V0a Android skeleton runs on a connected real device",
+  "hypothesis": "V0a Android CameraX/TFLite/detection-to-TTS loop runs on a connected real device",
   "artifact": "$artifact",
   "decision": "$decision"
 }
@@ -92,7 +98,14 @@ fi
 adb "${DEVICE_ARG[@]}" shell pm grant "$APP_ID" android.permission.CAMERA >/dev/null 2>&1 || true
 adb "${DEVICE_ARG[@]}" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
 adb "${DEVICE_ARG[@]}" logcat -c >/dev/null
-adb "${DEVICE_ARG[@]}" shell am start -n "$ACTIVITY" >/dev/null
+start_args=(-n "$ACTIVITY")
+if [ "$REQUIRE_PERSON_TTS" = "1" ]; then
+  start_args+=(--ez "$DEBUG_PERSON_EXTRA" true)
+fi
+if [ "$REQUIRE_DEPTH_SMOKE" = "1" ]; then
+  start_args+=(--ez "$DEBUG_DEPTH_EXTRA" true)
+fi
+adb "${DEVICE_ARG[@]}" shell am start "${start_args[@]}" >/dev/null
 
 set +e
 timeout "${LOG_SECONDS}s" adb "${DEVICE_ARG[@]}" logcat -v time RoanaV0a:I '*:S' >"$LOG_PATH"
@@ -108,10 +121,37 @@ missing=()
 grep -q "camera_bound" "$LOG_PATH" || missing+=("camera_bound")
 grep -q "frame_stats" "$LOG_PATH" || missing+=("frame_stats")
 grep -q "tts_event" "$LOG_PATH" || missing+=("tts_event")
+if [ "$REQUIRE_YOLO" = "1" ]; then
+  frame_count="$(grep -c "frame_stats" "$LOG_PATH" || true)"
+  [ "$frame_count" -ge 5 ] || missing+=("frame_stats>=5")
+  grep -q "yolo_inference" "$LOG_PATH" || missing+=("yolo_inference")
+  grep -q "inference_ms=" "$LOG_PATH" || missing+=("inference_ms")
+  grep -q "detection=" "$LOG_PATH" || missing+=("detection_status")
+  ! grep -q "yolo_error" "$LOG_PATH" || missing+=("no_yolo_error")
+fi
+if [ "$REQUIRE_PERSON_TTS" = "1" ]; then
+  grep -q "debug_person_detection_proof" "$LOG_PATH" || missing+=("debug_person_detection_proof")
+  grep -q "message=person_ahead" "$LOG_PATH" || missing+=("person_ahead_tts")
+fi
+if [ "$REQUIRE_BACKEND" = "1" ]; then
+  grep -q "qnn_probe" "$LOG_PATH" || missing+=("qnn_probe")
+  grep -q "qnn_capabilities" "$LOG_PATH" || missing+=("qnn_capabilities")
+  grep -q "inference_backend selected=" "$LOG_PATH" || missing+=("inference_backend")
+  if ! grep -q "inference_backend selected=qnn_htp" "$LOG_PATH" &&
+    ! grep -q "reason=qnn_interpreter_failed" "$LOG_PATH" &&
+    ! grep -q "reason=qnn_create_failed" "$LOG_PATH"; then
+    missing+=("backend_success_or_fallback")
+  fi
+fi
+if [ "$REQUIRE_DEPTH_SMOKE" = "1" ]; then
+  grep -q "qnn_probe precision=fp16" "$LOG_PATH" || missing+=("depth_qnn_probe")
+  grep -q "depth_smoke status=loaded" "$LOG_PATH" || missing+=("depth_smoke_loaded")
+  ! grep -q "depth_smoke status=failed" "$LOG_PATH" || missing+=("no_depth_smoke_failed")
+fi
 
 if [ "${#missing[@]}" -gt 0 ]; then
   json_result "failed" "$LOG_PATH" "Missing expected RoanaV0a log evidence: ${missing[*]}."
   exit 1
 fi
 
-json_result "passed" "$LOG_PATH" "Real-device V0a skeleton proof exists; continue to YOLO CPU/XNNPACK inference."
+json_result "passed" "$LOG_PATH" "Real-device V0a CameraX/TFLite/detection-to-TTS proof exists."
