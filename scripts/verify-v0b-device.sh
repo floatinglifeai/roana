@@ -14,6 +14,7 @@ CORRIDOR_TEST_NOTES="${CORRIDOR_TEST_NOTES:-}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 RESULT_DIR="${RESULT_DIR:-$ROOT_DIR/logs}"
 RESULT_PATH="$RESULT_DIR/v0b-device-$TIMESTAMP.json"
+ADB_BIN="${ADB_BIN:-}"
 
 json_escape() {
   python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().strip()))'
@@ -38,7 +39,7 @@ JSON
 }
 
 thermal_status() {
-  adb "${DEVICE_ARG[@]}" shell dumpsys thermalservice 2>/dev/null |
+  "$ADB_BIN" "${DEVICE_ARG[@]}" shell dumpsys thermalservice 2>/dev/null |
     tr -d '\r' |
     awk '
       /Thermal Status:/ { status=$0 }
@@ -99,12 +100,23 @@ analysis_list_text() {
   printf '%s' "$2" | python3 -c 'import json, sys; print(" ".join(json.load(sys.stdin)[sys.argv[1]]))' "$key"
 }
 
-if ! command -v adb >/dev/null 2>&1; then
+if [ -z "$ADB_BIN" ]; then
+  if command -v adb >/dev/null 2>&1; then
+    ADB_BIN="$(command -v adb)"
+  elif [ -x "$HOME/.local/android-platform-tools/platform-tools/adb" ]; then
+    ADB_BIN="$HOME/.local/android-platform-tools/platform-tools/adb"
+  fi
+fi
+
+if [ -z "$ADB_BIN" ]; then
   json_result "failed" "" "Install host adb before running the V0b device gate." "{}"
   exit 1
 fi
 
-mapfile -t devices < <(adb devices | awk 'NR > 1 && $2 == "device" {print $1}')
+devices=()
+while IFS= read -r device; do
+  devices+=("$device")
+done < <("$ADB_BIN" devices | awk 'NR > 1 && $2 == "device" {print $1}')
 if [ -n "${ANDROID_SERIAL:-}" ]; then
   DEVICE_ARG=(-s "$ANDROID_SERIAL")
 elif [ "${#devices[@]}" -eq 1 ]; then
@@ -117,10 +129,10 @@ else
   exit 2
 fi
 
-model="$(adb "${DEVICE_ARG[@]}" shell getprop ro.product.model | tr -d '\r')"
-soc_model="$(adb "${DEVICE_ARG[@]}" shell getprop ro.soc.model | tr -d '\r')"
-board_platform="$(adb "${DEVICE_ARG[@]}" shell getprop ro.board.platform | tr -d '\r')"
-abis="$(adb "${DEVICE_ARG[@]}" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+model="$("$ADB_BIN" "${DEVICE_ARG[@]}" shell getprop ro.product.model | tr -d '\r')"
+soc_model="$("$ADB_BIN" "${DEVICE_ARG[@]}" shell getprop ro.soc.model | tr -d '\r')"
+board_platform="$("$ADB_BIN" "${DEVICE_ARG[@]}" shell getprop ro.board.platform | tr -d '\r')"
+abis="$("$ADB_BIN" "${DEVICE_ARG[@]}" shell getprop ro.product.cpu.abilist | tr -d '\r')"
 
 set +e
 verify_output="$(
@@ -128,6 +140,7 @@ verify_output="$(
   REQUIRE_LIVE_CORRIDOR=1 \
   REQUIRE_CORRIDOR_FEEDBACK=1 \
   REQUIRE_SAFE_STOP=1 \
+  ADB_BIN="$ADB_BIN" \
   LOG_SECONDS="$LOG_SECONDS" \
   BUILD_FIRST="${BUILD_FIRST:-0}" \
   "$ROOT_DIR/scripts/verify-v0a-device.sh" 2>&1
@@ -177,6 +190,7 @@ if [ "$REQUIRE_THERMAL_MINUTES" -gt 0 ]; then
     REQUIRE_LIVE_CORRIDOR=1 \
     REQUIRE_CORRIDOR_FEEDBACK=0 \
     REQUIRE_PERSON_TTS=0 \
+    ADB_BIN="$ADB_BIN" \
     LOG_SECONDS="$thermal_seconds" \
     BUILD_FIRST=0 \
     "$ROOT_DIR/scripts/verify-v0a-device.sh" 2>&1

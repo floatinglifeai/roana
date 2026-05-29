@@ -8,6 +8,7 @@ APK_PATH="${APK_PATH:-$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk}"
 LOG_SECONDS="${LOG_SECONDS:-30}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 DEVICE_APK_PATH="${DEVICE_APK_PATH:-/data/local/tmp/roana-v0a-debug.apk}"
+ADB_BIN="${ADB_BIN:-}"
 REQUIRE_YOLO="${REQUIRE_YOLO:-1}"
 REQUIRE_PERSON_TTS="${REQUIRE_PERSON_TTS:-1}"
 REQUIRE_BACKEND="${REQUIRE_BACKEND:-0}"
@@ -43,17 +44,17 @@ install_apk() {
   local install_status
   output_file="$(mktemp)"
 
-  adb "${DEVICE_ARG[@]}" push "$APK_PATH" "$DEVICE_APK_PATH" >/dev/null
+  "$ADB_BIN" "${DEVICE_ARG[@]}" push "$APK_PATH" "$DEVICE_APK_PATH" >/dev/null
 
   set +e
-  adb "${DEVICE_ARG[@]}" shell pm install -r -g -d "$DEVICE_APK_PATH" >"$output_file" 2>&1
+  "$ADB_BIN" "${DEVICE_ARG[@]}" shell pm install -r -g -d "$DEVICE_APK_PATH" >"$output_file" 2>&1
   install_status=$?
   set -e
 
   if [ "$install_status" -ne 0 ] && grep -q "INSTALL_FAILED_UPDATE_INCOMPATIBLE" "$output_file"; then
-    adb "${DEVICE_ARG[@]}" uninstall "$APP_ID" >/dev/null 2>&1 || true
+    "$ADB_BIN" "${DEVICE_ARG[@]}" uninstall "$APP_ID" >/dev/null 2>&1 || true
     set +e
-    adb "${DEVICE_ARG[@]}" shell pm install -r -g -d "$DEVICE_APK_PATH" >"$output_file" 2>&1
+    "$ADB_BIN" "${DEVICE_ARG[@]}" shell pm install -r -g -d "$DEVICE_APK_PATH" >"$output_file" 2>&1
     install_status=$?
     set -e
   fi
@@ -68,12 +69,23 @@ install_apk() {
   return 0
 }
 
-if ! command -v adb >/dev/null 2>&1; then
+if [ -z "$ADB_BIN" ]; then
+  if command -v adb >/dev/null 2>&1; then
+    ADB_BIN="$(command -v adb)"
+  elif [ -x "$HOME/.local/android-platform-tools/platform-tools/adb" ]; then
+    ADB_BIN="$HOME/.local/android-platform-tools/platform-tools/adb"
+  fi
+fi
+
+if [ -z "$ADB_BIN" ]; then
   json_result "failed" "" "Install host adb before running the V0a device gate."
   exit 1
 fi
 
-mapfile -t devices < <(adb devices | awk 'NR > 1 && $2 == "device" {print $1}')
+devices=()
+while IFS= read -r device; do
+  devices+=("$device")
+done < <("$ADB_BIN" devices | awk 'NR > 1 && $2 == "device" {print $1}')
 
 if [ -n "${ANDROID_SERIAL:-}" ]; then
   DEVICE_ARG=(-s "$ANDROID_SERIAL")
@@ -102,9 +114,9 @@ if ! install_apk; then
   json_result "failed" "" "APK install failed through device-local pm install."
   exit 1
 fi
-adb "${DEVICE_ARG[@]}" shell pm grant "$APP_ID" android.permission.CAMERA >/dev/null 2>&1 || true
-adb "${DEVICE_ARG[@]}" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
-adb "${DEVICE_ARG[@]}" logcat -c >/dev/null
+"$ADB_BIN" "${DEVICE_ARG[@]}" shell pm grant "$APP_ID" android.permission.CAMERA >/dev/null 2>&1 || true
+"$ADB_BIN" "${DEVICE_ARG[@]}" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
+"$ADB_BIN" "${DEVICE_ARG[@]}" logcat -c >/dev/null
 start_args=(-n "$ACTIVITY")
 if [ "$REQUIRE_PERSON_TTS" = "1" ]; then
   start_args+=(--ez "$DEBUG_PERSON_EXTRA" true)
@@ -121,14 +133,22 @@ fi
 if [ "$REQUIRE_SAFE_STOP" = "1" ]; then
   start_args+=(--ez "$DEBUG_SAFE_STOP_EXTRA" true)
 fi
-adb "${DEVICE_ARG[@]}" shell am start "${start_args[@]}" >/dev/null
+"$ADB_BIN" "${DEVICE_ARG[@]}" shell am start "${start_args[@]}" >/dev/null
 
 set +e
-timeout "${LOG_SECONDS}s" adb "${DEVICE_ARG[@]}" logcat -v time RoanaV0a:I '*:S' >"$LOG_PATH"
+if command -v timeout >/dev/null 2>&1; then
+  timeout "${LOG_SECONDS}s" "$ADB_BIN" "${DEVICE_ARG[@]}" logcat -v time RoanaV0a:I '*:S' >"$LOG_PATH"
+else
+  "$ADB_BIN" "${DEVICE_ARG[@]}" logcat -v time RoanaV0a:I '*:S' >"$LOG_PATH" &
+  logcat_pid=$!
+  sleep "$LOG_SECONDS"
+  kill "$logcat_pid" >/dev/null 2>&1 || true
+  wait "$logcat_pid" >/dev/null 2>&1
+fi
 logcat_status=$?
 set -e
 
-if [ "$logcat_status" -ne 0 ] && [ "$logcat_status" -ne 124 ]; then
+if [ "$logcat_status" -ne 0 ] && [ "$logcat_status" -ne 124 ] && [ "$logcat_status" -ne 143 ]; then
   json_result "failed" "$LOG_PATH" "logcat capture failed before the V0a evidence window completed."
   exit 1
 fi

@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_IMAGE="${ANDROID_BUILD_IMAGE:-cimg/android:2026.03-ndk}"
+ANDROID_BUILD_PLATFORM="${ANDROID_BUILD_PLATFORM:-linux/amd64}"
 GRADLE_CACHE_VOLUME="${GRADLE_CACHE_VOLUME:-roana-gradle-cache}"
 ANDROID_HOME_VOLUME="${ANDROID_HOME_VOLUME:-roana-android-home}"
 
@@ -17,6 +18,7 @@ mkdir -p app/build build
 chmod -R g+rwX app/build build
 
 docker run --rm \
+  --platform "$ANDROID_BUILD_PLATFORM" \
   --user root \
   --volume "$ROOT_DIR:/workspace" \
   --volume "$GRADLE_CACHE_VOLUME:/root/.gradle" \
