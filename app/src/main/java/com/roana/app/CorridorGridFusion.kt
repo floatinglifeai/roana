@@ -4,8 +4,14 @@ class CorridorGridFusion {
     fun fuse(
         depthMap: DepthAnythingTensor.DepthMap,
         detections: List<YoloObstacleDetector.YoloDetection>,
+    ): CorridorPlanner.DepthGrid =
+        fuse(depthMap.toPlannerGrid(), detections)
+
+    fun fuse(
+        depthGrid: CorridorPlanner.DepthGrid,
+        detections: List<YoloObstacleDetector.YoloDetection>,
     ): CorridorPlanner.DepthGrid {
-        val values = depthMap.toPlannerGridValues()
+        val values = depthGrid.toFloatArray()
         detections
             .filter { it.score >= DETECTION_GRID_THRESHOLD }
             .forEach { detection -> markDetection(values, detection) }

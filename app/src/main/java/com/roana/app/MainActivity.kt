@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private var personAlertSpoken = false
     private var debugDetectionProofSpoken = false
     private var debugDepthSmokeStarted = false
+    private var debugSafeStopProofStarted = false
     private var pendingCorridorFeedback: PendingCorridorFeedback? = null
 
     private val corridorFeedbackDispatcher: FeedbackDispatcher by lazy {
@@ -146,6 +147,7 @@ class MainActivity : ComponentActivity() {
                 Log.i(TAG, "tts_init status=success ready=$ttsReady")
                 maybeAnnounceReady()
                 maybeFlushPendingCorridorFeedback()
+                maybeRunDebugSafeStopProof()
             } else {
                 Log.w(TAG, "tts_init status=failure code=$status")
             }
@@ -214,6 +216,7 @@ class MainActivity : ComponentActivity() {
                     Log.i(TAG, "camera_bound analyzer=keep_only_latest output=yuv_420_888")
                     maybeAnnounceReady()
                     maybeRunDebugDetectionProof()
+                    maybeRunDebugSafeStopProof()
                 } catch (error: Exception) {
                     statusView.text = "Camera start failed"
                     Log.e(TAG, "camera_bind_failed", error)
@@ -246,6 +249,28 @@ class MainActivity : ComponentActivity() {
         textToSpeech.speak("Roana camera ready", TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         Log.i(TAG, "tts_event id=$utteranceId message=camera_ready")
         maybeRunDebugDetectionProof()
+    }
+
+    private fun maybeRunDebugSafeStopProof() {
+        if (
+            !BuildConfig.DEBUG ||
+            !intent.getBooleanExtra(EXTRA_DEBUG_SAFE_STOP, false) ||
+            !ttsReady ||
+            !cameraBound ||
+            debugSafeStopProofStarted
+        ) {
+            return
+        }
+
+        debugSafeStopProofStarted = true
+        val pipeline = CorridorPipeline()
+        val result = pipeline.failSafeStop(REASON_LOW_CONFIDENCE)
+        Log.i(
+            TAG,
+            "debug_safe_stop_proof enabled=true reason=${result.decision.reason} " +
+                "decision=${result.decision.command} state=${result.state.command}",
+        )
+        dispatchCorridorFeedback(result.state, force = true)
     }
 
     private fun announceDetection(detection: YoloObstacleDetector.YoloDetection) {
@@ -417,7 +442,12 @@ class MainActivity : ComponentActivity() {
                             onDetection(detection)
                         }
                     } catch (error: Exception) {
-                        Log.e(TAG, "yolo_error", error)
+                        lastResult = YoloObstacleDetector.YoloResult(
+                            inferenceMs = 0.0,
+                            bestDetection = null,
+                        )
+                        Log.e(TAG, "yolo_error action=safe_stop reason=$REASON_LOW_CONFIDENCE", error)
+                        stopCorridorForSafety(REASON_LOW_CONFIDENCE)
                     }
                 }
                 maybeRunLiveCorridor(image)
@@ -462,9 +492,9 @@ class MainActivity : ComponentActivity() {
             }
 
             try {
-                val depthResult = runner.infer(CameraFrameConverter.toRgbFrame(image))
+                val depthResult = runner.inferGrid(CameraFrameConverter.toYuvSampler(image))
                 val corridorResult = pipeline.process(
-                    depthMap = depthResult.depthMap,
+                    grid = depthResult.depthGrid,
                     detections = listOfNotNull(lastResult.bestDetection),
                 )
                 lastDepthInferenceMs = depthResult.inferenceMs
@@ -531,6 +561,8 @@ class MainActivity : ComponentActivity() {
             "com.roana.app.extra.DEBUG_DEPTH_PLAN"
         private const val EXTRA_DEBUG_LIVE_CORRIDOR =
             "com.roana.app.extra.DEBUG_LIVE_CORRIDOR"
+        private const val EXTRA_DEBUG_SAFE_STOP =
+            "com.roana.app.extra.DEBUG_SAFE_STOP"
         private const val LOG_INTERVAL_MS = 1_000L
         private const val YOLO_FRAME_INTERVAL = 10L
         private const val DEPTH_FRAME_INTERVAL = 1L

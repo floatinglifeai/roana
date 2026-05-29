@@ -13,7 +13,7 @@ class CorridorPlanner {
         }
 
         val start = Cell(row = GRID_SIZE - 1, col = GRID_SIZE / 2)
-        val path = search(grid, start, listOf(start))
+        val path = search(grid, start)
         if (path.size < MIN_PATH_CELLS) {
             return CorridorDecision(CorridorCommand.STOP, path, "no_safe_corridor")
         }
@@ -28,23 +28,55 @@ class CorridorPlanner {
         return CorridorDecision(command, path, "path_found")
     }
 
-    private fun search(grid: DepthGrid, current: Cell, path: List<Cell>): List<Cell> {
-        if (current.row == 0) {
-            return path
+    private fun search(grid: DepthGrid, start: Cell): List<Cell> {
+        val memo = arrayOfNulls<PathCandidate>(GRID_SIZE * GRID_SIZE)
+        return bestPathFrom(
+            grid = grid,
+            current = start,
+            startCol = start.col,
+            memo = memo,
+        ).toCells()
+    }
+
+    private fun bestPathFrom(
+        grid: DepthGrid,
+        current: Cell,
+        startCol: Int,
+        memo: Array<PathCandidate?>,
+    ): PathCandidate {
+        val memoIndex = current.row * GRID_SIZE + current.col
+        memo[memoIndex]?.let { return it }
+
+        var bestNext: PathCandidate? = null
+        if (current.row > 0) {
+            nextCandidates(current).forEach { candidate ->
+                if (
+                    grid.contains(candidate) &&
+                    grid[candidate] <= SAFE_CELL_DEPTH &&
+                    grid[candidate] <= grid[current] + MAX_FORWARD_DEPTH_RISE
+                ) {
+                    val nextPath = bestPathFrom(
+                        grid = grid,
+                        current = candidate,
+                        startCol = startCol,
+                        memo = memo,
+                    )
+                    if (bestNext == null || nextPath.isBetterThan(bestNext)) {
+                        bestNext = nextPath
+                    }
+                }
+            }
         }
 
-        val candidates = nextCandidates(current)
-            .filter { grid.contains(it) }
-            .filter { candidate -> grid[candidate] <= SAFE_CELL_DEPTH }
-            .filter { candidate -> grid[candidate] <= grid[current] + MAX_FORWARD_DEPTH_RISE }
-
-        if (candidates.isEmpty()) {
-            return path
-        }
-
-        return candidates
-            .map { candidate -> search(grid, candidate, path + candidate) }
-            .maxWith(pathComparator)
+        val result = PathCandidate(
+            cell = current,
+            length = 1 + (bestNext?.length ?: 0),
+            clearanceScore = horizontalClearance(grid, current) + (bestNext?.clearanceScore ?: 0),
+            straightnessScore = -abs(current.col - startCol) + (bestNext?.straightnessScore ?: 0),
+            next = bestNext,
+        )
+        memo[memoIndex] = result
+        return result
     }
 
     private fun nextCandidates(current: Cell): List<Cell> =
@@ -53,6 +85,28 @@ class CorridorPlanner {
             Cell(current.row - 1, current.col - 1),
             Cell(current.row - 1, current.col + 1),
         )
+
+    private fun horizontalClearance(grid: DepthGrid, cell: Cell): Int {
+        if (grid[cell] > SAFE_CELL_DEPTH) {
+            return 0
+        }
+
+        var left = 0
+        var col = cell.col - 1
+        while (col >= 0 && grid[Cell(cell.row, col)] <= SAFE_CELL_DEPTH) {
+            left += 1
+            col -= 1
+        }
+
+        var right = 0
+        col = cell.col + 1
+        while (col < GRID_SIZE && grid[Cell(cell.row, col)] <= SAFE_CELL_DEPTH) {
+            right += 1
+            col += 1
+        }
+
+        return minOf(left, right)
+    }
 
     data class DepthGrid(
         val rows: Int,
@@ -154,6 +208,34 @@ class CorridorPlanner {
         STOP,
     }
 
+    private data class PathCandidate(
+        val cell: Cell,
+        val length: Int,
+        val clearanceScore: Int,
+        val straightnessScore: Int,
+        val next: PathCandidate?,
+    ) {
+        fun isBetterThan(other: PathCandidate?): Boolean =
+            other == null ||
+                length > other.length ||
+                (length == other.length && clearanceScore > other.clearanceScore) ||
+                (
+                    length == other.length &&
+                        clearanceScore == other.clearanceScore &&
+                        straightnessScore > other.straightnessScore
+                    )
+
+        fun toCells(): List<Cell> {
+            val cells = ArrayList<Cell>(length)
+            var current: PathCandidate? = this
+            while (current != null) {
+                cells += current.cell
+                current = current.next
+            }
+            return cells
+        }
+    }
+
     private companion object {
         private const val GRID_SIZE = 15
         private const val NEAR_OBSTACLE_DEPTH = 0.86f
@@ -163,13 +245,5 @@ class CorridorPlanner {
         private const val TURN_OFFSET_CELLS = 3
         private const val IMMINENT_OBSTACLE_ROWS = 3
         private const val IMMINENT_OBSTACLE_HALF_WIDTH = 1
-
-        private val pathComparator = compareBy<List<Cell>> { it.size }
-            .thenByDescending { path -> straightnessScore(path) }
-
-        private fun straightnessScore(path: List<Cell>): Int {
-            val startCol = path.first().col
-            return -path.sumOf { abs(it.col - startCol) }
-        }
     }
 }

@@ -11,13 +11,17 @@ class CorridorPipeline(
         detections: List<YoloObstacleDetector.YoloDetection> = emptyList(),
         forceFeedback: Boolean = false,
     ): CorridorFrameResult =
-        process(gridFusion.fuse(depthMap, detections), forceFeedback)
+        process(
+            grid = gridFusion.fuse(depthMap, detections),
+            forceFeedback = forceFeedback,
+        )
 
     fun process(
         grid: CorridorPlanner.DepthGrid,
+        detections: List<YoloObstacleDetector.YoloDetection> = emptyList(),
         forceFeedback: Boolean = false,
     ): CorridorFrameResult {
-        val decision = planner.decide(grid)
+        val decision = planner.decide(gridFusion.fuse(grid, detections))
         return applyDecision(decision, forceFeedback)
     }
 

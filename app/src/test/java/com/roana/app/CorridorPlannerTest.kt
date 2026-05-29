@@ -43,6 +43,18 @@ class CorridorPlannerTest {
         assertEquals("path_found", decision.reason)
     }
 
+    @Test(timeout = 1_000)
+    fun choosesStraightQuicklyWhenEveryCellIsSafe() {
+        val grid = FloatArray(GRID_SIZE * GRID_SIZE) { 0.30f }
+
+        val decision = planner.decide(DepthGrid.square15(grid))
+
+        assertEquals(decision.toString(), CorridorCommand.STRAIGHT, decision.command)
+        assertEquals("path_found", decision.reason)
+        assertEquals(GRID_SIZE, decision.path.size)
+        assertTrue(decision.path.all { it.col == GRID_SIZE / 2 })
+    }
+
     @Test
     fun stopsForNearLowerHalfObstacle() {
         val grid = baseBlockedGrid()

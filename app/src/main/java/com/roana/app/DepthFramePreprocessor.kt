@@ -21,21 +21,24 @@ class DepthFramePreprocessor(
     fun toInputBuffer(frame: RgbFrame): ByteBuffer =
         fillInputBuffer(frame, newInputBuffer())
 
-    fun fillInputBuffer(frame: RgbFrame, output: ByteBuffer): ByteBuffer {
+    fun fillInputBuffer(frame: RgbFrame, output: ByteBuffer): ByteBuffer =
+        fillInputBuffer(frame.asSampler(), output)
+
+    fun fillInputBuffer(sampler: RgbSampler, output: ByteBuffer): ByteBuffer {
         require(output.capacity() == inputByteCount) {
             "Expected $inputByteCount-byte depth input buffer, got ${output.capacity()}"
         }
 
-        val cropSize = min(frame.width, frame.height).toFloat()
-        val xOffset = (frame.width - cropSize) / 2f
-        val yOffset = (frame.height - cropSize) / 2f
+        val cropSize = min(sampler.width, sampler.height).toFloat()
+        val xOffset = (sampler.width - cropSize) / 2f
+        val yOffset = (sampler.height - cropSize) / 2f
 
         output.clear()
         for (targetY in 0 until targetHeight) {
             val sourceY = yOffset + ((targetY + 0.5f) * cropSize / targetHeight) - 0.5f
             for (targetX in 0 until targetWidth) {
                 val sourceX = xOffset + ((targetX + 0.5f) * cropSize / targetWidth) - 0.5f
-                val color = sampleBilinear(frame, sourceX, sourceY)
+                val color = sampleBilinear(sampler, sourceX, sourceY)
                 output.putFloat(color.red)
                 output.putFloat(color.green)
                 output.putFloat(color.blue)
@@ -45,18 +48,18 @@ class DepthFramePreprocessor(
         return output
     }
 
-    private fun sampleBilinear(frame: RgbFrame, sourceX: Float, sourceY: Float): RgbFloat {
-        val left = floor(sourceX).toInt().coerceIn(0, frame.width - 1)
-        val top = floor(sourceY).toInt().coerceIn(0, frame.height - 1)
-        val right = (left + 1).coerceAtMost(frame.width - 1)
-        val bottom = (top + 1).coerceAtMost(frame.height - 1)
+    private fun sampleBilinear(sampler: RgbSampler, sourceX: Float, sourceY: Float): RgbFloat {
+        val left = floor(sourceX).toInt().coerceIn(0, sampler.width - 1)
+        val top = floor(sourceY).toInt().coerceIn(0, sampler.height - 1)
+        val right = (left + 1).coerceAtMost(sampler.width - 1)
+        val bottom = (top + 1).coerceAtMost(sampler.height - 1)
         val xWeight = (sourceX - left).coerceIn(0f, 1f)
         val yWeight = (sourceY - top).coerceIn(0f, 1f)
 
-        val topLeft = frame.rgbAt(left, top)
-        val topRight = frame.rgbAt(right, top)
-        val bottomLeft = frame.rgbAt(left, bottom)
-        val bottomRight = frame.rgbAt(right, bottom)
+        val topLeft = sampler.rgbAt(left, top)
+        val topRight = sampler.rgbAt(right, top)
+        val bottomLeft = sampler.rgbAt(left, bottom)
+        val bottomRight = sampler.rgbAt(right, bottom)
 
         return RgbFloat(
             red = bilinear(
@@ -111,6 +114,15 @@ class DepthFramePreprocessor(
             }
         }
 
+        fun asSampler(): RgbSampler =
+            object : RgbSampler {
+                override val width: Int = this@RgbFrame.width
+                override val height: Int = this@RgbFrame.height
+
+                override fun rgbAt(x: Int, y: Int): RgbFloat =
+                    this@RgbFrame.rgbAt(x, y)
+            }
+
         fun rgbAt(x: Int, y: Int): RgbFloat {
             val pixel = pixels[y * width + x]
             return RgbFloat(
@@ -126,6 +138,13 @@ class DepthFramePreprocessor(
         val green: Float,
         val blue: Float,
     )
+
+    interface RgbSampler {
+        val width: Int
+        val height: Int
+
+        fun rgbAt(x: Int, y: Int): RgbFloat
+    }
 
     companion object {
         const val DEPTH_INPUT_WIDTH = 518

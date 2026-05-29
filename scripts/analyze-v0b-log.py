@@ -14,9 +14,12 @@ TARGET_SOC_MARKERS = (
     "sm8650",
     "sm8750",
     "sm8850",
+    "mt6989",
+    "mt6991",
     "dimensity 9300",
     "dimensity 9400",
 )
+GUIDANCE_COMMANDS = frozenset({"LEFT", "STRAIGHT", "RIGHT"})
 
 
 def parse_bool(value: str) -> bool:
@@ -52,6 +55,13 @@ def first_regex(lines: list[str], required_text: str, pattern: str) -> str:
     return ""
 
 
+def line_fields(line: str) -> dict[str, str]:
+    return {
+        match.group(1): match.group(2)
+        for match in re.finditer(r"\b([A-Za-z_][A-Za-z0-9_]*)=([^ ]+)", line)
+    }
+
+
 def parse_log(log_path: Path, tail_sample_count: int) -> dict[str, object]:
     lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
 
@@ -84,16 +94,42 @@ def parse_log(log_path: Path, tail_sample_count: int) -> dict[str, object]:
             gap_count = int(gap_match.group(1))
 
     corridor_feedback = ""
+    normal_corridor_feedback = ""
+    safe_stop_feedback = ""
     for line in lines:
         if "corridor_feedback status=spoken" in line:
-            corridor_feedback = line
-            break
+            fields = line_fields(line)
+            if not corridor_feedback:
+                corridor_feedback = line
+            if (
+                fields.get("reason") == "low_confidence" and
+                fields.get("command") == "STOP" and
+                fields.get("message") == "stop"
+            ):
+                safe_stop_feedback = line
+            elif fields.get("command") in GUIDANCE_COMMANDS and not normal_corridor_feedback:
+                normal_corridor_feedback = line
+
+    safe_stop_proof = ""
+    for line in lines:
+        if "debug_safe_stop_proof enabled=true" in line:
+            fields = line_fields(line)
+            if (
+                fields.get("reason") == "low_confidence" and
+                fields.get("decision") == "STOP" and
+                fields.get("state") == "STOP"
+            ):
+                safe_stop_proof = line
+                break
 
     return {
         "fp16_htp": first_regex(lines, "qnn_capabilities", r"\bhtp_fp16=([^ ]+)"),
         "depth_elapsed_ms": depth_elapsed_ms,
         "depth_fps": fps_from_ms(depth_elapsed_ms),
         "corridor_feedback": corridor_feedback,
+        "normal_corridor_feedback": normal_corridor_feedback,
+        "safe_stop_proof": safe_stop_proof,
+        "safe_stop_feedback": safe_stop_feedback,
         "live_corridor_count": live_corridor_count,
         "frame_stats_count": len(frame_stats_lines),
         "gap_count": gap_count,
@@ -117,6 +153,7 @@ def add_main_missing(
     min_live_corridor_frames: int,
     min_frame_stats: int,
     require_corridor_feedback: bool,
+    require_safe_stop_proof: bool,
 ) -> None:
     if require_target_soc and not details["target_soc"]:
         missing.append("target_soc")
@@ -130,8 +167,12 @@ def add_main_missing(
         missing.append(f"frame_stats>={min_frame_stats}")
     if details["gap_count"] != 0:
         missing.append("no_frame_gaps")
-    if require_corridor_feedback and not details["corridor_feedback"]:
+    if require_corridor_feedback and not details["normal_corridor_feedback"]:
         missing.append("corridor_feedback_spoken")
+    if require_safe_stop_proof and not details["safe_stop_proof"]:
+        missing.append("debug_safe_stop_proof")
+    if require_safe_stop_proof and not details["safe_stop_feedback"]:
+        missing.append("safe_stop_feedback")
 
 
 def add_thermal_missing(
@@ -167,6 +208,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-live-corridor-frames", default=5, type=int)
     parser.add_argument("--min-frame-stats", default=5, type=int)
     parser.add_argument("--require-corridor-feedback", default="1")
+    parser.add_argument("--require-safe-stop-proof", default="0")
     parser.add_argument("--thermal-minutes-required", default=30, type=int)
     parser.add_argument("--thermal-status-before", default="")
     parser.add_argument("--thermal-status-after", default="")
@@ -195,6 +237,9 @@ def main() -> None:
         "depth_elapsed_ms": main_log["depth_elapsed_ms"],
         "depth_fps": main_log["depth_fps"],
         "corridor_feedback": main_log["corridor_feedback"],
+        "normal_corridor_feedback": main_log["normal_corridor_feedback"],
+        "safe_stop_proof": main_log["safe_stop_proof"],
+        "safe_stop_feedback": main_log["safe_stop_feedback"],
         "live_corridor_count": main_log["live_corridor_count"],
         "min_depth_fps": args.min_depth_fps,
         "max_depth_ms": max_depth_ms,
@@ -242,6 +287,7 @@ def main() -> None:
         min_live_corridor_frames=args.min_live_corridor_frames,
         min_frame_stats=args.min_frame_stats,
         require_corridor_feedback=parse_bool(args.require_corridor_feedback),
+        require_safe_stop_proof=parse_bool(args.require_safe_stop_proof),
     )
 
     thermal_missing: list[str] = []

@@ -1,7 +1,6 @@
 package com.roana.app
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageProxy
 import java.io.FileInputStream
@@ -70,12 +69,12 @@ class YoloObstacleDetector(
 
     fun detect(image: ImageProxy): YoloResult {
         val startedNs = System.nanoTime()
-        val bitmap = CameraFrameConverter.toBitmap(image, inputWidth, inputHeight)
-        try {
-            fillInput(bitmap)
-        } finally {
-            bitmap.recycle()
-        }
+        CameraFrameConverter.fillRgbInput(
+            image = image,
+            targetWidth = inputWidth,
+            targetHeight = inputHeight,
+            output = inputBuffer,
+        )
 
         outputTensors.forEach { it.buffer.rewind() }
         interpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputMap)
@@ -144,18 +143,6 @@ class YoloObstacleDetector(
             } ?: error("Missing boxes output for scores shape ${scores.shape.contentToString()}")
             ScaleOutput(boxes = boxes, scores = scores)
         }.sortedByDescending { it.scores.gridWidth }
-    }
-
-    private fun fillInput(bitmap: Bitmap) {
-        inputBuffer.rewind()
-        val pixels = IntArray(inputWidth * inputHeight)
-        bitmap.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
-        pixels.forEach { pixel ->
-            inputBuffer.put(((pixel shr 16) and BYTE_MASK).toByte())
-            inputBuffer.put(((pixel shr 8) and BYTE_MASK).toByte())
-            inputBuffer.put((pixel and BYTE_MASK).toByte())
-        }
-        inputBuffer.rewind()
     }
 
     private fun bestDetection(): YoloDetection? {

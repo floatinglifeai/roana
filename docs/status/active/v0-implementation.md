@@ -6,8 +6,8 @@ Updated: 2026-05-29.
 
 - Active objective: implement `docs/plan/v0-implementation-plan.md` via
   `intuitive-flow`.
-- Latest completed slice: live corridor fail-safe STOP is routed through the
-  shared state machine and feedback dispatcher.
+- Latest completed slice: V0b device gate now requires a debug safe-stop proof
+  that low-confidence uncertainty produces spoken STOP feedback.
 - Current V0b slice: Snapdragon 8 Gen 2+ device proof is pending hardware.
 - Proven locally:
   - `scripts/check-android-env.sh` passes host requirements.
@@ -81,6 +81,43 @@ Updated: 2026-05-29.
     through the same fail-safe STOP state-machine path used by planner tests, so
     missing frames or uncertain live geometry can produce STOP feedback instead
     of only writing a log line.
+  - The Depth Anything runner now reuses a preallocated input `ByteBuffer` for
+    live frame inference, removing one per-frame direct buffer allocation from
+    the CameraX -> depth path.
+  - Live Depth Anything RGB frame conversion now reads `YUV_420_888` camera
+    planes directly with rotation handling, avoiding the previous
+    YUV -> JPEG -> Bitmap -> RGB frame round trip in the V0b depth path.
+  - The live Depth Anything runner now feeds the preprocessor from a rotated YUV
+    sampler, avoiding the intermediate full-frame RGB `IntArray` allocation
+    before writing the model input tensor.
+  - The live Depth Anything runner now also builds the 15x15 corridor grid
+    directly from the TFLite output tensor, avoiding the intermediate 518x518
+    flattened depth-map allocation in the V0b live loop.
+  - Depth output aggregation now computes min/max and 15x15 cell sums in one
+    pass over the TFLite output tensor before normalizing the 225 grid cells.
+  - The live CameraX corridor loop now calls a grid-only Depth Anything
+    inference path, so it no longer allocates a flattened 518x518 depth map when
+    the next step only needs the 15x15 corridor grid.
+  - The live YOLO detector now fills its 640x640 UINT8 input tensor directly
+    from rotated CameraX `YUV_420_888` planes, removing the previous
+    YUV -> JPEG -> Bitmap -> `IntArray` path from the real-time analysis loop.
+  - YOLO inference failures now clear the last detection and route the live
+    corridor loop through the same `low_confidence` fail-safe STOP path, so a
+    stale detection cannot keep influencing depth/detection fusion after an
+    uncertain detector frame.
+  - The corridor planner now memoizes the best path from each 15x15 grid cell
+    and covers an all-safe-grid case, avoiding exponential DFS path enumeration
+    while preserving straight/left/right corridor decisions.
+  - A debug-gated safe-stop proof can force the same `low_confidence` fail-safe
+    path used by live depth errors and verify spoken `STOP` feedback. The V0b
+    analyzer now requires this proof separately from normal corridor feedback,
+    checks the log key/value fields for `low_confidence`, `STOP`, and
+    `message=stop`, and only treats LEFT/STRAIGHT/RIGHT spoken feedback as
+    guidance feedback, so a future target-phone run must prove both guidance
+    feedback and STOP-on-uncertainty behavior.
+  - The V0b target-device analyzer recognizes Snapdragon 8 Gen 2/3/Elite-class
+    markers and Dimensity 9300/9400 platform markers, while still rejecting
+    older MediaTek platforms in regression tests.
   - Current device: Xiaomi `2106118C` / `SM8350` (`lahaina`, Snapdragon 888).
     It is useful for fallback proof, but below the V0b Depth Anything
     performance target of Snapdragon 8 Gen 2+.

@@ -69,6 +69,7 @@ analyze_log() {
     --require-target-soc "$REQUIRE_TARGET_SOC"
     --require-fp16-htp "$REQUIRE_FP16_HTP"
     --require-corridor-feedback "1"
+    --require-safe-stop-proof "1"
     --thermal-minutes-required "$REQUIRE_THERMAL_MINUTES"
     --require-corridor-test "$REQUIRE_CORRIDOR_TEST"
     --corridor-test-result "$CORRIDOR_TEST_RESULT"
@@ -126,6 +127,7 @@ verify_output="$(
   REQUIRE_BACKEND=1 \
   REQUIRE_LIVE_CORRIDOR=1 \
   REQUIRE_CORRIDOR_FEEDBACK=1 \
+  REQUIRE_SAFE_STOP=1 \
   LOG_SECONDS="$LOG_SECONDS" \
   BUILD_FIRST="${BUILD_FIRST:-0}" \
   "$ROOT_DIR/scripts/verify-v0a-device.sh" 2>&1

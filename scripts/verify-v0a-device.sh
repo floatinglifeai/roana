@@ -15,10 +15,12 @@ REQUIRE_DEPTH_SMOKE="${REQUIRE_DEPTH_SMOKE:-0}"
 REQUIRE_DEPTH_PLAN="${REQUIRE_DEPTH_PLAN:-0}"
 REQUIRE_LIVE_CORRIDOR="${REQUIRE_LIVE_CORRIDOR:-0}"
 REQUIRE_CORRIDOR_FEEDBACK="${REQUIRE_CORRIDOR_FEEDBACK:-$REQUIRE_DEPTH_PLAN}"
+REQUIRE_SAFE_STOP="${REQUIRE_SAFE_STOP:-0}"
 DEBUG_PERSON_EXTRA="com.roana.app.extra.DEBUG_PERSON_DETECTION"
 DEBUG_DEPTH_EXTRA="com.roana.app.extra.DEBUG_DEPTH_SMOKE"
 DEBUG_DEPTH_PLAN_EXTRA="com.roana.app.extra.DEBUG_DEPTH_PLAN"
 DEBUG_LIVE_CORRIDOR_EXTRA="com.roana.app.extra.DEBUG_LIVE_CORRIDOR"
+DEBUG_SAFE_STOP_EXTRA="com.roana.app.extra.DEBUG_SAFE_STOP"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_PATH="$LOG_DIR/v0a-device-$TIMESTAMP.log"
 
@@ -116,6 +118,9 @@ fi
 if [ "$REQUIRE_LIVE_CORRIDOR" = "1" ]; then
   start_args+=(--ez "$DEBUG_LIVE_CORRIDOR_EXTRA" true)
 fi
+if [ "$REQUIRE_SAFE_STOP" = "1" ]; then
+  start_args+=(--ez "$DEBUG_SAFE_STOP_EXTRA" true)
+fi
 adb "${DEVICE_ARG[@]}" shell am start "${start_args[@]}" >/dev/null
 
 set +e
@@ -170,6 +175,12 @@ fi
 if [ "$REQUIRE_CORRIDOR_FEEDBACK" = "1" ]; then
   grep -q "corridor_feedback status=spoken" "$LOG_PATH" || missing+=("corridor_feedback_spoken")
   grep -q "id=roana-corridor-" "$LOG_PATH" || missing+=("corridor_feedback_utterance")
+fi
+if [ "$REQUIRE_SAFE_STOP" = "1" ]; then
+  grep -q "debug_safe_stop_proof enabled=true reason=low_confidence decision=STOP state=STOP" "$LOG_PATH" ||
+    missing+=("debug_safe_stop_proof")
+  grep -q "corridor_feedback status=spoken .*command=STOP .*message=stop reason=low_confidence" "$LOG_PATH" ||
+    missing+=("safe_stop_feedback")
 fi
 
 if [ "${#missing[@]}" -gt 0 ]; then

@@ -110,6 +110,45 @@ class DepthFramePreprocessorTest {
         assertArrayEquals(floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f), depthMap.values, FLOAT_TOLERANCE)
     }
 
+    @Test
+    fun convertsDepthAnythingOutputDirectlyToPlannerGrid() {
+        val output = arrayOf(
+            arrayOf(
+                arrayOf(floatArrayOf(0.1f), floatArrayOf(0.2f)),
+                arrayOf(floatArrayOf(0.3f), floatArrayOf(0.4f)),
+            ),
+        )
+
+        val grid = DepthAnythingTensor.outputToPlannerGrid(output)
+
+        assertEquals(15, grid.rows)
+        assertEquals(15, grid.cols)
+        assertArrayEquals(
+            DepthAnythingTensor.flattenOutput(output).toPlannerGrid().toFloatArray(),
+            grid.toFloatArray(),
+            FLOAT_TOLERANCE,
+        )
+    }
+
+    @Test
+    fun optimizedDepthOutputToPlannerGridMatchesFlattenedGridForLargeOutput() {
+        val output = arrayOf(
+            Array(30) { row ->
+                Array(30) { col ->
+                    floatArrayOf((row * 30 + col).toFloat())
+                }
+            },
+        )
+
+        val grid = DepthAnythingTensor.outputToPlannerGrid(output)
+
+        assertArrayEquals(
+            DepthAnythingTensor.flattenOutput(output).toPlannerGrid().toFloatArray(),
+            grid.toFloatArray(),
+            FLOAT_TOLERANCE,
+        )
+    }
+
     private fun rgb(red: Int, green: Int, blue: Int): Int =
         (red shl 16) or (green shl 8) or blue
 

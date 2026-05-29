@@ -34,9 +34,9 @@ class DepthAnythingSmoke(private val context: Context) {
         val startedNs = System.nanoTime()
         val result = runner.infer(syntheticCorridorFrame())
         val pipeline = CorridorPipeline()
-        var corridorResult = pipeline.process(result.depthMap)
+        var corridorResult = pipeline.process(result.depthGrid)
         repeat(2) {
-            corridorResult = pipeline.process(result.depthMap)
+            corridorResult = pipeline.process(result.depthGrid)
         }
         val elapsedMs = (System.nanoTime() - startedNs).toDouble() / NS_PER_MS
         Log.i(

@@ -22,6 +22,7 @@ class DepthAnythingRunner(
     private val interpreter = createInterpreterWithFallback()
     private val inputTensor = interpreter.getInputTensor(0)
     private val outputTensor = interpreter.getOutputTensor(0)
+    private val inputBuffer = preprocessor.newInputBuffer()
     private val output = DepthAnythingTensor.newOutputArray()
 
     val backendName: String
@@ -45,9 +46,39 @@ class DepthAnythingRunner(
     }
 
     fun infer(frame: DepthFramePreprocessor.RgbFrame): DepthResult =
-        infer(preprocessor.toInputBuffer(frame))
+        infer(frame.asSampler())
 
-    fun infer(inputBuffer: ByteBuffer): DepthResult {
+    fun infer(sampler: DepthFramePreprocessor.RgbSampler): DepthResult =
+        infer(preprocessor.fillInputBuffer(sampler, inputBuffer), includeDepthMap = true)
+
+    fun inferGrid(sampler: DepthFramePreprocessor.RgbSampler): DepthGridResult =
+        inferGrid(preprocessor.fillInputBuffer(sampler, inputBuffer))
+
+    fun inferGrid(inputBuffer: ByteBuffer): DepthGridResult =
+        runInterpreter(inputBuffer).let { inferenceMs ->
+            DepthGridResult(
+                depthGrid = DepthAnythingTensor.outputToPlannerGrid(output),
+                inferenceMs = inferenceMs,
+            )
+        }
+
+    fun infer(inputBuffer: ByteBuffer): DepthResult =
+        infer(inputBuffer, includeDepthMap = true)
+
+    private fun infer(
+        inputBuffer: ByteBuffer,
+        includeDepthMap: Boolean,
+    ): DepthResult {
+        val inferenceMs = runInterpreter(inputBuffer)
+        val depthMap = if (includeDepthMap) DepthAnythingTensor.flattenOutput(output) else null
+        return DepthResult(
+            depthMap = depthMap,
+            depthGrid = DepthAnythingTensor.outputToPlannerGrid(output),
+            inferenceMs = inferenceMs,
+        )
+    }
+
+    private fun runInterpreter(inputBuffer: ByteBuffer): Double {
         require(inputBuffer.capacity() == preprocessor.inputByteCount) {
             "Expected ${preprocessor.inputByteCount}-byte depth input buffer, got ${inputBuffer.capacity()}"
         }
@@ -55,11 +86,7 @@ class DepthAnythingRunner(
         val startedNs = System.nanoTime()
         inputBuffer.rewind()
         interpreter.run(inputBuffer, output)
-        val inferenceMs = (System.nanoTime() - startedNs).toDouble() / NS_PER_MS
-        return DepthResult(
-            depthMap = DepthAnythingTensor.flattenOutput(output),
-            inferenceMs = inferenceMs,
-        )
+        return (System.nanoTime() - startedNs).toDouble() / NS_PER_MS
     }
 
     override fun close() {
@@ -90,7 +117,13 @@ class DepthAnythingRunner(
         }
 
     data class DepthResult(
-        val depthMap: DepthAnythingTensor.DepthMap,
+        val depthMap: DepthAnythingTensor.DepthMap?,
+        val depthGrid: CorridorPlanner.DepthGrid,
+        val inferenceMs: Double,
+    )
+
+    data class DepthGridResult(
+        val depthGrid: CorridorPlanner.DepthGrid,
         val inferenceMs: Double,
     )
 
