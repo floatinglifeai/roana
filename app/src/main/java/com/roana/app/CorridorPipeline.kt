@@ -18,6 +18,25 @@ class CorridorPipeline(
         forceFeedback: Boolean = false,
     ): CorridorFrameResult {
         val decision = planner.decide(grid)
+        return applyDecision(decision, forceFeedback)
+    }
+
+    fun failSafeStop(
+        reason: String,
+        forceFeedback: Boolean = false,
+    ): CorridorFrameResult {
+        val decision = CorridorPlanner.CorridorDecision(
+            command = CorridorPlanner.CorridorCommand.STOP,
+            path = emptyList(),
+            reason = reason,
+        )
+        return applyDecision(decision, forceFeedback)
+    }
+
+    private fun applyDecision(
+        decision: CorridorPlanner.CorridorDecision,
+        forceFeedback: Boolean,
+    ): CorridorFrameResult {
         val state = stateMachine.update(decision)
         return CorridorFrameResult(
             decision = decision,

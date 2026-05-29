@@ -4,7 +4,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_SECONDS="${LOG_SECONDS:-90}"
 MIN_DEPTH_FPS="${MIN_DEPTH_FPS:-10}"
-MAX_DEPTH_MS="$(awk -v fps="$MIN_DEPTH_FPS" 'BEGIN { printf "%.2f", 1000 / fps }')"
 REQUIRE_TARGET_SOC="${REQUIRE_TARGET_SOC:-1}"
 REQUIRE_FP16_HTP="${REQUIRE_FP16_HTP:-1}"
 REQUIRE_THERMAL_MINUTES="${REQUIRE_THERMAL_MINUTES:-30}"
@@ -38,38 +37,6 @@ JSON
   cat "$RESULT_PATH"
 }
 
-mean_depth_ms() {
-  local log_path="$1"
-  grep "corridor_live status=ok" "$log_path" | sed -n 's/.*depth_ms=\([0-9.]*\).*/\1/p' | awk '
-    { sum += $1; count += 1 }
-    END { if (count > 0) printf "%.2f", sum / count }
-  '
-}
-
-tail_mean_depth_ms() {
-  local log_path="$1"
-  local sample_count="$2"
-  grep "corridor_live status=ok" "$log_path" |
-    tail -n "$sample_count" |
-    sed -n 's/.*depth_ms=\([0-9.]*\).*/\1/p' |
-    awk '
-      { sum += $1; count += 1 }
-      END { if (count > 0) printf "%.2f", sum / count }
-    '
-}
-
-fps_from_ms() {
-  local elapsed_ms="$1"
-  awk -v ms="${elapsed_ms:-0}" 'BEGIN { if (ms > 0) printf "%.3f", 1000 / ms; else printf "0" }'
-}
-
-last_gap_count() {
-  local log_path="$1"
-  local value
-  value="$(grep "frame_stats" "$log_path" | tail -1 | sed -n 's/.*gap_count=\([0-9]*\).*/\1/p')"
-  printf '%s' "${value:-0}"
-}
-
 thermal_status() {
   adb "${DEVICE_ARG[@]}" shell dumpsys thermalservice 2>/dev/null |
     tr -d '\r' |
@@ -86,6 +53,49 @@ thermal_status() {
       }
     ' |
     tr '\n' ' '
+}
+
+analyze_log() {
+  local log_path="$1"
+  local thermal_log_path="${2:-}"
+  local args=(
+    "$ROOT_DIR/scripts/analyze-v0b-log.py"
+    --log "$log_path"
+    --model "$model"
+    --soc-model "$soc_model"
+    --board-platform "$board_platform"
+    --abis "$abis"
+    --min-depth-fps "$MIN_DEPTH_FPS"
+    --require-target-soc "$REQUIRE_TARGET_SOC"
+    --require-fp16-htp "$REQUIRE_FP16_HTP"
+    --require-corridor-feedback "1"
+    --thermal-minutes-required "$REQUIRE_THERMAL_MINUTES"
+    --require-corridor-test "$REQUIRE_CORRIDOR_TEST"
+    --corridor-test-result "$CORRIDOR_TEST_RESULT"
+    --corridor-test-notes "$CORRIDOR_TEST_NOTES"
+  )
+  if [ -n "$thermal_log_path" ]; then
+    args+=(
+      --thermal-log "$thermal_log_path"
+      --thermal-status-before "$thermal_status_before"
+      --thermal-status-after "$thermal_status_after"
+    )
+  fi
+  "${args[@]}"
+}
+
+analysis_details() {
+  printf '%s' "$1" | python3 -c 'import json, sys; print(json.dumps(json.load(sys.stdin)["details"]))'
+}
+
+analysis_list_count() {
+  local key="$1"
+  printf '%s' "$2" | python3 -c 'import json, sys; print(len(json.load(sys.stdin)[sys.argv[1]]))' "$key"
+}
+
+analysis_list_text() {
+  local key="$1"
+  printf '%s' "$2" | python3 -c 'import json, sys; print(" ".join(json.load(sys.stdin)[sys.argv[1]]))' "$key"
 }
 
 if ! command -v adb >/dev/null 2>&1; then
@@ -110,13 +120,6 @@ model="$(adb "${DEVICE_ARG[@]}" shell getprop ro.product.model | tr -d '\r')"
 soc_model="$(adb "${DEVICE_ARG[@]}" shell getprop ro.soc.model | tr -d '\r')"
 board_platform="$(adb "${DEVICE_ARG[@]}" shell getprop ro.board.platform | tr -d '\r')"
 abis="$(adb "${DEVICE_ARG[@]}" shell getprop ro.product.cpu.abilist | tr -d '\r')"
-
-target_soc=0
-case "${soc_model,,} ${board_platform,,}" in
-  *"sm8550"*|*"sm8650"*|*"sm8750"*|*"sm8850"*|*"dimensity 9300"*|*"dimensity 9400"*)
-    target_soc=1
-    ;;
-esac
 
 set +e
 verify_output="$(
@@ -143,81 +146,17 @@ if [ ! -f "$log_path" ]; then
   exit 1
 fi
 
-fp16_htp="$(grep -m1 "qnn_capabilities" "$log_path" | sed -n 's/.*htp_fp16=\([^ ]*\).*/\1/p')"
-depth_elapsed_ms="$(mean_depth_ms "$log_path")"
-if [ -z "$depth_elapsed_ms" ]; then
-  depth_elapsed_ms="$(grep -m1 "depth_plan status=ok" "$log_path" | sed -n 's/.*elapsed_ms=\([0-9.]*\).*/\1/p')"
-fi
-corridor_feedback="$(grep -m1 "corridor_feedback status=spoken" "$log_path" || true)"
-live_corridor_count="$(grep -c "corridor_live status=ok" "$log_path" || true)"
-depth_fps="$(fps_from_ms "$depth_elapsed_ms")"
-frame_stats_count="$(grep -c "frame_stats" "$log_path" || true)"
-gap_count="$(last_gap_count "$log_path")"
+analysis_json="$(analyze_log "$log_path")"
+details="$(analysis_details "$analysis_json")"
+missing_count="$(analysis_list_count "missing" "$analysis_json")"
+missing_text="$(analysis_list_text "missing" "$analysis_json")"
 thermal_gate_run=false
 thermal_log_path=""
 thermal_status_before=""
 thermal_status_after=""
-thermal_live_corridor_count=0
-thermal_depth_elapsed_ms=0
-thermal_depth_fps=0
-thermal_tail_depth_elapsed_ms=0
-thermal_tail_depth_fps=0
-thermal_frame_stats_count=0
-thermal_gap_count=0
 
-missing=()
-if [ "$REQUIRE_TARGET_SOC" = "1" ] && [ "$target_soc" -ne 1 ]; then
-  missing+=("target_soc")
-fi
-if [ "$REQUIRE_FP16_HTP" = "1" ] && [ "$fp16_htp" != "true" ]; then
-  missing+=("fp16_htp")
-fi
-awk -v actual="${depth_elapsed_ms:-999999}" -v max="$MAX_DEPTH_MS" 'BEGIN { exit actual <= max ? 0 : 1 }' ||
-  missing+=("depth_fps>=${MIN_DEPTH_FPS}")
-[ "$live_corridor_count" -ge 5 ] || missing+=("corridor_live_frames>=5")
-[ "$frame_stats_count" -ge 5 ] || missing+=("frame_stats>=5")
-[ "$gap_count" -eq 0 ] || missing+=("no_frame_gaps")
-
-details="$(CORRIDOR_TEST_RESULT="$CORRIDOR_TEST_RESULT" CORRIDOR_TEST_NOTES="$CORRIDOR_TEST_NOTES" python3 - <<PY
-import json
-import os
-print(json.dumps({
-    "model": "$model",
-    "soc_model": "$soc_model",
-    "board_platform": "$board_platform",
-    "abis": "$abis",
-    "target_soc": bool($target_soc),
-    "fp16_htp": "$fp16_htp",
-    "depth_elapsed_ms": float("${depth_elapsed_ms:-0}"),
-    "depth_fps": float("$depth_fps"),
-    "corridor_feedback": "$corridor_feedback",
-    "live_corridor_count": int("$live_corridor_count"),
-    "min_depth_fps": float("$MIN_DEPTH_FPS"),
-    "max_depth_ms": float("$MAX_DEPTH_MS"),
-    "frame_stats_count": int("$frame_stats_count"),
-    "gap_count": int("$gap_count"),
-    "thermal_minutes_required": int("$REQUIRE_THERMAL_MINUTES"),
-    "thermal_gate_run": "$thermal_gate_run" == "true",
-    "thermal_log_path": "$thermal_log_path",
-    "thermal_status_before": os.environ.get("THERMAL_STATUS_BEFORE", ""),
-    "thermal_status_after": os.environ.get("THERMAL_STATUS_AFTER", ""),
-    "thermal_live_corridor_count": int("$thermal_live_corridor_count"),
-    "thermal_depth_elapsed_ms": float("$thermal_depth_elapsed_ms"),
-    "thermal_depth_fps": float("$thermal_depth_fps"),
-    "thermal_tail_depth_elapsed_ms": float("$thermal_tail_depth_elapsed_ms"),
-    "thermal_tail_depth_fps": float("$thermal_tail_depth_fps"),
-    "thermal_frame_stats_count": int("$thermal_frame_stats_count"),
-    "thermal_gap_count": int("$thermal_gap_count"),
-    "corridor_test_required": "$REQUIRE_CORRIDOR_TEST" == "1",
-    "corridor_test_result": os.environ.get("CORRIDOR_TEST_RESULT", ""),
-    "corridor_test_notes": os.environ.get("CORRIDOR_TEST_NOTES", ""),
-    "log_path": "$log_path",
-}))
-PY
-)"
-
-if [ "${#missing[@]}" -gt 0 ]; then
-  json_result "failed" "$log_path" "V0b gate failed: ${missing[*]}." "$details"
+if [ "$missing_count" -gt 0 ]; then
+  json_result "failed" "$log_path" "V0b gate failed: $missing_text." "$details"
   exit 1
 fi
 
@@ -257,108 +196,18 @@ if [ "$REQUIRE_THERMAL_MINUTES" -gt 0 ]; then
     exit 1
   fi
 
-  thermal_live_corridor_count="$(grep -c "corridor_live status=ok" "$thermal_log_path" || true)"
-  thermal_depth_elapsed_ms="$(mean_depth_ms "$thermal_log_path")"
-  thermal_depth_fps="$(fps_from_ms "$thermal_depth_elapsed_ms")"
-  thermal_tail_depth_elapsed_ms="$(tail_mean_depth_ms "$thermal_log_path" 20)"
-  thermal_tail_depth_fps="$(fps_from_ms "$thermal_tail_depth_elapsed_ms")"
-  thermal_frame_stats_count="$(grep -c "frame_stats" "$thermal_log_path" || true)"
-  thermal_gap_count="$(last_gap_count "$thermal_log_path")"
-  thermal_gate_run=true
+  analysis_json="$(analyze_log "$log_path" "$thermal_log_path")"
+  details="$(analysis_details "$analysis_json")"
+  thermal_missing_count="$(analysis_list_count "thermal_missing" "$analysis_json")"
+  thermal_missing_text="$(analysis_list_text "thermal_missing" "$analysis_json")"
 
-  thermal_missing=()
-  [ "$thermal_live_corridor_count" -ge "$((REQUIRE_THERMAL_MINUTES * 60))" ] ||
-    thermal_missing+=("thermal_corridor_live_frames")
-  awk -v actual="${thermal_depth_elapsed_ms:-999999}" -v max="$MAX_DEPTH_MS" 'BEGIN { exit actual <= max ? 0 : 1 }' ||
-    thermal_missing+=("thermal_avg_depth_fps>=${MIN_DEPTH_FPS}")
-  awk -v actual="${thermal_tail_depth_elapsed_ms:-999999}" -v max="$MAX_DEPTH_MS" 'BEGIN { exit actual <= max ? 0 : 1 }' ||
-    thermal_missing+=("thermal_tail_depth_fps>=${MIN_DEPTH_FPS}")
-  [ "$thermal_frame_stats_count" -ge "$REQUIRE_THERMAL_MINUTES" ] ||
-    thermal_missing+=("thermal_frame_stats")
-  [ "$thermal_gap_count" -eq 0 ] || thermal_missing+=("thermal_no_frame_gaps")
-
-  details="$(CORRIDOR_TEST_RESULT="$CORRIDOR_TEST_RESULT" CORRIDOR_TEST_NOTES="$CORRIDOR_TEST_NOTES" THERMAL_STATUS_BEFORE="$thermal_status_before" THERMAL_STATUS_AFTER="$thermal_status_after" python3 - <<PY
-import json
-import os
-print(json.dumps({
-    "model": "$model",
-    "soc_model": "$soc_model",
-    "board_platform": "$board_platform",
-    "abis": "$abis",
-    "target_soc": bool($target_soc),
-    "fp16_htp": "$fp16_htp",
-    "depth_elapsed_ms": float("${depth_elapsed_ms:-0}"),
-    "depth_fps": float("$depth_fps"),
-    "corridor_feedback": "$corridor_feedback",
-    "live_corridor_count": int("$live_corridor_count"),
-    "min_depth_fps": float("$MIN_DEPTH_FPS"),
-    "max_depth_ms": float("$MAX_DEPTH_MS"),
-    "frame_stats_count": int("$frame_stats_count"),
-    "gap_count": int("$gap_count"),
-    "thermal_minutes_required": int("$REQUIRE_THERMAL_MINUTES"),
-    "thermal_gate_run": "$thermal_gate_run" == "true",
-    "thermal_log_path": "$thermal_log_path",
-    "thermal_status_before": os.environ.get("THERMAL_STATUS_BEFORE", ""),
-    "thermal_status_after": os.environ.get("THERMAL_STATUS_AFTER", ""),
-    "thermal_live_corridor_count": int("$thermal_live_corridor_count"),
-    "thermal_depth_elapsed_ms": float("${thermal_depth_elapsed_ms:-0}"),
-    "thermal_depth_fps": float("$thermal_depth_fps"),
-    "thermal_tail_depth_elapsed_ms": float("${thermal_tail_depth_elapsed_ms:-0}"),
-    "thermal_tail_depth_fps": float("$thermal_tail_depth_fps"),
-    "thermal_frame_stats_count": int("$thermal_frame_stats_count"),
-    "thermal_gap_count": int("$thermal_gap_count"),
-    "corridor_test_required": "$REQUIRE_CORRIDOR_TEST" == "1",
-    "corridor_test_result": os.environ.get("CORRIDOR_TEST_RESULT", ""),
-    "corridor_test_notes": os.environ.get("CORRIDOR_TEST_NOTES", ""),
-    "log_path": "$log_path",
-}))
-PY
-)"
-
-  if [ "${#thermal_missing[@]}" -gt 0 ]; then
-    json_result "failed" "$thermal_log_path" "Thermal corridor gate failed: ${thermal_missing[*]}." "$details"
+  if [ "$thermal_missing_count" -gt 0 ]; then
+    json_result "failed" "$thermal_log_path" "Thermal corridor gate failed: $thermal_missing_text." "$details"
     exit 1
   fi
 fi
 
 if [ "$REQUIRE_CORRIDOR_TEST" = "1" ] && [ "$CORRIDOR_TEST_RESULT" != "passed" ]; then
-  details="$(CORRIDOR_TEST_RESULT="$CORRIDOR_TEST_RESULT" CORRIDOR_TEST_NOTES="$CORRIDOR_TEST_NOTES" THERMAL_STATUS_BEFORE="$thermal_status_before" THERMAL_STATUS_AFTER="$thermal_status_after" python3 - <<PY
-import json
-import os
-print(json.dumps({
-    "model": "$model",
-    "soc_model": "$soc_model",
-    "board_platform": "$board_platform",
-    "abis": "$abis",
-    "target_soc": bool($target_soc),
-    "fp16_htp": "$fp16_htp",
-    "depth_elapsed_ms": float("${depth_elapsed_ms:-0}"),
-    "depth_fps": float("$depth_fps"),
-    "corridor_feedback": "$corridor_feedback",
-    "live_corridor_count": int("$live_corridor_count"),
-    "min_depth_fps": float("$MIN_DEPTH_FPS"),
-    "max_depth_ms": float("$MAX_DEPTH_MS"),
-    "frame_stats_count": int("$frame_stats_count"),
-    "gap_count": int("$gap_count"),
-    "thermal_minutes_required": int("$REQUIRE_THERMAL_MINUTES"),
-    "thermal_gate_run": "$thermal_gate_run" == "true",
-    "thermal_log_path": "$thermal_log_path",
-    "thermal_status_before": os.environ.get("THERMAL_STATUS_BEFORE", ""),
-    "thermal_status_after": os.environ.get("THERMAL_STATUS_AFTER", ""),
-    "thermal_live_corridor_count": int("$thermal_live_corridor_count"),
-    "thermal_depth_elapsed_ms": float("${thermal_depth_elapsed_ms:-0}"),
-    "thermal_depth_fps": float("$thermal_depth_fps"),
-    "thermal_tail_depth_elapsed_ms": float("${thermal_tail_depth_elapsed_ms:-0}"),
-    "thermal_tail_depth_fps": float("$thermal_tail_depth_fps"),
-    "thermal_frame_stats_count": int("$thermal_frame_stats_count"),
-    "thermal_gap_count": int("$thermal_gap_count"),
-    "corridor_test_required": True,
-    "corridor_test_result": os.environ.get("CORRIDOR_TEST_RESULT", ""),
-    "corridor_test_notes": os.environ.get("CORRIDOR_TEST_NOTES", ""),
-    "log_path": "$log_path",
-}))
-PY
-)"
   json_result "blocked" "$log_path" "Machine gates passed, but known-corridor blindfold test evidence is still required. Set CORRIDOR_TEST_RESULT=passed after a sighted-spotter run." "$details"
   exit 2
 fi

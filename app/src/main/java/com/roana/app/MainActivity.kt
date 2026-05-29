@@ -391,6 +391,7 @@ class MainActivity : ComponentActivity() {
                             TAG,
                             "camera_frame_gap gap_ms=$cameraGapMs total_gaps=$gapCount",
                         )
+                        stopCorridorForSafety(REASON_FRAME_LOSS)
                     }
                 }
                 lastCameraTimestampNs = cameraTimestampNs
@@ -480,8 +481,28 @@ class MainActivity : ComponentActivity() {
                 )
                 onCorridorState(corridorResult.state)
             } catch (error: Exception) {
-                Log.e(TAG, "corridor_live status=failed", error)
+                val stopResult = pipeline.failSafeStop(REASON_LOW_CONFIDENCE)
+                lastCorridorCommand = stopResult.state.command
+                Log.e(
+                    TAG,
+                    "corridor_live status=failed reason=$REASON_LOW_CONFIDENCE " +
+                        "state=${stopResult.state.command}",
+                    error,
+                )
+                onCorridorState(stopResult.state)
             }
+        }
+
+        private fun stopCorridorForSafety(reason: String) {
+            val pipeline = corridorPipeline ?: return
+            val stopResult = pipeline.failSafeStop(reason)
+            lastCorridorCommand = stopResult.state.command
+            Log.w(
+                TAG,
+                "corridor_live status=safe_stop reason=$reason " +
+                    "state=${stopResult.state.command} changed=${stopResult.state.changed}",
+            )
+            onCorridorState(stopResult.state)
         }
     }
 
@@ -515,5 +536,7 @@ class MainActivity : ComponentActivity() {
         private const val DEPTH_FRAME_INTERVAL = 1L
         private const val FRAME_GAP_WARNING_MS = 150L
         private const val NS_PER_MS = 1_000_000L
+        private const val REASON_FRAME_LOSS = "frame_loss"
+        private const val REASON_LOW_CONFIDENCE = "low_confidence"
     }
 }

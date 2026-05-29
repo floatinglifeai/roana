@@ -6,7 +6,8 @@ Updated: 2026-05-29.
 
 - Active objective: implement `docs/plan/v0-implementation-plan.md` via
   `intuitive-flow`.
-- Latest completed slice: V0b known-corridor test evidence gate.
+- Latest completed slice: live corridor fail-safe STOP is routed through the
+  shared state machine and feedback dispatcher.
 - Current V0b slice: Snapdragon 8 Gen 2+ device proof is pending hardware.
 - Proven locally:
   - `scripts/check-android-env.sh` passes host requirements.
@@ -67,6 +68,19 @@ Updated: 2026-05-29.
   - The same verifier now requires explicit known-corridor blindfold test
     evidence before it can return `passed`; use `CORRIDOR_TEST_RESULT=passed`
     after a sighted-spotter run.
+  - V0 privacy/product boundaries are covered by local tests: the manifest may
+    request only camera permission, backup stays disabled, source code is
+    checked for common network or frame-storage APIs, and out-of-scope crosswalk,
+    identity, cloud, and VLM features are blocked by regression tokens.
+  - V0b log-gate parsing is now centralized in `scripts/analyze-v0b-log.py` and
+    covered by offline regression tests. The device verifier still owns ADB and
+    thermal orchestration, but local tests can now exercise target-SoC, FP16
+    HTP, depth FPS, live corridor frame-count, corridor feedback, frame-gap, and
+    thermal-log decisions without requiring a phone.
+  - Live corridor safety now routes CameraX frame gaps and live depth failures
+    through the same fail-safe STOP state-machine path used by planner tests, so
+    missing frames or uncertain live geometry can produce STOP feedback instead
+    of only writing a log line.
   - Current device: Xiaomi `2106118C` / `SM8350` (`lahaina`, Snapdragon 888).
     It is useful for fallback proof, but below the V0b Depth Anything
     performance target of Snapdragon 8 Gen 2+.
