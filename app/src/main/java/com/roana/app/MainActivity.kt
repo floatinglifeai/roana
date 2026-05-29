@@ -353,13 +353,15 @@ class MainActivity : ComponentActivity() {
         debugQnnSmokeStarted = true
         val runYolo = intent.getBooleanExtra(EXTRA_DEBUG_QNN_YOLO_SMOKE, false)
         val runDepth = intent.getBooleanExtra(EXTRA_DEBUG_QNN_DEPTH_SMOKE, false)
+        val qnnVariant = QnnVariant.fromId(intent.getStringExtra(EXTRA_DEBUG_QNN_VARIANT))
         Thread {
             val smoke = QnnModelSmoke(this)
+            Log.i(TAG, "qnn_model_smoke_matrix variant=${qnnVariant.id} yolo=$runYolo depth=$runDepth")
             if (runYolo) {
-                smoke.runYolo()
+                smoke.runYolo(qnnVariant)
             }
             if (runDepth) {
-                smoke.runDepth()
+                smoke.runDepth(qnnVariant)
             }
         }.apply {
             name = "RoanaQnnModelSmoke"
@@ -596,6 +598,8 @@ class MainActivity : ComponentActivity() {
             "com.roana.app.extra.DEBUG_QNN_YOLO_SMOKE"
         private const val EXTRA_DEBUG_QNN_DEPTH_SMOKE =
             "com.roana.app.extra.DEBUG_QNN_DEPTH_SMOKE"
+        private const val EXTRA_DEBUG_QNN_VARIANT =
+            "com.roana.app.extra.DEBUG_QNN_VARIANT"
         private const val EXTRA_DEBUG_SAFE_STOP =
             "com.roana.app.extra.DEBUG_SAFE_STOP"
         private const val LOG_INTERVAL_MS = 1_000L

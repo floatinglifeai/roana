@@ -166,6 +166,18 @@ Updated: 2026-05-30.
     `logs/qnn-smoke-20260529T155527Z.log` returns
     `QNN DSP transport/skeleton setup failed before model-specific offload:
     yolo depth`.
+  - New true-device QNN package/layout probe:
+    `logs/qnn-probe-20260529T235359Z.log`. It confirms the APK and installed
+    native library directory contain `libQnnHtp.so`, `libQnnHtpPrepare.so`,
+    the HTP V68/V69/V73/V75/V79/V81 skel/stub libraries, `libQnnSystem.so`,
+    and `libQnnTFLiteDelegate.so`; camera permission is granted and GPU debug
+    layers are off. The failure is now narrower than a missing packaged skel:
+    QNN opens the app-packaged `libQnnHtpV73Stub.so`, but that stub cannot
+    resolve `libcdsprpc.so` inside the app linker namespace, even though the
+    device exposes `/vendor/lib64/libcdsprpc.so`. Explicit QNN library/skel
+    paths do not change the failure; the probe now returns
+    `QNN HTP stub is present, but libcdsprpc.so is not visible in the app
+    linker namespace`.
 
 ## Stop Condition
 
@@ -175,23 +187,24 @@ downsampling plus YOLO detection fusion into the 15x15 planner, a reusable
 corridor pipeline, and a pure-Kotlin 3-frame command confirmation state
 machine. A debug-gated live CameraX -> Depth Anything -> corridor pipeline path
 exists, but the current target-class Snapdragon 8 Gen 2 phone fails QNN DSP
-transport/skeleton setup before model-specific delegate compatibility can be
-evaluated, then falls back to CPU. Emergency STOP behavior for near obstacles,
-frame loss, and low confidence is covered in unit tests. The full V0b corridor
-demo is not proven on this device because QNN HTP is not operational yet,
-despite device HTP quantized/fp16 capability being reported as available.
+transport setup because the app-packaged HTP stub cannot see `libcdsprpc.so` in
+the app linker namespace, then falls back to CPU. Model-specific delegate
+compatibility still cannot be evaluated. Emergency STOP behavior for near
+obstacles, frame loss, and low confidence is covered in unit tests. The full V0b
+corridor demo is not proven on this device because QNN HTP is not operational
+yet, despite device HTP quantized/fp16 capability being reported as available.
 
 ## Next Agent-Owned Step
 
-Use `scripts/verify-qnn-smoke-device.sh` as the next machine gate while
-diagnosing QNN compatibility. The next agent-owned step is to determine whether
-the QNN DSP transport/skeleton failure is caused by packaging/signing of HTP
-skel/stub libraries, unsigned PD requirements, dependency/version mismatch, or
-QNN delegate option setup. The research follow-up order is: package/layout
-audit, QNN delegate-option spike, LiteRT Next `CompiledModel` spike, Qualcomm AI
-Hub context-binary spike, then ONNX Runtime QNN cross-check if needed. Only
-after transport succeeds should model export/operator support, tensor layout,
-and quantization format be treated as the primary suspects. Do not add a
+Use `scripts/probe-qnn-device.sh` and `scripts/verify-qnn-smoke-device.sh` as
+the next machine gates while diagnosing QNN compatibility. The next
+agent-owned step is to test whether `libcdsprpc.so` can be made visible to the
+QNN HTP stub without changing model export: first inspect whether Qualcomm's
+Android packaging expects an app-bundled FastRPC dependency or a public vendor
+namespace entry, then use a narrow app-side load/linker probe or a cross-runtime
+LiteRT Next / ONNX Runtime QNN diagnostic to compare the failure. Only after
+transport succeeds should model export/operator support, tensor layout, and
+quantization format be treated as the primary suspects. Do not add a
 lower-performance CPU fallback profile before that root cause is known. After
 QNN accepts both models, rerun `scripts/verify-v0b-device.sh` for the short
 live-corridor gate; only then run `RUN_THERMAL_GATE=1

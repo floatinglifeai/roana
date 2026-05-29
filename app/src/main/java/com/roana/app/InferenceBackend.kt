@@ -1,9 +1,11 @@
 package com.roana.app
 
+import android.content.Context
 import android.util.Log
 import com.qualcomm.qti.QnnDelegate
 import org.tensorflow.lite.Delegate
 import org.tensorflow.lite.Interpreter
+import java.io.File
 
 class InferenceBackend private constructor(
     val name: String,
@@ -27,8 +29,10 @@ class InferenceBackend private constructor(
 
     companion object {
         fun create(
+            context: Context? = null,
             preferQnn: Boolean = true,
             precision: Precision = Precision.QUANTIZED,
+            variant: QnnVariant = QnnVariant.DEFAULT,
         ): InferenceBackend {
             if (!preferQnn) {
                 Log.i(
@@ -76,29 +80,29 @@ class InferenceBackend private constructor(
             }
 
             return runCatching {
-                val options = QnnDelegate.Options().apply {
-                    setBackendType(QnnDelegate.Options.BackendType.HTP_BACKEND)
-                    setHtpPerformanceMode(
-                        QnnDelegate.Options.HtpPerformanceMode.HTP_PERFORMANCE_BURST,
-                    )
-                    setHtpPrecision(precision.toQnnPrecision())
-                    setHtpPerfCtrlStrategy(
-                        QnnDelegate.Options.HtpPerfCtrlStrategy.HTP_PERF_CTRL_AUTO,
-                    )
-                    setHtpOptimizationStrategy(
-                        QnnDelegate.Options.HtpOptimizationStrategy.HTP_OPTIMIZE_FOR_INFERENCE,
-                    )
-                    setHtpPdSession(QnnDelegate.Options.HtpPdSession.HTP_PD_SESSION_UNSIGNED)
-                }
+                val options = createQnnOptions(context, precision, variant)
+                Log.i(
+                    TAG,
+                    "qnn_options variant=${variant.id} precision=${precision.logValue} " +
+                        "library_path=${options.getLibraryPath().orEmpty().sanitizeLogValue()} " +
+                        "skel_dir=${options.getSkelLibraryDir().orEmpty().sanitizeLogValue()} " +
+                        "pd=${options.getHtpPdSession()} perf=${options.getHtpPerformanceMode()} " +
+                        "perf_ctrl=${options.getHtpPerfCtrlStrategy()} " +
+                        "opt=${options.getHtpOptimizationStrategy()} log=${options.getLogLevel()}",
+                )
                 val delegate = QnnDelegate(options)
-                Log.i(TAG, "inference_backend selected=qnn_htp precision=${precision.logValue}")
+                Log.i(
+                    TAG,
+                    "inference_backend selected=qnn_htp precision=${precision.logValue} " +
+                        "variant=${variant.id}",
+                )
                 InferenceBackend(QNN_HTP, delegate = delegate, failureReason = null)
             }.getOrElse { error ->
                 val reason = "${error.javaClass.simpleName}:${error.message.orEmpty()}"
                 Log.w(
                     TAG,
                     "inference_backend selected=cpu_xnnpack precision=${precision.logValue} " +
-                        "reason=qnn_create_failed:$reason",
+                        "variant=${variant.id} reason=qnn_create_failed:$reason",
                 )
                 InferenceBackend(CPU_XNNPACK, delegate = null, failureReason = reason)
             }
@@ -107,14 +111,84 @@ class InferenceBackend private constructor(
         fun cpu(reason: String? = null): InferenceBackend =
             InferenceBackend(CPU_XNNPACK, delegate = null, failureReason = reason)
 
+        private fun createQnnOptions(
+            context: Context?,
+            precision: Precision,
+            variant: QnnVariant,
+        ): QnnDelegate.Options {
+            val options = QnnDelegate.Options().apply {
+                setBackendType(QnnDelegate.Options.BackendType.HTP_BACKEND)
+                setHtpPerformanceMode(variant.performanceMode)
+                setHtpPrecision(precision.toQnnPrecision())
+                setHtpPerfCtrlStrategy(variant.perfCtrlStrategy)
+                setHtpOptimizationStrategy(variant.optimizationStrategy)
+                setHtpPdSession(variant.pdSession)
+                setLogLevel(QnnDelegate.Options.LogLevel.LOG_LEVEL_DEBUG)
+            }
+
+            val nativeLibraryDir = context?.applicationInfo?.nativeLibraryDir
+            if (variant.useExplicitNativePaths && !nativeLibraryDir.isNullOrBlank()) {
+                options.setLibraryPath(File(nativeLibraryDir, QNN_HTP_LIBRARY).absolutePath)
+                options.setSkelLibraryDir(nativeLibraryDir)
+            }
+
+            return options
+        }
+
         private const val TAG = "RoanaV0a"
         private const val QNN_HTP = "qnn_htp"
         private const val CPU_XNNPACK = "cpu_xnnpack"
+        private const val QNN_HTP_LIBRARY = "libQnnHtp.so"
     }
 
     enum class Precision(val logValue: String) {
         QUANTIZED("quantized"),
         FP16("fp16"),
+    }
+}
+
+enum class QnnVariant(
+    val id: String,
+    val pdSession: QnnDelegate.Options.HtpPdSession,
+    val useExplicitNativePaths: Boolean,
+    val performanceMode: QnnDelegate.Options.HtpPerformanceMode =
+        QnnDelegate.Options.HtpPerformanceMode.HTP_PERFORMANCE_BURST,
+    val perfCtrlStrategy: QnnDelegate.Options.HtpPerfCtrlStrategy =
+        QnnDelegate.Options.HtpPerfCtrlStrategy.HTP_PERF_CTRL_AUTO,
+    val optimizationStrategy: QnnDelegate.Options.HtpOptimizationStrategy =
+        QnnDelegate.Options.HtpOptimizationStrategy.HTP_OPTIMIZE_FOR_INFERENCE,
+) {
+    DEFAULT(
+        id = "default",
+        pdSession = QnnDelegate.Options.HtpPdSession.HTP_PD_SESSION_UNSIGNED,
+        useExplicitNativePaths = false,
+    ),
+    EXPLICIT_PATHS(
+        id = "explicit_paths",
+        pdSession = QnnDelegate.Options.HtpPdSession.HTP_PD_SESSION_UNSIGNED,
+        useExplicitNativePaths = true,
+    ),
+    SIGNED_PD(
+        id = "signed_pd",
+        pdSession = QnnDelegate.Options.HtpPdSession.HTP_PD_SESSION_SIGNED,
+        useExplicitNativePaths = false,
+    ),
+    SIGNED_PD_EXPLICIT_PATHS(
+        id = "signed_pd_explicit_paths",
+        pdSession = QnnDelegate.Options.HtpPdSession.HTP_PD_SESSION_SIGNED,
+        useExplicitNativePaths = true,
+    ),
+    DEFAULT_PERF_EXPLICIT_PATHS(
+        id = "default_perf_explicit_paths",
+        pdSession = QnnDelegate.Options.HtpPdSession.HTP_PD_SESSION_UNSIGNED,
+        useExplicitNativePaths = true,
+        performanceMode = QnnDelegate.Options.HtpPerformanceMode.HTP_PERFORMANCE_DEFAULT,
+        perfCtrlStrategy = QnnDelegate.Options.HtpPerfCtrlStrategy.HTP_PERF_CTRL_AUTO,
+    );
+
+    companion object {
+        fun fromId(id: String?): QnnVariant =
+            entries.firstOrNull { it.id == id } ?: DEFAULT
     }
 }
 
@@ -125,3 +199,8 @@ private fun InferenceBackend.Precision.toQnnPrecision(): QnnDelegate.Options.Htp
         InferenceBackend.Precision.FP16 ->
             QnnDelegate.Options.HtpPrecision.HTP_PRECISION_FP16
     }
+
+private fun String.sanitizeLogValue(): String =
+    replace('\n', '_')
+        .replace('\r', '_')
+        .replace(' ', '_')
