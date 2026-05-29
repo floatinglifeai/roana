@@ -2,6 +2,8 @@
 
 > **Walk your world.** An open-source assistive navigation system for blind and low-vision users.
 
+> 🌐 简体中文版: [README.zh-CN.md](README.zh-CN.md) · Current page: English
+
 Roana turns a smartphone (and, later, smart glasses) into a real-time perception companion: on-device computer vision detects obstacles and walkable space; the system then guides the user through **bone-conduction speech** ("what's around you") and **wrist haptics** ("which way to go") — a two-channel feedback split that keeps cognitive load low while preserving environmental sound, which blind and low-vision users rely on.
 
 The name comes from the *roam* root — the freedom and dignity of going wherever you want, on your own pace. In Chinese: 漫行 (màn xíng) — "to walk freely."
