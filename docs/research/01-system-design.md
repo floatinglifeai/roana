@@ -72,6 +72,11 @@ The project unfolds in 4 stages by **gradually introducing complexity**. Each st
 
 > **Core hypothesis:** the algorithm pipeline (detection + segmentation + depth + direction decision) can run at ≥10 FPS on a mainstream Android phone and let a blindfolded user walk safely through a known corridor.
 
+V0 is implemented in two slices, per [v0-implementation-plan.md](../plan/v0-implementation-plan.md):
+
+- **V0a:** minimum closed loop — CameraX frame capture, YOLO CPU/XNNPACK inference, and Android TTS output.
+- **V0b:** corridor demo — add Depth Anything, QNN/NPU acceleration, DFS corridor extraction, and conservative state management.
+
 **Form:** user wears an Android phone in a chest harness (GoPro Chesty-class POV strap), camera forward, phone speaker reads directions ("clear ahead," "two steps right," "stop").
 
 **Bill of materials (~¥3000–6000):**
@@ -86,7 +91,9 @@ The project unfolds in 4 stages by **gradually introducing complexity**. Each st
 
 - **App framework:** Kotlin + Jetpack Compose; CameraX for frame capture; foreground Service for persistence.
 - **Models:**
-  - Obstacle detection + walkable segmentation: `yolo11n-seg.tflite` (Ultralytics official `model.export(format="tflite")`, INT8-quantized, ~6 MB).
+  - V0a obstacle detection: off-the-shelf YOLO TFLite model, first on CPU/XNNPACK.
+  - V0b obstacle + depth stack: YOLO TFLite plus Depth Anything V2-Small on QNN/NPU where available.
+  - Post-V0 walkable segmentation: custom `yolo11n-seg.tflite` classes such as sidewalk / tactile paving / puddle / step / stairs. V0 does not include custom data collection, labeling, or training.
   - Monocular depth: `Depth-Anything-V2-Small` — Qualcomm AI Hub pre-compiled assets (QNN context binary / TFLite), or HuggingFace `NexaAI/depth-anything-v2-npu-mobile` (Snapdragon 8 Elite Gen 4 NPU optimized).
 - **Inference backend:** LiteRT (TFLite) + **QNN Delegate** (Qualcomm) or NeuroPilot Delegate (MediaTek). From Maven Central:
   ```gradle
@@ -110,7 +117,7 @@ The project unfolds in 4 stages by **gradually introducing complexity**. Each st
 
 **Hypotheses to validate:**
 
-1. Does the decision-layer algorithm output "useful-to-a-human" direction commands on real streets (non-jittery, not flapping)?
+1. Does the decision-layer algorithm output "useful-to-a-human" direction commands in a known indoor corridor (non-jittery, not flapping)?
 2. How stable is monocular *relative* depth on hard cases (ground / steps / glass doors)?
 3. Does 30 minutes of continuous camera + NPU inference thermal-throttle?
 
@@ -280,7 +287,8 @@ The project unfolds in 4 stages by **gradually introducing complexity**. Each st
 
 #### 4.1.2 Walkable-area segmentation
 
-- Share the same `yolo11n-seg` (segmentation head trained together with detection; add classes like sidewalk / tactile paving / grass / puddle / step / stairs).
+- Roadmap target: share the same `yolo11n-seg` (segmentation head trained together with detection; add classes like sidewalk / tactile paving / grass / puddle / step / stairs).
+- V0 boundary: do not collect data, label data, or train custom walkable classes. V0 uses off-the-shelf model outputs plus conservative depth/geometry heuristics; custom walkable-area segmentation is post-V0 work.
 - Academic combined "detection + segmentation" 5 MB models hit 90+ FPS on desktop GPU (e.g., the Mamba-architecture work reported in PMC12300176); YOLO11n-seg on mobile is more than enough.
 
 #### 4.1.3 Monocular depth: Depth Anything V2-Small
@@ -300,8 +308,8 @@ The project unfolds in 4 stages by **gradually introducing complexity**. Each st
 | Pitfall | Symptom | Mitigation |
 |---|---|---|
 | **No absolute scale** | Same object may be estimated near or far | Camera-height + ground-pixel single-frame pseudo-calibration; IMU temporal smoothing |
-| **Ground / steps / down-stairs** | Descending stairs often estimated as "flat extension"; down-stairs = death zone | Require "image-bottom quarter must contain a confident ground" — else trigger STOP; add "stair / step" classes to walkable-area model |
-| **Glass / reflective** | Glass door may be estimated as "infinite distance, clear" | YOLO detects "door / glass curtain wall" as backstop; "glass" class in walkable area |
+| **Ground / steps / down-stairs** | Descending stairs often estimated as "flat extension"; down-stairs = death zone | V0: require "image-bottom quarter must contain a confident ground" — else trigger STOP. Post-V0: add "stair / step" classes to walkable-area model |
+| **Glass / reflective** | Glass door may be estimated as "infinite distance, clear" | V0: YOLO detects "door / glass curtain wall" as backstop where possible. Post-V0: add "glass" class in walkable area |
 | **Strong / back light** | All-white or all-black, depth values flap | Inter-frame variance monitoring; over threshold → degrade to "detection only, ignore depth" |
 | **Dynamic objects** | A pedestrian walking past flaps depth values | Decision-layer IoU tracking + 0.5s temporal smoothing |
 
@@ -333,7 +341,7 @@ function find_path(grid, current_cell, path):
 
 #### 4.2.2 Our extensions
 
-1. **Fuse walkable segmentation:** DFS neighbor-safety check uses both depth AND YOLO-seg output. A pixel must satisfy both "depth deep enough" AND "belongs to walkable class" to count as walkable.
+1. **Fuse walkable segmentation when available:** DFS neighbor-safety check uses both depth AND YOLO-seg output. In V0, lack of a confident walkable mask must bias toward STOP rather than CLEAR; custom walkable classes are post-V0.
 2. **IMU heading stabilization:** use phone/glasses IMU to estimate "heading change over past 1 s"; prevents per-frame command jitter (mild head-sway must not be translated to "turn left / turn right").
 3. **Nearest-obstacle alert:** maintain a separate "nearest obstacle depth in lower-half of image" metric; below threshold → trigger STOP, skip DFS.
 4. **State machine:** transition between 5 states (STRAIGHT / SLIGHT_ADJUST / TURN / STOP / QUERY); each state entry requires N consecutive frames (N=3) confirmation — avoids single-frame misjudgment.
@@ -374,7 +382,16 @@ function find_path(grid, current_cell, path):
 
 **Decision rule:** only leave the phone for Jetson when the system **simultaneously** requires resident large VLM + multi-camera/LiDAR fusion + SLAM full perception.
 
-### 5.3 Glasses route
+### 5.3 Accepted V0 boundary
+
+The accepted V0 implementation boundary is documented in [v0-implementation-plan.md](../plan/v0-implementation-plan.md). In short:
+
+- V0 implementation is native Kotlin Android, not PWA or Capacitor.
+- V0a proves the minimum CameraX -> YOLO -> TTS closed loop.
+- V0b adds depth, QNN, DFS corridor extraction, and the known indoor corridor demo.
+- V0 has no BLE, Bangle.js, bone-conduction routing, smart glasses, VLM query flow, custom model training, outdoor navigation, or crosswalk command output.
+
+### 5.4 Glasses route
 
 See §3.4 table.
 
@@ -496,7 +513,8 @@ while True:
 
 | Stage | Duration | Key deliverable | Go/No-Go metric |
 |---|---|---|---|
-| V0 | 1–2 weeks | Phone-only demo; blindfolded user walks a known corridor | Pipeline ≥10 FPS; no thermal throttling in 30 min continuous |
+| V0a | First slice | Minimum Android closed loop: CameraX -> YOLO CPU/XNNPACK -> TTS | Real device runs without frame-analysis backlog; detection can trigger spoken output |
+| V0b | 1–2 weeks total V0 target | Phone-only known-corridor demo; blindfolded tester with sighted spotter | Pipeline ≥10 FPS; no thermal throttling in 30 min continuous |
 | V1 | +1 week | Bone-conduction headset added; demoable on noisy street | TTS BT latency <200 ms; environmental sound not masked |
 | V2 | +2–3 weeks | Bangle×2 added; complete two-channel feedback | User internalizes haptic semantics in 1 h; multi-device BLE stable |
 | V3 | +1–2 months | Mentra Live glasses integrated | Video stream E2E <300 ms; algorithm code runs with zero modification |

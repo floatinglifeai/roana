@@ -249,10 +249,13 @@ Android 12+ requires `foregroundServiceType` on FGS; 14+ runtime-checks: if you 
 
 ## Staged Recommendations (Aligned with V0–V3)
 
+The accepted V0 boundary is split into V0a and V0b in [v0-implementation-plan.md](../plan/v0-implementation-plan.md).
+
 | Stage | Goal | Recommended approach |
 |---|---|---|
-| **V0 minimum closed loop** | Camera → CPU TFLite YOLO → TTS "person ahead" | One real device + Kotlin + LiteRT CPU/XNNPACK delegate. **Skip NPU for now**; run end-to-end first |
-| **V1 add depth** | YOLO + Depth Anything → geometric decision → TTS/haptic | Switch to QNN Delegate to hit NPU; YOLO directly use Qualcomm AI Hub's W8A8 TFLite; Depth Anything use AI Hub's FP16 TFLite |
+| **V0a minimum closed loop** | Camera -> CPU TFLite YOLO -> TTS "person ahead" | One real device + Kotlin + LiteRT CPU/XNNPACK delegate. **Skip NPU for this slice**; run end-to-end first |
+| **V0b corridor demo** | YOLO + Depth Anything -> geometric decision -> TTS | Switch to QNN Delegate to hit NPU; YOLO directly use Qualcomm AI Hub's W8A8 TFLite; Depth Anything use AI Hub's FP16 TFLite |
+| **V1 audio privacy** | Add bone-conduction headset | Route Android TTS to Bluetooth audio; keep environmental sound open |
 | **V2 BLE feedback + background persistence** | Connect Bangle.js 2 + bone-conduction headset; foreground Service for lock-screen running | Nordic BLE library + Foreground Service (type=camera\|connectedDevice); CompanionDeviceManager for "companion device" enhanced background permissions |
 | **V3 smart glasses** | Video source switches from phone camera to glasses | Mentra Live / MentraOS: glasses connect to phone-side Mentra app over BLE, MentraOS Mini App (TypeScript independent backend process) subscribes to video stream, then pushes frames to our Kotlin app via local HTTP/WebSocket; Brilliant Frame: Python SDK in PC/phone background, similar bridge; Rokid: directly use Android/Kotlin, **same language as our project, near-zero migration** |
 | **V4 (optional) iOS** | Cover iPhone users | Use Kotlin Multiplatform to factor out business logic; iOS rewrites in Swift + Core ML + Vision. **Long-term** |

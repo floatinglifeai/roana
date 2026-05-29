@@ -7,7 +7,7 @@
 ## TL;DR
 
 - **Direct answer: do NOT use pure PWA or Termux local-server to "skip Android Studio."** This project's three hardest things — **continuous camera stream, NPU acceleration, BLE background persistence** — are exactly where the web platform is weakest, where PWAs effectively die when backgrounded. The web route saves you on "packaging/UI" (which was never the hard part) while blowing up "real-time CV + always-on operation" (the actual hard problem) into a project-level risk.
-- **Pragmatic recommendation: two phases.** Phase 0 algorithm prototype uses pure web (on Mac Chrome + WebGPU with `@huggingface/transformers` or ONNX Runtime Web, validate that YOLO11n + Depth Anything V2-Small decision logic actually works), 1–2 weeks. Production app uses **Capacitor** (Ionic's web-to-native shell) as the compromise — 95% time writing HTML/JS, camera/Bluetooth/foreground-service/ONNX Runtime go through native plugins. You still touch some Gradle/AndroidManifest, but far shallower than writing Kotlin from scratch. Only when Capacitor's plugin ecosystem can't meet real-time frame processing performance do you fall back to pure native Kotlin + LiteRT/QNN.
+- **Accepted project decision after review:** V0 implementation starts with **native Kotlin Android**, not web, PWA, or Capacitor. The native V0 boundary is recorded in [v0-implementation-plan.md](../plan/v0-implementation-plan.md). Capacitor remains a researched fallback if native development becomes blocked, but it is not the current implementation path.
 - **Key judgment: Web/PWA NPU access is still vaporware in 2026.** Google Chrome engineer Reilly Grant on the blink-dev mailing list 2026-02-13: *"We've decided to exclude Android from the Origin Trial due to the implementation's immaturity on that platform. Since only CPU inference is supported on Android (GPU and NPU inference support is planned but incomplete)."* The Origin Trial re-enabled in M-147 on 2026-02-24 with **Android still excluded**. WebGPU has been stable on Android Chrome 121+ (2024-01) for Adreno/Mali but GPU-running Depth Anything V2-Small is still an order of magnitude slower than NPU. Web Bluetooth on Chrome for Android can connect to Bangle.js 2 but **tab-invisible may disconnect** — fatal for "continuous navigation."
 
 ---
@@ -193,7 +193,9 @@ Tauri 2.0 stable shipped 2024-10-02 (v2.tauri.app/blog/tauri-20/, by Tillmann We
 
 ## Recommendations
 
-### Phase 0 (this week → 1 week): pure-web feasibility demo
+These recommendations are retained as fallback analysis. They are **not** the accepted V0 path.
+
+### Fallback Phase 0: pure-web feasibility demo
 - **Goal:** verify YOLO11n + Depth Anything V2-Small output is reasonable for our decision layer (depth map → direction commands);
 - **Stack:**
   - A static HTML + single-file JS using `@huggingface/transformers` or `onnxruntime-web@dev`;
@@ -203,7 +205,7 @@ Tauri 2.0 stable shipped 2024-10-02 (v2.tauri.app/blog/tauri-20/, by Tillmann We
 - **No need for:** Bluetooth, TTS, background. This phase only checks "can the model output drive useful decisions."
 - **Trigger to next phase:** algorithm logic works; or FPS even on Mac drops below 5 → consider smaller model or crop input to 252×336 (reference Luxonis RVC4 vit-s-336x252 variant).
 
-### Phase 1 (2–4 weeks): Capacitor MVP
+### Fallback Phase 1: Capacitor MVP
 - **Goal:** "usable" version on Android phone — can walk for 5 minutes, watch vibrates correct direction, TTS reads directions;
 - **Stack:**
   - Capacitor 6+ (Capacitor 8 latest);
@@ -218,7 +220,7 @@ Tauri 2.0 stable shipped 2024-10-02 (v2.tauri.app/blog/tauri-20/, by Tillmann We
   - End of week 1 test: can pure web inference + Capacitor camera-preview hit ≥5 FPS on target device and feel acceptable? If yes → don't change;
   - Otherwise: spend a week on a native plugin, switch to NNAPI/GPU delegate, target ≥10 FPS.
 
-### Phase 2 (later): decide whether to fall back to native based on real user feedback
+### Fallback Phase 2: decide whether to fall back to native based on real user feedback
 - If Capacitor runs stable, **stay on Capacitor** — many shipped products (medical, sports apps) use Capacitor;
 - Only fall back to pure Kotlin when Capacitor framework-level bugs hit, or when you need hardware features no plugin supports (Camera2 RAW, ML Kit Vision pipeline).
 
@@ -245,4 +247,4 @@ Tauri 2.0 stable shipped 2024-10-02 (v2.tauri.app/blog/tauri-20/, by Tillmann We
 
 ## Final One-Liner
 
-> **Phase 0 use pure web on Mac for 1 week to validate algorithm logic; Phase 1 use Capacitor + ONNX Runtime + foreground-service plugin for Android MVP (keeps founder's "writes mostly HTML/JS, AI writes smoothly" preference, while solving pure PWA's hard problems on background camera, NPU, BLE persistence); only fall back to pure native Kotlin + LiteRT/QNN when Capacitor performance won't hold. In 2026, the best approximation of "skip native toolchain" is Capacitor — not PWA, not Termux.**
+> **For V0 implementation, use native Kotlin Android as decided in the decision log and [v0-implementation-plan.md](../plan/v0-implementation-plan.md). If native implementation becomes blocked, Capacitor is the only web-adjacent fallback worth reconsidering; pure PWA and Termux remain unsuitable for this product.**

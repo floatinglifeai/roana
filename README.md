@@ -24,7 +24,7 @@ The name comes from the *roam* root — the freedom and dignity of going whereve
 
 🟡 **Pre-V0 — design and planning phase.** No code yet. This repository currently hosts the research, technical design, and decision history that the implementation will be built on.
 
-Implementation begins after the docs in `docs/research/` settle. The roadmap is V0 → V3, summarized below.
+Implementation begins after the docs in `docs/research/` settle. The accepted V0 implementation boundary is recorded in [`docs/plan/v0-implementation-plan.md`](docs/plan/v0-implementation-plan.md). The roadmap is V0 → V3, summarized below.
 
 ---
 
@@ -70,7 +70,7 @@ Heavy VLMs (SmolVLM2 / Gemini Nano) are triggered on demand, not per-frame.
 
 | Stage | Goal | Hardware delta | Target |
 |---|---|---|---|
-| **V0** | Walk a known indoor corridor blindfolded, phone speaker reads directions aloud | Android phone in chest harness | 1–2 weeks |
+| **V0** | V0a minimum Android closed loop, then V0b known indoor corridor blindfold demo with phone speaker TTS | Android phone in chest harness | 1–2 weeks |
 | **V1** | Add bone-conduction Bluetooth headset → preserve environmental sound, fix privacy | +¥600–1500 (Shokz / 韶音) | +1 week |
 | **V2** | Add Bangle.js 2 wrist haptics for directional cues; audio carries semantics; on-demand VLM | +¥1200–1500 | +2–3 weeks |
 | **V3** | Swap phone camera for Mentra Live smart glasses (open MentraOS SDK); algorithm code 100% reused | +$299 (Mentra Live) | +1–2 months |
@@ -84,15 +84,17 @@ Full reasoning in [`docs/research/01-system-design.md`](docs/research/01-system-
 ```
 roana/
 ├── README.md                            # this file
-├── LICENSE                              # Apache-2.0
+├── LICENSE                              # AGPL-3.0-or-later
 ├── docs/
-│   ├── research/                        # six in-depth research reports
+│   ├── research/                        # research reports
 │   │   ├── 00-vision-and-naming.md      # product vision + naming research
 │   │   ├── 01-system-design.md          # main technical plan (5 single-points → integrated)
 │   │   ├── 02-tech-stack.md             # Mac → Android stack selection (native Kotlin recommended)
 │   │   ├── 03-web-route-evaluation.md   # PWA / Capacitor / Termux — why we chose native
 │   │   ├── 04-build-and-distribution.md # Docker-based headless build + Google Play / Xiaomi / Huawei
 │   │   └── 05-domain-and-trademark.md   # name + domain availability landscape
+│   ├── plan/                            # implementation plans
+│   │   └── v0-implementation-plan.md    # accepted V0 implementation boundary
 │   └── discussions/                     # condensed decision logs from design conversations
 └── .gitignore
 ```

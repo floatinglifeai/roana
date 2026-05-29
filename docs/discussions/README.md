@@ -110,6 +110,23 @@
 
 ---
 
+## SP-6A: V0 implementation boundary
+
+**Question:** What exactly belongs in V0 implementation, given earlier docs used "V0" for both a minimum closed loop and a full corridor demo?
+
+**Decision:** Split V0 into **V0a** and **V0b**.
+
+- **V0a:** native Android minimum closed loop: CameraX frame capture → YOLO CPU/XNNPACK inference → Android TTS output.
+- **V0b:** phone-only known-corridor demo: add Depth Anything, QNN/NPU acceleration, DFS corridor extraction, conservative state machine, and blindfolded testing with a sighted spotter.
+
+**Reason:** the minimum loop and the corridor demo have different risk profiles and acceptance gates. Splitting them preserves the fastest implementation start without weakening the V0 safety/performance target.
+
+**V0 exclusions:** no custom walkable-area training, no BLE, no Bangle.js haptics, no bone-conduction routing, no smart glasses, no VLM query flow, no outdoor navigation, no crosswalk command output, and no unsupervised blind-user testing.
+
+**Safety/privacy gates:** no video-frame upload, no default frame storage, no face recognition, no cloud VLM call, and low-confidence/uncertain geometry must prefer STOP over CLEAR. Full boundary: `docs/plan/v0-implementation-plan.md`.
+
+---
+
 ## SP-7: Dev machine
 
 **Question:** Mac or Linux as primary development machine?
