@@ -10,38 +10,45 @@ import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.Tensor
 
 class QnnModelSmoke(private val context: Context) {
-    fun runYolo() {
+    fun runYolo(variant: QnnVariant = QnnVariant.DEFAULT) {
         run(
             spec = ModelSpec(
                 name = "yolo",
                 asset = YOLO_ASSET,
                 precision = InferenceBackend.Precision.QUANTIZED,
             ),
+            variant = variant,
         )
     }
 
-    fun runDepth() {
+    fun runDepth(variant: QnnVariant = QnnVariant.DEFAULT) {
         run(
             spec = ModelSpec(
                 name = "depth",
                 asset = DEPTH_ASSET,
                 precision = InferenceBackend.Precision.FP16,
             ),
+            variant = variant,
         )
     }
 
-    private fun run(spec: ModelSpec) {
+    private fun run(spec: ModelSpec, variant: QnnVariant) {
         val startedNs = System.nanoTime()
         val model = loadModel(spec.asset)
         logCpuMetadata(spec, model)
 
-        val backend = InferenceBackend.create(precision = spec.precision)
+        val backend = InferenceBackend.create(
+            context = context,
+            precision = spec.precision,
+            variant = variant,
+        )
         if (!backend.usesDelegate) {
             Log.w(
                 TAG,
                 "qnn_model_smoke status=unavailable model=${spec.name} " +
                     "asset=${spec.asset} precision=${spec.precision.logValue} " +
-                    "backend=${backend.name} reason=${backend.failureReason ?: "none"}",
+                    "variant=${variant.id} backend=${backend.name} " +
+                    "reason=${backend.failureReason ?: "none"}",
             )
             backend.close()
             return
@@ -54,7 +61,8 @@ class QnnModelSmoke(private val context: Context) {
                     TAG,
                     "qnn_model_smoke status=loaded model=${spec.name} " +
                         "asset=${spec.asset} precision=${spec.precision.logValue} " +
-                        "backend=${backend.name} load_ms=${"%.2f".format(Locale.US, loadMs)} " +
+                        "variant=${variant.id} backend=${backend.name} " +
+                        "load_ms=${"%.2f".format(Locale.US, loadMs)} " +
                         "inputs=${inputSummary(interpreter)} outputs=${outputSummary(interpreter)}",
                 )
             }
@@ -63,7 +71,8 @@ class QnnModelSmoke(private val context: Context) {
                 TAG,
                 "qnn_model_smoke status=failed model=${spec.name} " +
                     "asset=${spec.asset} precision=${spec.precision.logValue} " +
-                    "backend=${backend.name} error=${error.javaClass.simpleName} " +
+                    "variant=${variant.id} backend=${backend.name} " +
+                    "error=${error.javaClass.simpleName} " +
                     "message=${error.message?.sanitizeLogValue() ?: "none"}",
                 error,
             )

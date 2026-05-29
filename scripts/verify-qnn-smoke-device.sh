@@ -8,13 +8,16 @@ APK_PATH="${APK_PATH:-$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk}"
 LOG_SECONDS="${LOG_SECONDS:-30}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 MODEL="${MODEL:-all}"
+QNN_VARIANT="${QNN_VARIANT:-default}"
 REQUIRE_QNN_SUCCESS="${REQUIRE_QNN_SUCCESS:-1}"
 CAPTURE_FULL_LOGCAT="${CAPTURE_FULL_LOGCAT:-1}"
+INSTALL_FIRST="${INSTALL_FIRST:-1}"
 ADB_BIN="${ADB_BIN:-}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_PATH="$LOG_DIR/qnn-smoke-$TIMESTAMP.log"
 DEBUG_QNN_YOLO_EXTRA="com.roana.app.extra.DEBUG_QNN_YOLO_SMOKE"
 DEBUG_QNN_DEPTH_EXTRA="com.roana.app.extra.DEBUG_QNN_DEPTH_SMOKE"
+DEBUG_QNN_VARIANT_EXTRA="com.roana.app.extra.DEBUG_QNN_VARIANT"
 
 json_result() {
   local status="$1"
@@ -25,6 +28,7 @@ json_result() {
   "status": "$status",
   "hypothesis": "QNN delegate compatibility can be diagnosed independently for YOLO and Depth Anything",
   "artifact": "$artifact",
+  "variant": "$QNN_VARIANT",
   "decision": "$decision"
 }
 JSON
@@ -88,13 +92,16 @@ if [ ! -f "$APK_PATH" ]; then
   exit 1
 fi
 
-ADB_BIN="$ADB_BIN" "$ROOT_DIR/scripts/install-debug.sh" >/dev/null
+if [ "$INSTALL_FIRST" = "1" ]; then
+  ADB_BIN="$ADB_BIN" "$ROOT_DIR/scripts/install-debug.sh" >/dev/null
+fi
 
 mkdir -p "$LOG_DIR"
 "$ADB_BIN" "${DEVICE_ARG[@]}" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
 "$ADB_BIN" "${DEVICE_ARG[@]}" logcat -c >/dev/null
 
 start_args=(-n "$ACTIVITY")
+start_args+=(--es "$DEBUG_QNN_VARIANT_EXTRA" "$QNN_VARIANT")
 if [ "$require_yolo" = "1" ]; then
   start_args+=(--ez "$DEBUG_QNN_YOLO_EXTRA" true)
 fi
@@ -131,6 +138,12 @@ missing=()
 rejected=()
 transport_failed=()
 
+if grep -q 'library "libcdsprpc.so" not found' "$LOG_PATH"; then
+  native_transport_dependency_failed=1
+else
+  native_transport_dependency_failed=0
+fi
+
 if grep -q "QnnDsp .*Failed to load skel" "$LOG_PATH" ||
   grep -q "QnnDsp .*Transport layer setup failed" "$LOG_PATH" ||
   grep -q "QnnDsp .*loadRemoteSymbols failed" "$LOG_PATH"; then
@@ -142,10 +155,10 @@ fi
 check_model() {
   local model="$1"
   grep -q "qnn_model_metadata model=$model " "$LOG_PATH" || missing+=("${model}_metadata")
-  if grep -q "qnn_model_smoke status=loaded model=$model .*backend=qnn_htp" "$LOG_PATH"; then
+  if grep -q "qnn_model_smoke status=loaded model=$model .*variant=$QNN_VARIANT .*backend=qnn_htp" "$LOG_PATH"; then
     return
   fi
-  if grep -q "qnn_model_smoke status=failed model=$model " "$LOG_PATH"; then
+  if grep -q "qnn_model_smoke status=failed model=$model .*variant=$QNN_VARIANT " "$LOG_PATH"; then
     if [ "$native_transport_failed" = "1" ]; then
       transport_failed+=("$model")
     else
@@ -153,7 +166,7 @@ check_model() {
     fi
     return
   fi
-  if grep -q "qnn_model_smoke status=unavailable model=$model " "$LOG_PATH"; then
+  if grep -q "qnn_model_smoke status=unavailable model=$model .*variant=$QNN_VARIANT " "$LOG_PATH"; then
     rejected+=("$model")
     return
   fi
@@ -174,6 +187,13 @@ fi
 
 if [ "$REQUIRE_QNN_SUCCESS" = "1" ] && [ "${#rejected[@]}" -gt 0 ]; then
   json_result "failed" "$LOG_PATH" "QNN delegate rejected model(s): ${rejected[*]}."
+  exit 1
+fi
+
+if [ "$REQUIRE_QNN_SUCCESS" = "1" ] &&
+  [ "${#transport_failed[@]}" -gt 0 ] &&
+  [ "$native_transport_dependency_failed" = "1" ]; then
+  json_result "failed" "$LOG_PATH" "QNN DSP transport dependency missing from app linker namespace (libcdsprpc.so): ${transport_failed[*]}."
   exit 1
 fi
 
