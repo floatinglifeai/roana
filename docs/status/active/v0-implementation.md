@@ -11,6 +11,9 @@ Updated: 2026-05-29.
   - `scripts/check-android-env.sh` passes host requirements and warns that no
     ADB device is connected.
   - `scripts/build-debug.sh` builds `app/build/outputs/apk/debug/app-debug.apk`.
+  - `scripts/verify-v0a-device.sh` is the deterministic device gate; it reports
+    `blocked` until an ADB device is available, then installs, launches, and
+    captures `RoanaV0a` logcat evidence.
 - Current external gate: no Android device is connected over ADB, so the app has
   not yet been installed or run on a real phone.
 
@@ -20,10 +23,9 @@ V0a can continue past the skeleton only after a real Android device proof:
 
 1. Connect an Android 12+ arm64 phone with USB debugging enabled, or configure
    wireless ADB and set `ANDROID_SERIAL`.
-2. Run `scripts/install-debug.sh`.
-3. Open Roana, grant camera permission, and confirm CameraX preview starts.
-4. Capture `RoanaV0a` logcat lines showing camera binding, frame timing, and the
-   initial TTS event.
+2. Run `scripts/verify-v0a-device.sh`.
+3. Confirm the script reports `"status": "passed"` with a log artifact containing
+   camera binding, frame timing, and the initial TTS event.
 
 ## Next Agent-Owned Step
 
