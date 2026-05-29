@@ -6,8 +6,8 @@ Updated: 2026-05-29.
 
 - Active objective: implement `docs/plan/v0-implementation-plan.md` via
   `intuitive-flow`.
-- Latest completed slice: V0b device gate now requires a debug safe-stop proof
-  that low-confidence uncertainty produces spoken STOP feedback.
+- Latest completed slice: V0b thermal gate now rejects severe-or-worse Android
+  thermal status even when FPS and frame-gap metrics pass.
 - Current V0b slice: Snapdragon 8 Gen 2+ device proof is pending hardware.
 - Proven locally:
   - `scripts/check-android-env.sh` passes host requirements.
@@ -118,6 +118,10 @@ Updated: 2026-05-29.
   - The V0b target-device analyzer recognizes Snapdragon 8 Gen 2/3/Elite-class
     markers and Dimensity 9300/9400 platform markers, while still rejecting
     older MediaTek platforms in regression tests.
+  - The V0b thermal analyzer now parses `dumpsys thermalservice` status values
+    from before/after the 30-minute run and fails thermal proof on Android
+    severe, critical, emergency, or shutdown status, so an overheated target
+    phone cannot pass on FPS metrics alone.
   - Current device: Xiaomi `2106118C` / `SM8350` (`lahaina`, Snapdragon 888).
     It is useful for fallback proof, but below the V0b Depth Anything
     performance target of Snapdragon 8 Gen 2+.

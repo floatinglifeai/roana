@@ -80,6 +80,8 @@ class AnalyzeV0bLogTest(unittest.TestCase):
         board_platform: str = "kalama",
         thermal_log: Path | None = None,
         thermal_minutes: int = 30,
+        thermal_status_before: str = "Thermal Status: 0",
+        thermal_status_after: str = "Thermal Status: 0",
         require_safe_stop: bool = False,
     ) -> dict[str, object]:
         command = [
@@ -106,9 +108,9 @@ class AnalyzeV0bLogTest(unittest.TestCase):
                     "--thermal-log",
                     str(thermal_log),
                     "--thermal-status-before",
-                    "Thermal Status: 0",
+                    thermal_status_before,
                     "--thermal-status-after",
-                    "Thermal Status: 0",
+                    thermal_status_after,
                 ]
             )
         result = subprocess.run(command, check=True, capture_output=True, text=True)
@@ -383,6 +385,90 @@ class AnalyzeV0bLogTest(unittest.TestCase):
             self.assertEqual(2, details["thermal_frame_stats_count"])
             self.assertEqual(80.0, details["thermal_depth_elapsed_ms"])
             self.assertEqual(80.0, details["thermal_tail_depth_elapsed_ms"])
+            self.assertEqual(0, details["thermal_status_before_level"])
+            self.assertEqual("none", details["thermal_status_before_label"])
+            self.assertFalse(details["thermal_status_before_severe_or_worse"])
+            self.assertEqual(0, details["thermal_status_after_level"])
+            self.assertEqual("none", details["thermal_status_after_label"])
+            self.assertFalse(details["thermal_status_after_severe_or_worse"])
+
+    def test_thermal_gate_rejects_severe_numeric_status_before_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            main_log_path = Path(temp_dir) / "main.log"
+            thermal_log_path = Path(temp_dir) / "thermal.log"
+            main_log_path.write_text(
+                fake_log(
+                    depths=[80.0, 90.0, 85.0, 95.0, 100.0],
+                    frame_stats_count=5,
+                    gap_count=0,
+                    fp16_htp="true",
+                    safe_stop=True,
+                ),
+                encoding="utf-8",
+            )
+            thermal_log_path.write_text(
+                fake_log(
+                    depths=[80.0] * 120,
+                    frame_stats_count=2,
+                    gap_count=0,
+                    fp16_htp="true",
+                    feedback=False,
+                ),
+                encoding="utf-8",
+            )
+
+            data = self.run_analyzer(
+                main_log_path,
+                thermal_log=thermal_log_path,
+                thermal_minutes=2,
+                thermal_status_before="Thermal Status: 3",
+                require_safe_stop=True,
+            )
+            details = data["details"]
+
+            self.assertEqual(["thermal_status_before_not_severe"], data["thermal_missing"])
+            self.assertEqual(3, details["thermal_status_before_level"])
+            self.assertEqual("severe", details["thermal_status_before_label"])
+            self.assertTrue(details["thermal_status_before_severe_or_worse"])
+
+    def test_thermal_gate_rejects_critical_text_status_after_run(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            main_log_path = Path(temp_dir) / "main.log"
+            thermal_log_path = Path(temp_dir) / "thermal.log"
+            main_log_path.write_text(
+                fake_log(
+                    depths=[80.0, 90.0, 85.0, 95.0, 100.0],
+                    frame_stats_count=5,
+                    gap_count=0,
+                    fp16_htp="true",
+                    safe_stop=True,
+                ),
+                encoding="utf-8",
+            )
+            thermal_log_path.write_text(
+                fake_log(
+                    depths=[80.0] * 120,
+                    frame_stats_count=2,
+                    gap_count=0,
+                    fp16_htp="true",
+                    feedback=False,
+                ),
+                encoding="utf-8",
+            )
+
+            data = self.run_analyzer(
+                main_log_path,
+                thermal_log=thermal_log_path,
+                thermal_minutes=2,
+                thermal_status_after="mStatus=THERMAL_STATUS_CRITICAL",
+                require_safe_stop=True,
+            )
+            details = data["details"]
+
+            self.assertEqual(["thermal_status_after_not_severe"], data["thermal_missing"])
+            self.assertEqual(4, details["thermal_status_after_level"])
+            self.assertEqual("critical", details["thermal_status_after_label"])
+            self.assertTrue(details["thermal_status_after_severe_or_worse"])
 
 
 if __name__ == "__main__":

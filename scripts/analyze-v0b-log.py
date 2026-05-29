@@ -20,6 +20,17 @@ TARGET_SOC_MARKERS = (
     "dimensity 9400",
 )
 GUIDANCE_COMMANDS = frozenset({"LEFT", "STRAIGHT", "RIGHT"})
+THERMAL_STATUS_LABELS = {
+    0: "none",
+    1: "light",
+    2: "moderate",
+    3: "severe",
+    4: "critical",
+    5: "emergency",
+    6: "shutdown",
+}
+THERMAL_STATUS_VALUES = {label: level for level, label in THERMAL_STATUS_LABELS.items()}
+THERMAL_SEVERE_THRESHOLD = 3
 
 
 def parse_bool(value: str) -> bool:
@@ -59,6 +70,36 @@ def line_fields(line: str) -> dict[str, str]:
     return {
         match.group(1): match.group(2)
         for match in re.finditer(r"\b([A-Za-z_][A-Za-z0-9_]*)=([^ ]+)", line)
+    }
+
+
+def thermal_status_details(value: str) -> dict[str, object]:
+    raw_value = value.strip()
+    status_token = ""
+    for pattern in (
+        r"\bThermal Status:\s*([A-Za-z_]+|[0-9]+)",
+        r"\bmStatus=([A-Za-z_]+|[0-9]+)",
+    ):
+        match = re.search(pattern, raw_value, re.IGNORECASE)
+        if match:
+            status_token = match.group(1)
+            break
+
+    level: int | None = None
+    if status_token:
+        normalized_token = status_token.strip(" ,;").lower()
+        if normalized_token.isdigit():
+            level = int(normalized_token)
+        else:
+            level = THERMAL_STATUS_VALUES.get(
+                normalized_token.removeprefix("thermal_status_")
+            )
+
+    label = THERMAL_STATUS_LABELS.get(level, "") if level is not None else ""
+    return {
+        "level": level,
+        "label": label,
+        "severe_or_worse": level is not None and level >= THERMAL_SEVERE_THRESHOLD,
     }
 
 
@@ -192,6 +233,10 @@ def add_thermal_missing(
         missing.append("thermal_frame_stats")
     if details["thermal_gap_count"] != 0:
         missing.append("thermal_no_frame_gaps")
+    if details["thermal_status_before_severe_or_worse"]:
+        missing.append("thermal_status_before_not_severe")
+    if details["thermal_status_after_severe_or_worse"]:
+        missing.append("thermal_status_after_not_severe")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -226,6 +271,8 @@ def main() -> None:
 
     main_log = parse_log(args.log, args.tail_sample_count)
     thermal_log = parse_log(args.thermal_log, args.tail_sample_count) if args.thermal_log else None
+    thermal_status_before = thermal_status_details(args.thermal_status_before)
+    thermal_status_after = thermal_status_details(args.thermal_status_after)
 
     details = {
         "model": args.model,
@@ -249,7 +296,17 @@ def main() -> None:
         "thermal_gate_run": thermal_log is not None,
         "thermal_log_path": str(args.thermal_log or ""),
         "thermal_status_before": args.thermal_status_before,
+        "thermal_status_before_level": thermal_status_before["level"],
+        "thermal_status_before_label": thermal_status_before["label"],
+        "thermal_status_before_severe_or_worse": thermal_status_before[
+            "severe_or_worse"
+        ],
         "thermal_status_after": args.thermal_status_after,
+        "thermal_status_after_level": thermal_status_after["level"],
+        "thermal_status_after_label": thermal_status_after["label"],
+        "thermal_status_after_severe_or_worse": thermal_status_after[
+            "severe_or_worse"
+        ],
         "thermal_live_corridor_count": 0,
         "thermal_depth_elapsed_ms": 0.0,
         "thermal_depth_fps": 0.0,
