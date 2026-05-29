@@ -6,12 +6,20 @@ Updated: 2026-05-29.
 
 - Active objective: implement `docs/plan/v0-implementation-plan.md` via
   `intuitive-flow`.
-- Latest completed slice: V0b thermal gate now rejects severe-or-worse Android
-  thermal status even when FPS and frame-gap metrics pass.
-- Current V0b slice: Snapdragon 8 Gen 2+ device proof is pending hardware.
+- Latest completed slice: Mac + Docker + ADB development is working, and a
+  Snapdragon 8 Gen 2 phone exposed model-specific QNN delegate rejection for
+  both YOLO and Depth Anything.
+- Current V0b slice: QNN model compatibility diagnosis is active; do not add a
+  CPU fallback performance profile until the delegate rejection root cause is
+  known.
 - Proven locally:
   - `scripts/check-android-env.sh` passes host requirements.
   - `scripts/build-debug.sh` builds `app/build/outputs/apk/debug/app-debug.apk`.
+  - On Apple Silicon macOS, the Docker Android build uses the `linux/amd64`
+    Android image explicitly, while ADB can be resolved from either `PATH` or
+    `~/.local/android-platform-tools/platform-tools/adb`.
+  - `scripts/verify-v0a-device.sh` and `scripts/verify-v0b-device.sh` now run on
+    macOS Bash without GNU `mapfile` or `timeout`.
   - `scripts/verify-v0a-device.sh` passed on Xiaomi `2106118C` / Android 14.
   - Skeleton proof artifact: `logs/v0a-device-20260529T084255Z.log` contains
     `tts_init status=success`, `tts_event`, `camera_bound`, and sustained
@@ -122,9 +130,28 @@ Updated: 2026-05-29.
     from before/after the 30-minute run and fails thermal proof on Android
     severe, critical, emergency, or shutdown status, so an overheated target
     phone cannot pass on FPS metrics alone.
-  - Current device: Xiaomi `2106118C` / `SM8350` (`lahaina`, Snapdragon 888).
-    It is useful for fallback proof, but below the V0b Depth Anything
-    performance target of Snapdragon 8 Gen 2+.
+  - Current target-class device: Xiaomi `2211133C` / `SM8550` (`kalama`,
+    Snapdragon 8 Gen 2), Android 16 / HyperOS `OS3.0.307.0.WMCCNXM`.
+  - V0a proof artifact on the Snapdragon 8 Gen 2 phone:
+    `logs/v0a-device-20260529T135914Z.log`. It proves the basic
+    CameraX/TFLite/TTS/safe-stop loop, but YOLO fell back to CPU/XNNPACK after
+    QNN delegate apply failed. The observed YOLO timing was about 1.65s average
+    per inference, with repeated CameraX frame gaps.
+  - V0b live corridor proof attempt on the same phone:
+    `logs/v0a-device-20260529T140409Z.log`. QNN reported
+    `htp_quantized=true htp_fp16=true`, but both YOLO and Depth Anything fell
+    back to CPU, so live corridor produced repeated `frame_loss` safe-stop
+    evidence and no `corridor_live status=ok` frames.
+  - New QNN model compatibility smoke artifact:
+    `logs/qnn-smoke-20260529T152658Z.log`. It records model-specific tensor
+    metadata and separate QNN delegate failures:
+    YOLO `UINT8[1,640,640,3] -> INT8` multi-output quantized tensors and Depth
+    Anything `FLOAT32[1,518,518,3] -> FLOAT32[1,518,518,1]` both fail with
+    `Failed to apply delegate: Restored original execution plan after delegate
+    application failure`.
+  - Strict QNN smoke gate artifact: `logs/qnn-smoke-20260529T152836Z.log`.
+    `scripts/verify-qnn-smoke-device.sh` correctly returns failed with
+    `QNN delegate rejected model(s): yolo depth`.
 
 ## Stop Condition
 
@@ -133,27 +160,28 @@ loading, reusable Depth Anything preprocessing/inference, Depth Anything-sized
 downsampling plus YOLO detection fusion into the 15x15 planner, a reusable
 corridor pipeline, and a pure-Kotlin 3-frame command confirmation state
 machine. A debug-gated live CameraX -> Depth Anything -> corridor pipeline path
-exists, but CPU fallback took about 14.9s for one synthetic depth frame on this
-phone. Emergency STOP behavior for near obstacles, frame loss, and low
-confidence is covered in unit tests. The full V0b corridor demo is not proven
-on this device because FP16 HTP is unavailable and the phone is below the
-target performance class.
+exists, but the current target-class Snapdragon 8 Gen 2 phone rejects both
+models at QNN delegate application time and falls back to CPU. Emergency STOP
+behavior for near obstacles, frame loss, and low confidence is covered in unit
+tests. The full V0b corridor demo is not proven on this device because the
+current TFLite models are not yet accepted by the QNN delegate, despite device
+HTP quantized/fp16 capability being reported as available.
 
 ## Next Agent-Owned Step
 
-Run the debug live-corridor gate on a Snapdragon 8 Gen 2+ class device with
-FP16 HTP available when a phone is available again. After the short gate passes,
-run `RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` to prove the CameraX frame
--> Depth Anything -> corridor pipeline reaches the >=10 FPS target without
-30-minute thermal regression. After a known-corridor blindfold test with a
-sighted spotter passes, rerun with `CORRIDOR_TEST_RESULT=passed` and brief
-`CORRIDOR_TEST_NOTES`.
-Use `scripts/verify-v0b-device.sh` as the machine gate before any known-corridor
-blindfold test; it must pass the target SoC, FP16 HTP, depth FPS, frame-gap, and
-thermal prerequisites before V0 can close.
+Use `scripts/verify-qnn-smoke-device.sh` as the next machine gate while
+diagnosing QNN compatibility. The next agent-owned step is to determine whether
+delegate rejection is caused by model export/operator support, tensor layout,
+quantization format, dependency/version mismatch, or QNN option setup. Do not
+add a lower-performance CPU fallback profile before that root cause is known.
+After QNN accepts both models, rerun `scripts/verify-v0b-device.sh` for the
+short live-corridor gate; only then run
+`RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` and the known-corridor
+sighted-spotter proof.
 
 ## No-Touch Scope
 
-- Do not run ADB or real-device gates while the phone is unavailable.
 - Do not start BLE, outdoor navigation, cloud/VLM, or custom training work in
   V0.
+- Do not add fallback-performance tuning for the Snapdragon 8 Gen 2 failure
+  until the QNN delegate rejection is diagnosed.

@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private var personAlertSpoken = false
     private var debugDetectionProofSpoken = false
     private var debugDepthSmokeStarted = false
+    private var debugQnnSmokeStarted = false
     private var debugSafeStopProofStarted = false
     private var pendingCorridorFeedback: PendingCorridorFeedback? = null
 
@@ -86,6 +87,7 @@ class MainActivity : ComponentActivity() {
             backend = InferenceBackend.create(precision = InferenceBackend.Precision.QUANTIZED),
         )
         maybeSetupDebugLiveCorridor()
+        maybeRunDebugQnnModelSmoke()
         setupTextToSpeech()
         maybeRunDebugDepthSmoke()
         requestCameraPermissionOrStart()
@@ -336,6 +338,35 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun maybeRunDebugQnnModelSmoke() {
+        if (
+            !BuildConfig.DEBUG ||
+            debugQnnSmokeStarted ||
+            (
+                !intent.getBooleanExtra(EXTRA_DEBUG_QNN_YOLO_SMOKE, false) &&
+                    !intent.getBooleanExtra(EXTRA_DEBUG_QNN_DEPTH_SMOKE, false)
+            )
+        ) {
+            return
+        }
+
+        debugQnnSmokeStarted = true
+        val runYolo = intent.getBooleanExtra(EXTRA_DEBUG_QNN_YOLO_SMOKE, false)
+        val runDepth = intent.getBooleanExtra(EXTRA_DEBUG_QNN_DEPTH_SMOKE, false)
+        Thread {
+            val smoke = QnnModelSmoke(this)
+            if (runYolo) {
+                smoke.runYolo()
+            }
+            if (runDepth) {
+                smoke.runDepth()
+            }
+        }.apply {
+            name = "RoanaQnnModelSmoke"
+            start()
+        }
+    }
+
     private fun maybeSetupDebugLiveCorridor() {
         if (
             !BuildConfig.DEBUG ||
@@ -561,6 +592,10 @@ class MainActivity : ComponentActivity() {
             "com.roana.app.extra.DEBUG_DEPTH_PLAN"
         private const val EXTRA_DEBUG_LIVE_CORRIDOR =
             "com.roana.app.extra.DEBUG_LIVE_CORRIDOR"
+        private const val EXTRA_DEBUG_QNN_YOLO_SMOKE =
+            "com.roana.app.extra.DEBUG_QNN_YOLO_SMOKE"
+        private const val EXTRA_DEBUG_QNN_DEPTH_SMOKE =
+            "com.roana.app.extra.DEBUG_QNN_DEPTH_SMOKE"
         private const val EXTRA_DEBUG_SAFE_STOP =
             "com.roana.app.extra.DEBUG_SAFE_STOP"
         private const val LOG_INTERVAL_MS = 1_000L
