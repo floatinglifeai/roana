@@ -87,3 +87,6 @@ NOTES.local.md
 TODO.local.md
 .env
 .env.local
+
+# Cloudflare Wrangler local cache/account state
+.wrangler/
