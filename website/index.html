@@ -4,498 +4,253 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Roana — Walk your world.</title>
-<meta name="description" content="Roana is an open-source assistive navigation system for blind and low-vision users. On-device computer vision turns a phone (and later, smart glasses) into a real-time perception companion.">
-
-<!-- Open Graph / Twitter -->
+<meta name="description" content="Roana is an open-source assistive navigation system for blind and low-vision users — the freedom to go where you want, at your own pace.">
 <meta property="og:title" content="Roana — Walk your world.">
 <meta property="og:description" content="Open-source assistive navigation for blind and low-vision users.">
 <meta property="og:image" content="https://roana.app/social-preview.png">
 <meta property="og:url" content="https://roana.app">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Roana — Walk your world.">
-<meta name="twitter:description" content="Open-source assistive navigation for blind and low-vision users.">
-<meta name="twitter:image" content="https://roana.app/social-preview.png">
-
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate" hreflang="en" href="https://roana.app/">
 <link rel="alternate" hreflang="zh" href="https://roana.app/zh/">
-
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,400&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+SC:wght@500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #faf6ed;
-    --bg-deep: #f0e9d8;
-    --ink: #2a2620;
-    --ink-soft: #3a3530;
-    --muted: #8a7f6f;
-    --muted-soft: #a89e8c;
-    --accent: #6b8e4e;
-    --warm: #c4956b;
-    --line: #d9d0c1;
-    --card: #ffffff;
-    --max-width: 760px;
+  :root{
+    --paper:#f6f1e4; --ink:#2a2620; --ink-soft:#4a4438; --muted:#8a7f6b;
+    --accent:#6b8e4e; --warm:#b06a36; --line:#ddd3c1; --max:1080px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body {
-    font-family: Georgia, "Times New Roman", "Songti SC", "Source Han Serif SC", serif;
-    background: var(--bg);
-    color: var(--ink);
-    line-height: 1.65;
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:"Atkinson Hyperlegible",system-ui,sans-serif;background:var(--paper);color:var(--ink);
+    -webkit-font-smoothing:antialiased;overflow-x:hidden}
 
-  /* Background decoration */
-  .bg-decoration {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.5;
-  }
-  .bg-decoration svg {
-    width: 100%;
-    height: 100%;
-  }
+  .skip{position:absolute;top:-48px;left:8px;z-index:100;background:var(--ink);color:var(--paper);
+    padding:10px 16px;border-radius:8px;text-decoration:none;font-size:15px}
+  .skip:focus{top:8px}
+  a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:4px}
 
-  /* Container */
-  main {
-    position: relative;
-    z-index: 1;
-    max-width: var(--max-width);
-    margin: 0 auto;
-    padding: 80px 32px 100px;
-  }
+  .hero{position:relative;min-height:100svh;display:flex;flex-direction:column;
+    padding:30px clamp(24px,6vw,72px) 34px;overflow:hidden}
+  .hero canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+  .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(100deg, rgba(246,241,228,.96) 0%, rgba(246,241,228,.82) 38%, rgba(246,241,228,.35) 64%, rgba(246,241,228,0) 88%);}
+  .grain{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.04;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .hero > *:not(canvas):not(.scrim):not(.grain){position:relative;z-index:2}
 
-  /* Top bar */
-  .topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 60px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 13px;
-    color: var(--muted);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .topbar a {
-    color: var(--muted);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: all 0.2s;
-  }
-  .topbar a:hover {
-    color: var(--ink);
-    border-bottom-color: var(--ink);
-  }
+  .topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+  .brand{font-family:"IBM Plex Mono",monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+  .topnav{display:flex;gap:22px;font-size:15px}
+  .topnav a{color:var(--ink-soft);text-decoration:none;border-bottom:1px solid transparent;padding:6px 2px}
+  .topnav a:hover{color:var(--ink);border-bottom-color:var(--ink)}
 
-  /* Hero */
-  .hero {
-    text-align: center;
-    margin-bottom: 80px;
-  }
-  .hero-logo {
-    width: 120px;
-    height: 120px;
-    margin: 0 auto 32px;
-  }
-  .hero-name {
-    font-size: 72px;
-    font-weight: 500;
-    letter-spacing: 2px;
-    color: var(--ink);
-    margin-bottom: 8px;
-  }
-  .hero-cn {
-    font-family: "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-    font-size: 18px;
-    color: var(--muted);
-    letter-spacing: 16px;
-    padding-left: 16px;
-    margin-bottom: 36px;
-  }
-  .hero-tagline {
-    font-size: 28px;
-    font-style: italic;
-    color: var(--ink-soft);
-    margin-bottom: 12px;
-  }
-  .hero-subtitle {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 16px;
-    color: var(--muted);
-    font-style: normal;
-    max-width: 480px;
-    margin: 0 auto;
-  }
+  .center{margin:auto 0;max-width:640px;padding:40px 0}
+  .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:22px}
+  .wordmark{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(68px,13vw,150px);line-height:.9;
+    letter-spacing:-.02em;color:var(--ink)}
+  .cn{font-family:"Noto Serif SC",serif;font-size:clamp(17px,2.4vw,22px);letter-spacing:.55em;padding-left:.55em;
+    color:var(--muted);margin-top:14px}
+  .tagline{font-family:"Fraunces",serif;font-weight:300;font-size:clamp(26px,4.4vw,46px);line-height:1.15;
+    color:var(--ink-soft);margin-top:30px}
+  .tagline em{font-style:italic;color:var(--ink)}
+  .lead{font-size:clamp(17px,2.1vw,20px);line-height:1.62;color:var(--ink-soft);max-width:38ch;margin-top:22px}
 
-  /* Section common */
-  section {
-    margin-bottom: 80px;
-  }
-  h2 {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 24px;
-    font-weight: 600;
-  }
-  p {
-    font-size: 18px;
-    color: var(--ink-soft);
-    margin-bottom: 16px;
-  }
-  p:last-child { margin-bottom: 0; }
-  p strong {
-    color: var(--ink);
-    font-weight: 600;
-  }
-  em {
-    color: var(--ink);
-    font-style: italic;
-  }
+  .actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:34px}
+  .btn{display:inline-flex;align-items:center;gap:9px;min-height:52px;padding:0 26px;border-radius:11px;
+    font-size:16px;font-weight:700;text-decoration:none;transition:transform .18s,background .2s,box-shadow .2s}
+  .btn-primary{background:var(--ink);color:var(--paper);box-shadow:0 10px 24px -14px var(--ink)}
+  .btn-primary:hover{background:var(--accent);transform:translateY(-2px)}
+  .btn-ghost{color:var(--ink);border:1.5px solid var(--line);background:rgba(255,255,255,.4)}
+  .btn-ghost:hover{border-color:var(--ink);transform:translateY(-2px)}
 
-  /* Quote */
-  .quote {
-    border-left: 3px solid var(--accent);
-    padding-left: 24px;
-    margin: 32px 0;
-    font-size: 22px;
-    color: var(--ink);
-    font-style: italic;
-    line-height: 1.55;
-  }
+  .status{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.06em;color:var(--muted);
+    margin-top:30px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .status .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(107,142,78,.15)}
 
-  /* Cards / What it is */
-  .what-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-top: 12px;
-  }
-  .what-card {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 24px;
-    border: 1px solid var(--line);
-  }
-  .what-card h3 {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .what-card.not h3 {
-    color: var(--warm);
-  }
-  .what-card ul {
-    list-style: none;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 15px;
-    color: var(--ink-soft);
-  }
-  .what-card li {
-    padding: 6px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .what-card li:last-child { border-bottom: none; }
+  .herofoot{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .scrollcue{display:inline-flex;align-items:center;gap:10px;color:var(--muted);text-decoration:none;font-size:14px}
+  .scrollcue .arr{display:inline-block;animation:bob 2.2s ease-in-out infinite}
+  @keyframes bob{50%{transform:translateY(5px)}}
+  .scrollcue:hover{color:var(--ink)}
+  .motionbtn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:9px;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.04em;
+    background:rgba(255,255,255,.55);border:1px solid var(--line);color:var(--ink-soft);cursor:pointer;flex:none}
+  .motionbtn:hover{border-color:var(--muted);color:var(--ink)}
 
-  /* How it feels */
-  .feels {
-    background: var(--card);
-    border-radius: 16px;
-    padding: 40px;
-    border: 1px solid var(--line);
-  }
-  .feels-item {
-    display: grid;
-    grid-template-columns: 110px 1fr;
-    gap: 24px;
-    align-items: baseline;
-    padding: 16px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .feels-item:last-child { border-bottom: none; }
-  .feels-channel {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .feels-channel.haptic { color: var(--warm); }
-  .feels-text {
-    font-size: 17px;
-    color: var(--ink-soft);
-  }
+  /* ---- what it's like (demonstrable) ---- */
+  .feel{max-width:var(--max);margin:0 auto;padding:clamp(72px,13vh,128px) clamp(24px,6vw,72px) 70px}
+  .feel-lead{font-family:"Fraunces",serif;font-weight:300;font-size:clamp(28px,4.6vw,48px);line-height:1.14;
+    color:var(--ink);margin-bottom:14px}
+  .feel-hint{font-size:14px;color:var(--muted);margin-bottom:40px}
+  .feel-list{list-style:none;display:flex;flex-direction:column;gap:30px}
+  .feel-list li{font-size:clamp(18px,2.3vw,21px);line-height:1.58;color:var(--ink-soft);max-width:50ch;
+    padding-left:22px;border-left:2px solid var(--line)}
+  .said{font-style:italic;color:var(--ink);white-space:nowrap}
+  .play{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;
+    border:1.5px solid var(--line);background:#fff;color:var(--accent);cursor:pointer;vertical-align:-7px;
+    margin:0 2px 0 6px;font-size:11px;line-height:1;transition:background .2s,border-color .2s,transform .15s}
+  .play:hover{background:var(--accent);color:#fff;border-color:var(--accent);transform:scale(1.08)}
+  .play.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .buzz{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 14px;border-radius:8px;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;font-family:inherit;
+    font-size:14px;margin-left:8px;vertical-align:middle;transition:border-color .2s,transform .15s}
+  .buzz:hover{border-color:var(--warm);color:var(--warm);transform:translateY(-1px)}
+  .buzz .ph{font-size:12px;color:var(--muted)}
+  .safety{margin-top:46px;font-size:14px;color:var(--muted);max-width:52ch;line-height:1.55}
 
-  /* Waitlist */
-  .waitlist {
-    background: linear-gradient(135deg, #faf6ed, #f5ecd9);
-    border-radius: 16px;
-    padding: 40px;
-    text-align: center;
-    border: 1px solid var(--line);
-  }
-  .waitlist h2 {
-    color: var(--accent);
-    margin-bottom: 12px;
-  }
-  .waitlist-text {
-    font-size: 18px;
-    color: var(--ink-soft);
-    margin-bottom: 24px;
-    max-width: 480px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .email-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 14px 28px;
-    background: var(--ink);
-    color: var(--bg);
-    text-decoration: none;
-    border-radius: 8px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    transition: all 0.2s;
-  }
-  .email-link:hover {
-    background: var(--accent);
-    transform: translateY(-1px);
-  }
-  .waitlist-note {
-    margin-top: 18px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 13px;
-    color: var(--muted);
-  }
+  footer{border-top:1px solid var(--line);max-width:var(--max);margin:0 auto;
+    padding:24px clamp(24px,6vw,72px);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-size:14px;color:var(--muted)}
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:var(--ink)}
+  .flinks{display:flex;gap:22px;flex-wrap:wrap}
 
-  /* Footer */
-  footer {
-    margin-top: 80px;
-    padding-top: 32px;
-    border-top: 1px solid var(--line);
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 13px;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
+  @media (max-width:640px){
+    .scrim{background:linear-gradient(180deg, rgba(246,241,228,.92) 0%, rgba(246,241,228,.78) 55%, rgba(246,241,228,.5) 100%)}
+    .center{padding:24px 0}
+    .topnav{font-size:14px;gap:16px}
+    .said{white-space:normal}
   }
-  footer a {
-    color: var(--muted);
-    text-decoration: none;
-  }
-  footer a:hover {
-    color: var(--ink);
-  }
-  .footer-links {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-  }
-
-  /* Responsive */
-  @media (max-width: 640px) {
-    main { padding: 48px 20px 60px; }
-    .hero-name { font-size: 52px; }
-    .hero-tagline { font-size: 22px; }
-    .hero-subtitle { font-size: 15px; }
-    .what-grid { grid-template-columns: 1fr; }
-    .feels { padding: 24px; }
-    .feels-item { grid-template-columns: 1fr; gap: 4px; }
-    .waitlist { padding: 28px 20px; }
-    h2 { font-size: 12px; }
-    p { font-size: 16px; }
-    .quote { font-size: 19px; }
-    footer { flex-direction: column; align-items: flex-start; gap: 12px; }
-  }
-
-  /* Reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    * { transition: none !important; }
-  }
-
-  /* Skip link for accessibility */
-  .skip-link {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    background: var(--ink);
-    color: var(--bg);
-    padding: 8px 16px;
-    text-decoration: none;
-    border-radius: 4px;
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-    font-size: 14px;
-    z-index: 100;
-  }
-  .skip-link:focus {
-    top: 8px;
-    left: 8px;
-  }
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} .scrollcue .arr{animation:none} }
 </style>
 </head>
 <body>
 
-<a href="#main-content" class="skip-link">Skip to main content</a>
+<a class="skip" href="#feel">Skip to content</a>
 
-<!-- Background flowing lines -->
-<div class="bg-decoration" aria-hidden="true">
-  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-    <g opacity="0.4" stroke="#6b8e4e" stroke-width="1.2" fill="none" stroke-linecap="round">
-      <path d="M -100 720 Q 280 640, 520 690 T 1020 660 T 1540 620" />
-      <path d="M -100 760 Q 280 690, 520 735 T 1020 705 T 1540 670" />
-      <path d="M -100 800 Q 280 740, 520 780 T 1020 750 T 1540 720" />
-    </g>
-    <g opacity="0.18" stroke="#c4956b" stroke-width="1" fill="none" stroke-linecap="round">
-      <path d="M -100 180 Q 280 110, 520 160 T 1020 130 T 1540 90" />
-      <path d="M -100 220 Q 280 160, 520 200 T 1020 170 T 1540 130" />
-    </g>
-  </svg>
-</div>
+<header class="hero">
+  <canvas id="field" aria-hidden="true"></canvas>
+  <div class="scrim" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
 
-<main id="main-content">
-
-  <!-- Top bar -->
   <nav class="topbar" aria-label="Primary">
-    <span>ROANA · 漫行</span>
-    <span>
-      <a href="/zh/">中文</a>
-      &nbsp;·&nbsp;
+    <span class="brand">Roana · 漫行</span>
+    <div class="topnav">
+      <a href="/zh/" lang="zh">中文</a>
       <a href="https://github.com/floatinglifeai/roana">GitHub</a>
-    </span>
+      <a href="mailto:talk@roana.app">Contact</a>
+    </div>
   </nav>
 
-  <!-- Hero -->
-  <header class="hero">
-    <svg class="hero-logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Roana mark">
-      <defs>
-        <linearGradient id="hero-r" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stop-color="#c4956b" />
-          <stop offset="50%" stop-color="#a8853d" />
-          <stop offset="100%" stop-color="#6b8e4e" />
-        </linearGradient>
-      </defs>
-      <g transform="translate(20, 30)">
-        <path d="M 18 130 L 18 22 Q 18 18, 22 18 L 64 18 Q 92 18, 92 44 Q 92 68, 64 68 L 38 68 Q 32 68, 36 74 L 108 130 Q 142 120, 160 90"
-              stroke="url(#hero-r)" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="18" cy="130" r="7" fill="#c4956b"/>
-        <circle cx="160" cy="90" r="7" fill="#6b8e4e"/>
-      </g>
-    </svg>
-    <h1 class="hero-name">Roana</h1>
-    <div class="hero-cn" aria-label="漫行">漫行</div>
-    <p class="hero-tagline">Walk your world.</p>
-    <p class="hero-subtitle">An open-source assistive navigation system for blind and low-vision users.</p>
-  </header>
+  <div class="center" id="content">
+    <p class="eyebrow">Open-source assistive navigation</p>
+    <h1 class="wordmark">Roana</h1>
+    <div class="cn" aria-hidden="true">漫 行</div>
+    <p class="tagline">Walk <em>your</em> world.</p>
+    <p class="lead">The freedom to go where you want, at your own pace. A quiet voice in your ear, a gentle nudge at your wrist — your ears stay open, and the world stays yours.</p>
 
-  <!-- The idea -->
-  <section>
-    <h2>The Idea</h2>
-    <p>
-      Roana turns a smartphone — and later, a pair of smart glasses — into a quiet companion for going where you want to go. On-device computer vision watches what's ahead. The world arrives back to you as <strong>bone-conduction speech</strong> (what's around) and <strong>wrist haptics</strong> (which way to go). Your ears stay free for everything else.
-    </p>
-    <div class="quote">
-      The name comes from <em>roam</em> — the freedom and dignity of going wherever you want, on your own pace.
+    <div class="actions">
+      <a class="btn btn-primary" href="mailto:talk@roana.app?subject=Roana&body=Hi%2C%20I%27d%20like%20to%20follow%20along%20with%20Roana.">Stay in touch <span aria-hidden="true">&rarr;</span></a>
+      <a class="btn btn-ghost" href="https://github.com/floatinglifeai/roana">View on GitHub</a>
     </div>
-  </section>
 
-  <!-- What it is / isn't -->
-  <section>
-    <h2>What Roana Is — and Isn't</h2>
-    <div class="what-grid">
-      <div class="what-card">
-        <h3>It is</h3>
-        <ul>
-          <li>An electronic travel aid that <em>augments</em> the white cane and guide dog</li>
-          <li>Multi-modal: audio and haptic, working together</li>
-          <li>Built on off-the-shelf hardware you can buy today</li>
-          <li>Open source, AGPL-3.0</li>
-        </ul>
-      </div>
-      <div class="what-card not">
-        <h3>It is not</h3>
-        <ul>
-          <li>A medical device</li>
-          <li>A replacement for the cane, the dog, or O&amp;M training</li>
-          <li>A vision-restoration product</li>
-          <li>For sale to anyone vulnerable as a paywalled service</li>
-        </ul>
-      </div>
-    </div>
-  </section>
+    <p class="status"><span class="dot" aria-hidden="true"></span> Open source · AGPL-3.0</p>
+  </div>
 
-  <!-- How it feels -->
-  <section>
-    <h2>How It Feels to Use</h2>
-    <div class="feels">
-      <div class="feels-item">
-        <div class="feels-channel">Audio</div>
-        <div class="feels-text">A quiet voice in your bone-conduction headset describes what matters: <em>"step ahead, two meters,"</em> <em>"crosswalk on your right."</em> Your ear canal stays open. You still hear the world.</div>
-      </div>
-      <div class="feels-item">
-        <div class="feels-channel haptic">Haptic</div>
-        <div class="feels-text">A short buzz on your left or right wrist nudges you toward the safe path. Both wrists at once means stop. You learn it in an hour.</div>
-      </div>
-      <div class="feels-item">
-        <div class="feels-channel">On demand</div>
-        <div class="feels-text">Press a button: <em>"What's in front of me?"</em> A larger model takes a closer look and tells you. Otherwise it stays quiet, watching.</div>
-      </div>
-    </div>
-  </section>
+  <div class="herofoot">
+    <a class="scrollcue" href="#feel"><span class="arr" aria-hidden="true">↓</span> What it&rsquo;s like</a>
+    <button class="motionbtn" id="motionbtn" type="button" aria-pressed="false">
+      <span id="motionicon" aria-hidden="true">⏸</span><span id="motionlabel">Pause motion</span>
+    </button>
+  </div>
+</header>
 
-  <!-- Why this license matters -->
-  <section>
-    <h2>Why Open Source</h2>
-    <p>
-      The blind and low-vision community has been burned too many times by accessibility tech that started open or free, then got acquired, locked down, and paywalled back. <strong>Roana is licensed AGPL-3.0</strong>, the strongest practical guarantee we can make that this won't happen here. Any modified version — including services built on top — must also be released under the same terms.
-    </p>
-    <p>
-      The code is on GitHub, free to study, free to fork, free to build with.
-    </p>
+<main>
+  <section class="feel" id="feel">
+    <p class="feel-lead">Here&rsquo;s what it&rsquo;s like.</p>
+    <p class="feel-hint">Try it — press play to hear a cue, or feel the nudge on your phone.</p>
+    <ul class="feel-list">
+      <li>A quiet voice tells you what&rsquo;s there.
+        <span class="said">&ldquo;Step ahead, two meters.&rdquo;</span><button class="play" type="button" data-say="Step ahead, two meters." aria-label="Hear: step ahead, two meters">&#9654;</button>
+        <span class="said">&ldquo;Crosswalk on your right.&rdquo;</span><button class="play" type="button" data-say="Crosswalk on your right." aria-label="Hear: crosswalk on your right">&#9654;</button>
+        Your ears stay open. You still hear the world.</li>
+      <li>A gentle buzz at your wrist points the way. Both wrists at once means stop.
+        <button class="buzz" id="buzzbtn" type="button" aria-label="Feel the nudge (vibrates your phone)">Feel the nudge <span class="ph">on your phone</span></button></li>
+      <li>Most of the time it stays quiet, just watching. Ask —
+        <span class="said">&ldquo;What&rsquo;s in front of me?&rdquo;</span><button class="play" type="button" data-say="What's in front of me?" aria-label="Hear: what's in front of me?">&#9654;</button>
+        — and it takes a closer look.</li>
+    </ul>
+    <p class="safety">Roana augments the white cane and guide dog — it doesn&rsquo;t replace them, and it isn&rsquo;t a medical device. (The voice you hear here is your browser&rsquo;s, not Roana&rsquo;s — just to give you the feel.)</p>
   </section>
-
-  <!-- Waitlist -->
-  <section class="waitlist" id="waitlist">
-    <h2>Stay in touch</h2>
-    <p class="waitlist-text">
-      Roana is in the design phase — no code yet, no app to download. If you'd like updates when there's something to walk with, or if you have something to share (you're a blind user, an O&amp;M instructor, a researcher, a developer who's been through this) — write to us.
-    </p>
-    <a class="email-link" href="mailto:talk@roana.app?subject=Roana%20waitlist&body=Hi%2C%20I%27d%20like%20to%20follow%20along%20with%20Roana.%0A%0A%5BOptional%3A%20a%20bit%20about%20yourself%20or%20what%20interests%20you%5D%0A%0AThanks%21">
-      <span>talk@roana.app</span>
-      <span>→</span>
-    </a>
-    <p class="waitlist-note">We read every message. No mailing list software, no tracking pixels.</p>
-  </section>
-
 </main>
 
 <footer>
-  <div>© 2026 The Roana Authors · AGPL-3.0</div>
-  <div class="footer-links">
+  <span>© 2026 The Roana Authors · AGPL-3.0</span>
+  <div class="flinks">
     <a href="https://github.com/floatinglifeai/roana">GitHub</a>
     <a href="https://github.com/floatinglifeai/roana/blob/main/LICENSE">License</a>
-    <a href="/zh/">中文</a>
-    <a href="mailto:talk@roana.app">Contact</a>
+    <a href="/zh/" lang="zh">中文</a>
+    <a href="mailto:talk@roana.app">talk@roana.app</a>
   </div>
 </footer>
 
+<script>
+(function(){
+  /* ---- ink flow field (decorative) ---- */
+  var DPR=Math.min(window.devicePixelRatio||1,2);
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var canvas=document.getElementById('field'), ctx=canvas.getContext('2d'), hero=document.querySelector('.hero');
+  var PAPER=[246,241,228];
+  var W,H,parts=[],inited=false,raf=null,paused=false;
+  function size(){var r=hero.getBoundingClientRect();W=canvas.width=r.width*DPR;H=canvas.height=r.height*DPR;}
+  function init(){size();ctx.fillStyle='rgb('+PAPER.join(',')+')';ctx.fillRect(0,0,W,H);
+    parts=[];var n=Math.min(170,Math.round(W*H/(15000*DPR)));
+    for(var i=0;i<n;i++){var x=Math.random()*W,y=Math.random()*H;parts.push({x:x,y:y,s:0.4+Math.random()*1.0});}inited=true;}
+  function flow(x,y){return Math.sin(y/H*2.4)*0.8 + Math.cos(x/W*1.9)*0.5 + 0.3;}
+  function step(){
+    ctx.fillStyle='rgba('+PAPER[0]+','+PAPER[1]+','+PAPER[2]+',0.085)';ctx.fillRect(0,0,W,H);
+    for(var i=0;i<parts.length;i++){var p=parts[i];var a=flow(p.x,p.y)*0.85;
+      p.x+=Math.cos(a)*0.85*p.s*DPR; p.y+=Math.sin(a)*0.85*p.s*DPR-0.1*DPR;
+      if(p.x<0||p.x>W||p.y<0||p.y>H){p.x=Math.random()*W;p.y=Math.random()*H;}
+      var f=p.y/H;var r=(95-40*f)|0,g=(82-36*f)|0,b=(70-30*f)|0,al=0.16+p.s*0.16;
+      ctx.fillStyle='rgba('+r+','+g+','+b+','+al+')';
+      ctx.beginPath();ctx.arc(p.x,p.y,p.s*1.2*DPR,0,6.283);ctx.fill();
+    }
+  }
+  function loop(){step();raf=requestAnimationFrame(loop);}
+  function start(){if(!inited)init();if(reduce||paused){for(var k=0;k<80;k++)step();return;}if(!raf)loop();}
+  function stop(){if(raf){cancelAnimationFrame(raf);raf=null;}}
+  var mbtn=document.getElementById('motionbtn'),ic=document.getElementById('motionicon'),lb=document.getElementById('motionlabel');
+  if(reduce){mbtn.style.display='none';}
+  mbtn.addEventListener('click',function(){
+    paused=!paused;mbtn.setAttribute('aria-pressed',String(paused));
+    ic.textContent=paused?'▶':'⏸';lb.textContent=paused?'Resume motion':'Pause motion';
+    if(paused)stop(); else loop();
+  });
+  window.addEventListener('resize',function(){inited=false;size();if(!reduce&&!paused){stop();loop();}});
+  document.addEventListener('visibilitychange',function(){if(document.hidden)stop();else if(!reduce&&!paused&&!raf)loop();});
+  start();
+
+  /* ---- hear it (speechSynthesis) ---- */
+  var plays=[].slice.call(document.querySelectorAll('.play'));
+  if('speechSynthesis' in window){
+    plays.forEach(function(b){
+      b.addEventListener('click',function(){
+        try{
+          window.speechSynthesis.cancel();
+          var u=new SpeechSynthesisUtterance(b.dataset.say);
+          u.lang='en-US';u.rate=0.95;u.pitch=1;u.volume=1;
+          b.classList.add('on');
+          u.onend=function(){b.classList.remove('on');};
+          u.onerror=function(){b.classList.remove('on');};
+          window.speechSynthesis.speak(u);
+        }catch(e){}
+      });
+    });
+  } else { plays.forEach(function(b){b.style.display='none';}); }
+
+  /* ---- feel it (vibration) ---- */
+  var buzz=document.getElementById('buzzbtn');
+  if(buzz){
+    if('vibrate' in navigator){
+      buzz.addEventListener('click',function(){ try{navigator.vibrate(70);}catch(e){} });
+    } else { buzz.style.display='none'; }
+  }
+})();
+</script>
 </body>
 </html>
