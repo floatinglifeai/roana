@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_IMAGE="${ANDROID_BUILD_IMAGE:-cimg/android:2026.03-ndk}"
 GRADLE_CACHE_VOLUME="${GRADLE_CACHE_VOLUME:-roana-gradle-cache}"
+ANDROID_HOME_VOLUME="${ANDROID_HOME_VOLUME:-roana-android-home}"
 
 cd "$ROOT_DIR"
 
@@ -19,6 +20,7 @@ docker run --rm \
   --user root \
   --volume "$ROOT_DIR:/workspace" \
   --volume "$GRADLE_CACHE_VOLUME:/root/.gradle" \
+  --volume "$ANDROID_HOME_VOLUME:/root/.android" \
   --workdir /workspace \
   --env ANDROID_HOME=/home/circleci/android-sdk \
   --env ANDROID_SDK_ROOT=/home/circleci/android-sdk \

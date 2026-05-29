@@ -7,6 +7,7 @@ ACTIVITY="${ACTIVITY:-$APP_ID/.MainActivity}"
 APK_PATH="${APK_PATH:-$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk}"
 LOG_SECONDS="${LOG_SECONDS:-30}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
+DEVICE_APK_PATH="${DEVICE_APK_PATH:-/data/local/tmp/roana-v0a-debug.apk}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_PATH="$LOG_DIR/v0a-device-$TIMESTAMP.log"
 
@@ -22,6 +23,36 @@ json_result() {
   "decision": "$decision"
 }
 JSON
+}
+
+install_apk() {
+  local output_file
+  local install_status
+  output_file="$(mktemp)"
+
+  adb "${DEVICE_ARG[@]}" push "$APK_PATH" "$DEVICE_APK_PATH" >/dev/null
+
+  set +e
+  adb "${DEVICE_ARG[@]}" shell pm install -r -g -d "$DEVICE_APK_PATH" >"$output_file" 2>&1
+  install_status=$?
+  set -e
+
+  if [ "$install_status" -ne 0 ] && grep -q "INSTALL_FAILED_UPDATE_INCOMPATIBLE" "$output_file"; then
+    adb "${DEVICE_ARG[@]}" uninstall "$APP_ID" >/dev/null 2>&1 || true
+    set +e
+    adb "${DEVICE_ARG[@]}" shell pm install -r -g -d "$DEVICE_APK_PATH" >"$output_file" 2>&1
+    install_status=$?
+    set -e
+  fi
+
+  if [ "$install_status" -ne 0 ]; then
+    cat "$output_file" >&2
+    rm -f "$output_file"
+    return "$install_status"
+  fi
+
+  rm -f "$output_file"
+  return 0
 }
 
 if ! command -v adb >/dev/null 2>&1; then
@@ -54,7 +85,10 @@ fi
 
 mkdir -p "$LOG_DIR"
 
-adb "${DEVICE_ARG[@]}" install -r "$APK_PATH" >/dev/null
+if ! install_apk; then
+  json_result "failed" "" "APK install failed through device-local pm install."
+  exit 1
+fi
 adb "${DEVICE_ARG[@]}" shell pm grant "$APP_ID" android.permission.CAMERA >/dev/null 2>&1 || true
 adb "${DEVICE_ARG[@]}" shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
 adb "${DEVICE_ARG[@]}" logcat -c >/dev/null

@@ -98,15 +98,25 @@ class MainActivity : ComponentActivity() {
     private fun setupTextToSpeech() {
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = textToSpeech.setLanguage(Locale.US)
+                val locale = selectTextToSpeechLocale()
+                val result = textToSpeech.setLanguage(locale)
                 ttsReady = result != TextToSpeech.LANG_MISSING_DATA &&
                     result != TextToSpeech.LANG_NOT_SUPPORTED
+                Log.i(TAG, "tts_language locale=$locale result=$result")
                 Log.i(TAG, "tts_init status=success ready=$ttsReady")
                 maybeAnnounceReady()
             } else {
                 Log.w(TAG, "tts_init status=failure code=$status")
             }
         }
+    }
+
+    private fun selectTextToSpeechLocale(): Locale {
+        val candidates = listOf(Locale.getDefault(), Locale.CHINA, Locale.US)
+        return candidates.firstOrNull { locale ->
+            val availability = textToSpeech.isLanguageAvailable(locale)
+            availability >= TextToSpeech.LANG_AVAILABLE
+        } ?: Locale.getDefault()
     }
 
     private fun requestCameraPermissionOrStart() {
