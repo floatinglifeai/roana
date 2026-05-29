@@ -8,7 +8,7 @@
 > numbers and the cross-platform NPU landscape behind this plan are documented
 > in [research/06-acceleration-strategy.md](../research/06-acceleration-strategy.md).
 
-**Status:** accepted research direction / updated 2026-05-30. Skeleton-first;
+**Status:** accepted for implementation / updated 2026-05-30. Skeleton-first;
 wait for the real iPhone before model-performance claims.
 
 ---
@@ -83,7 +83,7 @@ Coupling measured against the current ~2300 LOC Kotlin tree:
 |---|---|---|
 | **Decision core (portable, ~800 LOC)** | `CorridorPlanner` (249), `CorridorStateMachine` (78), `CorridorGridFusion` (50), `CorridorPipeline` (57), `FeedbackDispatcher` decision part (81), `DepthAnythingTensor` post-proc (121), `DepthFramePreprocessor` (159) | **Port to Swift**, behaviour-locked by golden vectors |
 | **Inference** | `InferenceBackend` (127), `DepthAnythingRunner` (136), `YoloObstacleDetector` decode (305) | **Rewrite, but much smaller.** Vision/Core ML absorb NPU routing + NMS + preprocessing that we hand-rolled on Android |
-| **Camera** | `CameraFrameConverter` (277) | **Largely evaporates.** `AVCaptureVideoDataOutput` yields a `CVPixelBuffer` that Vision consumes directly; no manual YUV→RGB→ByteBuffer dance |
+| **Camera** | `CameraFrameConverter` (277) | **Rewrite as AVFoundation capture.** `AVCaptureVideoDataOutput` yields a `CVPixelBuffer` that Vision consumes directly; no manual YUV→RGB→ByteBuffer dance, but lifecycle, permission, preview, orientation, and frame-cadence diagnostics are real iOS work |
 | **App / lifecycle / output** | `MainActivity` (574): camera lifecycle, TTS, (future) BLE, UI | **Rewrite** in SwiftUI + AVSpeechSynthesizer (+ Core Bluetooth later) |
 
 Encouraging consequence: the iOS platform layer is expected to be **smaller**
@@ -107,19 +107,99 @@ cleanly with `VNRecognizedObjectObservation`.
 
 ---
 
-## 5. Implementation order (mirrors the Android V0a/V0b gates)
+## 5. Implementation order
 
-The iOS slices reuse the **same acceptance gates** as
-[plan/v0-implementation-plan.md](v0-implementation-plan.md) so we are comparing
-like for like across platforms.
+The first iOS slice is **not** the full Android V0a equivalent. It is a smaller
+skeleton gate that proves Xcode, signing, camera permission, preview, and frame
+callback cadence before any model work. After that, the iOS slices reuse the
+same acceptance gates as [v0-implementation-plan.md](v0-implementation-plan.md)
+so we are comparing like for like across platforms.
+
+### iOS-S0: skeleton and camera callback gate
+
+Build a native Swift/SwiftUI app in this monorepo under `ios/`.
+
+Suggested layout:
+
+```text
+ios/
+  Roana/
+    Roana.xcodeproj
+    Roana/
+      RoanaApp.swift
+      ContentView.swift
+      Camera/
+      Diagnostics/
+      Info.plist
+```
+
+Implementation:
+
+1. Verify host readiness:
+   - `xcode-select -p`;
+   - `xcodebuild -version`;
+   - iPhone visible in Finder / Xcode Devices / `xcrun devicectl list devices`
+     when available.
+2. Create the smallest SwiftUI app target:
+   - app entry point;
+   - one camera screen;
+   - `NSCameraUsageDescription`;
+   - diagnostics for device model, iOS version, launch time, thermal state, and
+     camera authorization state.
+3. Implement `AVCaptureSession`:
+   - back wide-angle camera input;
+   - `AVCaptureVideoPreviewLayer` or SwiftUI-compatible preview wrapper;
+   - `AVCaptureVideoDataOutput`;
+   - prefer `kCVPixelFormatType_420YpCbCr8BiPlanarFullRange`;
+   - `alwaysDiscardsLateVideoFrames = true`;
+   - dedicated serial capture queue.
+4. Add frame callback diagnostics:
+   - frame dimensions;
+   - pixel format;
+   - callback interval;
+   - rolling p50/p95 callback interval;
+   - dropped-frame count if available;
+   - queue backlog indicator;
+   - thermal state;
+   - foreground/background transitions.
+
+Use a stable log prefix:
+
+```text
+roana_ios_frame_stats width=... height=... interval_ms=... p50_ms=... p95_ms=... dropped=... thermal=...
+```
+
+Acceptance:
+
+- Xcode project opens and builds.
+- App signs, installs, and launches on a physical iPhone.
+- Permission prompt appears on first launch.
+- Denied permission produces a clear non-crashing app state.
+- Granted permission starts preview.
+- Preview orientation matches the physical device orientation used for testing.
+- A 60-second physical-device run produces repeated `roana_ios_frame_stats`.
+- No backlog accumulates before model inference exists.
+- Entering background stops camera work; returning foreground restarts cleanly.
+- `UIApplication.isIdleTimerDisabled = true` while the camera view is active.
+
+Acceptance artifact:
+
+```text
+logs/ios-skeleton-<timestamp>.log
+```
+
+The first iOS commit should prove build + on-device camera preview, no models
+yet. Suggested branch/PR per repo convention:
+`feat(ios): bootstrap SwiftUI skeleton with AVCaptureSession preview`.
 
 ### iOS-V0a: minimum closed loop
 
-1. Scaffold a SwiftUI app; Xcode project + on-device run on a registered iPhone.
-2. `AVCaptureSession` preview + `AVCaptureVideoDataOutput` frame callback.
-3. Load YOLO11n Core ML; run one detection via `VNCoreMLRequest`.
-4. Turn one detection event into `AVSpeechSynthesizer` speech.
-5. Log frame timing, inference timing, dropped frames, speech events.
+Start only after iOS-S0 passes.
+
+1. Load YOLO11n Core ML.
+2. Run one detection via `VNCoreMLRequest`.
+3. Turn one detection event into `AVSpeechSynthesizer` speech.
+4. Log frame timing, inference timing, dropped frames, and speech events.
 
 Acceptance: runs on a real iPhone; analysis does not backlog; a detected
 obstacle triggers spoken output. (Same gate as Android V0a.)
@@ -210,49 +290,23 @@ can move to **Mode A** cloud routines.
 
 ---
 
-## 10. Next execution step
+## 10. Stop gates
 
-Before any model work, prove the iOS skeleton builds and runs on the real
-iPhone (mirrors the Android "skeleton first" rule):
+Stop and report after any of these:
 
-- Xcode SwiftUI project + on-device run on the registered iPhone;
-- camera permission + `AVCaptureSession` preview;
-- frame callback with timing logs, before any model is loaded.
+1. Xcode/device signing blocks physical install.
+2. Camera permission or preview cannot be made reliable.
+3. Frame callbacks are unstable before any model work.
+4. The 60-second skeleton run passes.
+5. YOLO Core ML loads and speaks one detection.
+6. Depth Anything loads and produces one planner-grid output.
+7. The full iOS V0b corridor demo passes.
 
-The first iOS commit should prove build + on-device camera preview, no models
-yet. Suggested branch/PR per repo convention:
-`feat(ios): bootstrap SwiftUI skeleton with AVCaptureSession preview`.
-
-### iPhone test handoff
-
-When the iPhone is plugged in, run this handoff before adding Core ML models:
-
-1. Record device model, iOS version, chip family, available storage, battery
-   state, and `ProcessInfo.thermalState` at launch.
-2. Verify Xcode build, signing, install, and first launch on the physical
-   device.
-3. Verify camera permission copy, permission prompt, denied-permission behavior,
-   and successful `AVCaptureSession` start after permission is granted.
-4. Verify the preview renders with the intended orientation, no stretching, no
-   visible frame stalls, and no UI overlap with system camera indicators.
-5. Log `AVCaptureVideoDataOutput` callback cadence for at least 60 seconds:
-   frame dimensions, pixel format, callback interval p50/p95, dropped-frame
-   count, queue backlog, and app-visible thermal state.
-6. Confirm `alwaysDiscardsLateVideoFrames = true`, foreground-only camera
-   behavior, and `UIApplication.isIdleTimerDisabled = true` while the camera
-   view is active.
-7. Stop here if the skeleton cannot sustain stable callbacks. Do not load the
-   Apple Depth Anything or YOLO Core ML packages until build/install, preview,
-   permissions, callback cadence, and lifecycle behavior are proven.
-
----
+Only after stop gate 4 should model loading begin.
 
 ## 11. Open questions for founder review
 
-1. Repo layout: second app in this monorepo (`ios/` alongside `app/`) or a
-   separate `Roana-iOS` repo? Monorepo keeps the golden-vector `parity/` fixtures
-   trivially shared.
-2. iPhone model on hand (sets the real ANE perf ceiling and the minimum support
+1. iPhone model on hand (sets the real ANE perf ceiling and the minimum support
    target).
-3. Paid Apple Developer account now (unblocks TestFlight + blind-user testing) or
+2. Paid Apple Developer account now (unblocks TestFlight + blind-user testing) or
    later (self-test only for now)?
