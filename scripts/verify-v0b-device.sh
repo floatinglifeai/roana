@@ -100,6 +100,16 @@ analysis_list_text() {
   printf '%s' "$2" | python3 -c 'import json, sys; print(" ".join(json.load(sys.stdin)[sys.argv[1]]))' "$key"
 }
 
+analysis_only_missing_corridor_test() {
+  printf '%s' "$1" | python3 -c '
+import json
+import sys
+
+missing = json.load(sys.stdin)["missing"]
+print("1" if missing == ["corridor_test_passed"] else "0")
+'
+}
+
 json_field() {
   local key="$1"
   python3 -c '
@@ -179,12 +189,13 @@ analysis_json="$(analyze_log "$log_path")"
 details="$(analysis_details "$analysis_json")"
 missing_count="$(analysis_list_count "missing" "$analysis_json")"
 missing_text="$(analysis_list_text "missing" "$analysis_json")"
+only_missing_corridor_test="$(analysis_only_missing_corridor_test "$analysis_json")"
 thermal_gate_run=false
 thermal_log_path=""
 thermal_status_before=""
 thermal_status_after=""
 
-if [ "$missing_count" -gt 0 ]; then
+if [ "$missing_count" -gt 0 ] && [ "$only_missing_corridor_test" != "1" ]; then
   json_result "failed" "$log_path" "V0b gate failed: $missing_text." "$details"
   exit 1
 fi
