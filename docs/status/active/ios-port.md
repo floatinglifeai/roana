@@ -39,7 +39,8 @@ Updated: 2026-05-30.
   `roana_ios_inference status=scheduled|skipped|finished` so slow model frames
   are dropped instead of accumulating queued inference work.
 - Foreground/background handling stops camera work in background and restarts
-  when active.
+  when active; the physical log verifier now requires ordered background-stop
+  then camera-restart evidence for granted-camera S0/V0 artifacts.
 - Denied or restricted camera authorization logs `camera_permission_denied` and
   leaves the app in a non-crashing permission-required state; the future denied
   permission artifact can be checked separately from the granted-camera run.
@@ -123,15 +124,16 @@ Updated: 2026-05-30.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts,
     including frame stats, orientation evidence, Core ML model-description
-    logs, model/corridor/speech evidence, and inference coordinator
-    scheduled/skipped/finished counts.
+    logs, ordered background-stop/restart evidence, model/corridor/speech
+    evidence, and inference coordinator scheduled/skipped/finished counts.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
-    artifacts. All physical-run gates require preview/capture orientation
-    evidence by default. V0a/V0b defaults require YOLO model-description
-    evidence, and V0b defaults require Depth Anything model-description
-    evidence, so the first model-backed device artifact proves the exported
-    Core ML feature contract instead of only proving inference callbacks.
+    artifacts. All granted-camera physical-run gates require preview/capture
+    orientation evidence and ordered background-stop/restart evidence by
+    default. V0a/V0b defaults require YOLO model-description evidence, and V0b
+    defaults require Depth Anything model-description evidence, so the first
+    model-backed device artifact proves the exported Core ML feature contract
+    instead of only proving inference callbacks.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
     permission artifact without requiring camera start, frame stats, or
     orientation logs.
@@ -192,7 +194,7 @@ logs/ios-skeleton-<timestamp>.log
 Machine-check the artifact with:
 
 ```bash
-scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-background-stop 1 --require-orientation 1
+scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-background-stop 1 --require-background-cycle 1 --require-orientation 1
 ```
 
 Or use the physical-run wrapper:

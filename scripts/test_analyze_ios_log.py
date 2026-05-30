@@ -29,6 +29,7 @@ def fake_log(
     inference_skipped: int = 0,
     include_orientation: bool = False,
     include_background_stop: bool = False,
+    include_background_restart: bool = False,
     include_permission: bool = True,
 ) -> str:
     lines: list[str] = []
@@ -95,6 +96,8 @@ def fake_log(
         lines.append("roana_ios_speech status=queued label=person score=91 message=Person_ahead")
     if include_background_stop:
         lines.append("roana_ios_lifecycle camera_background_stop phase=background")
+    if include_background_restart:
+        lines.append("roana_ios_lifecycle camera_started")
     return "\n".join(lines) + "\n"
 
 
@@ -118,8 +121,10 @@ class AnalyzeIosLogTest(unittest.TestCase):
 
     def test_s0_gate_passes_with_frame_stats_and_background_stop(self) -> None:
         data = self.run_analyzer(
-            fake_log(frame_count=120, include_background_stop=True),
+            fake_log(frame_count=120, include_background_stop=True, include_background_restart=True),
             "--require-background-stop",
+            "1",
+            "--require-background-cycle",
             "1",
         )
 
@@ -127,6 +132,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual([], data["missing"])
         self.assertEqual(120, data["details"]["frame_stats_count"])
         self.assertTrue(data["details"]["camera_background_stop"])
+        self.assertTrue(data["details"]["background_cycle_seen"])
 
     def test_v0a_v0b_gate_passes_with_model_and_feedback_evidence(self) -> None:
         data = self.run_analyzer(
@@ -193,6 +199,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-background-stop",
             "1",
+            "--require-background-cycle",
+            "1",
         )
 
         self.assertEqual("blocked", data["status"])
@@ -201,6 +209,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "frame_stats>=5",
                 "camera_permission_state",
                 "camera_background_stop",
+                "camera_background_restart",
                 "yolo_inference",
                 "yolo_model_description",
                 "depth_inference",
@@ -274,6 +283,16 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("preview_orientation", data["missing"])
         self.assertIn("capture_orientation", data["missing"])
+
+    def test_reports_missing_background_restart_evidence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=120, include_background_stop=True),
+            "--require-background-cycle",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("camera_background_restart", data["missing"])
 
     def test_permission_denied_gate_passes_without_camera_start(self) -> None:
         data = self.run_analyzer(

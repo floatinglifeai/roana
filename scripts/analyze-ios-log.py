@@ -49,6 +49,7 @@ def parse_log(log_path: Path) -> dict[str, object]:
     corridor_feedback_spoken = []
     speech_queued = []
     lifecycle_lines = []
+    lifecycle_events = []
     preview_orientation_lines = []
     capture_orientation_lines = []
     inference_scheduled = []
@@ -82,6 +83,12 @@ def parse_log(log_path: Path) -> dict[str, object]:
             speech_queued.append(line)
         if "roana_ios_lifecycle" in line:
             lifecycle_lines.append(line)
+            if "camera_started" in line:
+                lifecycle_events.append("camera_started")
+            elif "camera_background_stop" in line:
+                lifecycle_events.append("camera_background_stop")
+            elif "camera_stopped" in line:
+                lifecycle_events.append("camera_stopped")
         if "roana_ios_orientation source=preview" in line:
             preview_orientation_lines.append(line)
         if "roana_ios_lifecycle camera_output_orientation" in line:
@@ -120,6 +127,11 @@ def parse_log(log_path: Path) -> dict[str, object]:
     camera_started = any("camera_started" in line for line in lifecycle_lines)
     camera_background_stop = any("camera_background_stop" in line for line in lifecycle_lines)
     camera_stopped = any("camera_stopped" in line for line in lifecycle_lines)
+    background_cycle_seen = any(
+        event in {"camera_background_stop", "camera_stopped"}
+        and "camera_started" in lifecycle_events[index + 1 :]
+        for index, event in enumerate(lifecycle_events)
+    )
 
     yolo_elapsed = [
         value
@@ -164,6 +176,7 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "camera_started": camera_started,
         "camera_background_stop": camera_background_stop,
         "camera_stopped": camera_stopped,
+        "background_cycle_seen": background_cycle_seen,
     }
 
 
@@ -181,6 +194,7 @@ def missing_evidence(
     require_speech: bool,
     require_orientation: bool,
     require_background_stop: bool,
+    require_background_cycle: bool,
     require_permission: bool,
     require_permission_denied: bool,
     require_camera_start: bool,
@@ -206,6 +220,8 @@ def missing_evidence(
         details["camera_background_stop"] or details["camera_stopped"]
     ):
         missing.append("camera_background_stop")
+    if require_background_cycle and not details["background_cycle_seen"]:
+        missing.append("camera_background_restart")
     if require_yolo and details["yolo_ok_count"] < 1:
         missing.append("yolo_inference")
     if require_yolo_description and details["yolo_description_count"] < 1:
@@ -249,6 +265,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-orientation", default="0")
     parser.add_argument("--require-inference", default="0")
     parser.add_argument("--require-background-stop", default="0")
+    parser.add_argument("--require-background-cycle", default="0")
     parser.add_argument("--require-permission", default="1")
     parser.add_argument("--require-permission-denied", default="0")
     parser.add_argument("--require-camera-start", default="1")
@@ -271,6 +288,7 @@ def main() -> None:
         require_speech=parse_bool(args.require_speech),
         require_orientation=parse_bool(args.require_orientation),
         require_background_stop=parse_bool(args.require_background_stop),
+        require_background_cycle=parse_bool(args.require_background_cycle),
         require_permission=parse_bool(args.require_permission),
         require_permission_denied=parse_bool(args.require_permission_denied),
         require_camera_start=parse_bool(args.require_camera_start),

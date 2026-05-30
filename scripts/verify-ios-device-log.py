@@ -80,6 +80,8 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         str(args.max_inference_skipped),
         "--require-background-stop",
         args.require_background_stop,
+        "--require-background-cycle",
+        args.require_background_cycle,
         "--require-yolo",
         args.require_yolo,
         "--require-yolo-description",
@@ -122,6 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-dropped", default=0, type=int)
     parser.add_argument("--max-inference-skipped", default=0, type=int)
     parser.add_argument("--require-background-stop", default="1")
+    parser.add_argument("--require-background-cycle", default=None)
     parser.add_argument("--require-permission", default="1")
     parser.add_argument("--require-permission-denied", default=None)
     parser.add_argument("--require-camera-start", default=None)
@@ -151,9 +154,12 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.max_backlog = max(args.max_backlog, 0)
         args.max_dropped = max(args.max_dropped, 0)
         args.require_background_stop = "0"
+        args.require_background_cycle = "0" if args.require_background_cycle is None else args.require_background_cycle
         args.require_orientation = "0" if args.require_orientation is None else args.require_orientation
     if args.require_yolo is None:
         args.require_yolo = "1" if model_gate else "0"
+    if args.require_background_cycle is None:
+        args.require_background_cycle = "1"
     if args.require_yolo_description is None:
         args.require_yolo_description = "1" if model_gate else "0"
     if args.require_depth is None:
