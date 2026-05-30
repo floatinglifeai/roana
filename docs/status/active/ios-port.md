@@ -111,6 +111,9 @@ Updated: 2026-05-30.
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts,
     including frame stats, model/corridor/speech evidence, and inference
     coordinator scheduled/skipped/finished counts.
+  - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
+    model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
+    artifacts.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -167,6 +170,12 @@ Machine-check the artifact with:
 
 ```bash
 scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-background-stop 1
+```
+
+Or use the physical-run wrapper:
+
+```bash
+scripts/verify-ios-device-log.py --gate s0 --log logs/ios-skeleton-<timestamp>.log
 ```
 
 After model assets are available, add `--require-yolo 1 --require-depth 1

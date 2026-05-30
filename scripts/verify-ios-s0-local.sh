@@ -57,6 +57,7 @@ python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
 python3 "$ROOT_DIR/scripts/check-ios-model-assets.py" \
   --manifest "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 - <<'PY' "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
