@@ -24,6 +24,7 @@
 		8F4C002B2CAE000100000001 /* CorridorPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C002C2CAE000100000001 /* CorridorPipeline.swift */; };
 		8F4C002E2CAE000100000001 /* DepthAnythingOutputAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C002F2CAE000100000001 /* DepthAnythingOutputAdapter.swift */; };
 		8F4C00312CAE000100000001 /* DepthAnythingRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00322CAE000100000001 /* DepthAnythingRunner.swift */; };
+		8F4C00332CAE000100000001 /* CorridorFeedbackDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00342CAE000100000001 /* CorridorFeedbackDispatcher.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +47,7 @@
 		8F4C002C2CAE000100000001 /* CorridorPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorridorPipeline.swift; sourceTree = "<group>"; };
 		8F4C002F2CAE000100000001 /* DepthAnythingOutputAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthAnythingOutputAdapter.swift; sourceTree = "<group>"; };
 		8F4C00322CAE000100000001 /* DepthAnythingRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthAnythingRunner.swift; sourceTree = "<group>"; };
+		8F4C00342CAE000100000001 /* CorridorFeedbackDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorridorFeedbackDispatcher.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -143,6 +145,7 @@
 		8F4C00242CAE000100000001 /* Speech */ = {
 			isa = PBXGroup;
 			children = (
+				8F4C00342CAE000100000001 /* CorridorFeedbackDispatcher.swift */,
 				8F4C00222CAE000100000001 /* SpeechFeedbackDispatcher.swift */,
 			);
 			path = Speech;
@@ -233,6 +236,7 @@
 				8F4C002B2CAE000100000001 /* CorridorPipeline.swift in Sources */,
 				8F4C002E2CAE000100000001 /* DepthAnythingOutputAdapter.swift in Sources */,
 				8F4C00312CAE000100000001 /* DepthAnythingRunner.swift in Sources */,
+				8F4C00332CAE000100000001 /* CorridorFeedbackDispatcher.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

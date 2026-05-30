@@ -54,6 +54,9 @@ Updated: 2026-05-30.
   - Swift `CorridorGridFusion` port that marks high-confidence detections as
     obstacle cells in the planner grid.
   - Swift `CorridorPipeline` wrapper that logs `roana_ios_corridor`.
+  - Swift `CorridorFeedbackDispatcher` ports Android's changed-state and
+    initial-emergency-STOP speech rules, logs `roana_ios_corridor_feedback`,
+    and is wired into the camera corridor pipeline.
 - Code-only Depth Anything path:
   - `DepthAnythingOutputAdapter` converts raw depth output values or
     `MLMultiArray` outputs into the 15x15 planner grid.

@@ -19,7 +19,7 @@ final class CameraSessionController: NSObject, ObservableObject {
     private let diagnostics = FrameDiagnostics()
     private let obstacleDetector = YoloObstacleDetector()
     private let depthRunner = DepthAnythingRunner()
-    private let corridorPipeline = CorridorPipeline()
+    private let corridorPipeline = CorridorPipeline(feedbackDispatcher: CorridorFeedbackDispatcher())
     private let speechDispatcher = SpeechFeedbackDispatcher()
 
     private var isConfigured = false
