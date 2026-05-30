@@ -84,6 +84,23 @@ class CameraFrameConverterTest {
     }
 
     @Test
+    fun yuvFrameFastDepthInputUsesNearestCropSample() {
+        val sampler = CameraFrameConverter.YuvFrame(
+            sourceWidth = 2,
+            sourceHeight = 2,
+            rotationDegrees = 0,
+            yPlane = plane(byteArrayOf(0, 64, 128.toByte(), 255.toByte()), rowStride = 2),
+            uPlane = plane(byteArrayOf(128.toByte()), rowStride = 1),
+            vPlane = plane(byteArrayOf(128.toByte()), rowStride = 1),
+        )
+        val preprocessor = DepthFramePreprocessor(targetWidth = 1, targetHeight = 1)
+
+        val values = preprocessor.fillInputBuffer(sampler, preprocessor.newInputBuffer()).readFloats()
+
+        assertArrayEquals(floatArrayOf(1f, 1f, 1f), values, FLOAT_TOLERANCE)
+    }
+
+    @Test
     fun fillsRgbInputDirectlyFromYuvWithoutBitmapRoundTrip() {
         val buffer = ByteBuffer.allocateDirect(3)
 
@@ -130,6 +147,35 @@ class CameraFrameConverterTest {
         )
 
         assertArrayEquals(byteArrayOf(50, 50, 50, 20, 20, 20), buffer.readBytes())
+    }
+
+    @Test
+    fun fillsNearestRgbInputAfterApplyingCameraRotation() {
+        val buffer = ByteBuffer.allocateDirect(6)
+
+        CameraFrameConverter.fillYuv420RgbInputNearest(
+            width = 2,
+            height = 3,
+            rotationDegrees = 90,
+            yPlane = plane(
+                byteArrayOf(
+                    10,
+                    20,
+                    30,
+                    40,
+                    50,
+                    60,
+                ),
+                rowStride = 2,
+            ),
+            uPlane = plane(byteArrayOf(128.toByte(), 128.toByte()), rowStride = 1),
+            vPlane = plane(byteArrayOf(128.toByte(), 128.toByte()), rowStride = 1),
+            targetWidth = 2,
+            targetHeight = 1,
+            output = buffer,
+        )
+
+        assertArrayEquals(byteArrayOf(60, 60, 60, 20, 20, 20), buffer.readBytes())
     }
 
     private fun plane(

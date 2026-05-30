@@ -55,6 +55,18 @@ def fps_from_ms(elapsed_ms: float) -> float:
     return rounded(1000.0 / elapsed_ms, 3)
 
 
+def mean_field(lines: list[str], required_text: str, field: str) -> float:
+    values: list[float] = []
+    pattern = re.compile(rf"\b{re.escape(field)}=([0-9.]+)")
+    for line in lines:
+        if required_text not in line:
+            continue
+        match = pattern.search(line)
+        if match:
+            values.append(float(match.group(1)))
+    return rounded(mean(values), 2) if values else 0.0
+
+
 def first_regex(lines: list[str], required_text: str, pattern: str) -> str:
     regex = re.compile(pattern)
     for line in lines:
@@ -176,6 +188,15 @@ def parse_log(log_path: Path, tail_sample_count: int) -> dict[str, object]:
         "gap_count": gap_count,
         "tail_depth_elapsed_ms": tail_depth_elapsed_ms,
         "tail_depth_fps": fps_from_ms(tail_depth_elapsed_ms),
+        "depth_input_elapsed_ms": mean_field(lines, "corridor_live_timing", "depth_input_ms"),
+        "depth_model_elapsed_ms": mean_field(lines, "corridor_live_timing", "depth_model_ms"),
+        "depth_grid_elapsed_ms": mean_field(lines, "corridor_live_timing", "depth_grid_ms"),
+        "corridor_pipeline_elapsed_ms": mean_field(lines, "corridor_live_timing", "pipeline_ms"),
+        "corridor_total_elapsed_ms": mean_field(lines, "corridor_live_timing", "total_ms"),
+        "yolo_input_elapsed_ms": mean_field(lines, "yolo_timing", "input_ms"),
+        "yolo_model_elapsed_ms": mean_field(lines, "yolo_timing", "model_ms"),
+        "yolo_decode_elapsed_ms": mean_field(lines, "yolo_timing", "decode_ms"),
+        "yolo_total_elapsed_ms": mean_field(lines, "yolo_timing", "total_ms"),
     }
 
 
@@ -283,6 +304,15 @@ def main() -> None:
         "fp16_htp": main_log["fp16_htp"],
         "depth_elapsed_ms": main_log["depth_elapsed_ms"],
         "depth_fps": main_log["depth_fps"],
+        "depth_input_elapsed_ms": main_log["depth_input_elapsed_ms"],
+        "depth_model_elapsed_ms": main_log["depth_model_elapsed_ms"],
+        "depth_grid_elapsed_ms": main_log["depth_grid_elapsed_ms"],
+        "corridor_pipeline_elapsed_ms": main_log["corridor_pipeline_elapsed_ms"],
+        "corridor_total_elapsed_ms": main_log["corridor_total_elapsed_ms"],
+        "yolo_input_elapsed_ms": main_log["yolo_input_elapsed_ms"],
+        "yolo_model_elapsed_ms": main_log["yolo_model_elapsed_ms"],
+        "yolo_decode_elapsed_ms": main_log["yolo_decode_elapsed_ms"],
+        "yolo_total_elapsed_ms": main_log["yolo_total_elapsed_ms"],
         "corridor_feedback": main_log["corridor_feedback"],
         "normal_corridor_feedback": main_log["normal_corridor_feedback"],
         "safe_stop_proof": main_log["safe_stop_proof"],
@@ -326,6 +356,15 @@ def main() -> None:
                 "thermal_live_corridor_count": thermal_log["live_corridor_count"],
                 "thermal_depth_elapsed_ms": thermal_log["depth_elapsed_ms"],
                 "thermal_depth_fps": thermal_log["depth_fps"],
+                "thermal_depth_input_elapsed_ms": thermal_log["depth_input_elapsed_ms"],
+                "thermal_depth_model_elapsed_ms": thermal_log["depth_model_elapsed_ms"],
+                "thermal_depth_grid_elapsed_ms": thermal_log["depth_grid_elapsed_ms"],
+                "thermal_corridor_pipeline_elapsed_ms": thermal_log[
+                    "corridor_pipeline_elapsed_ms"
+                ],
+                "thermal_corridor_total_elapsed_ms": thermal_log[
+                    "corridor_total_elapsed_ms"
+                ],
                 "thermal_tail_depth_elapsed_ms": thermal_log["tail_depth_elapsed_ms"],
                 "thermal_tail_depth_fps": thermal_log["tail_depth_fps"],
                 "thermal_frame_stats_count": thermal_log["frame_stats_count"],

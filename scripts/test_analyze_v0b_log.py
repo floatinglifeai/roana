@@ -145,6 +145,47 @@ class AnalyzeV0bLogTest(unittest.TestCase):
             self.assertIn("debug_safe_stop_proof enabled=true", details["safe_stop_proof"])
             self.assertIn("command=STOP", details["safe_stop_feedback"])
 
+    def test_main_gate_reports_live_stage_timing_without_affecting_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = Path(temp_dir) / "main.log"
+            log_path.write_text(
+                fake_log(
+                    depths=[80.0, 90.0, 85.0, 95.0, 100.0],
+                    frame_stats_count=5,
+                    gap_count=0,
+                    fp16_htp="true",
+                    safe_stop=True,
+                )
+                + "\n".join(
+                    [
+                        "05-29 10:00:00.310 I/RoanaV0a: "
+                        "corridor_live_timing depth_input_ms=30.00 depth_model_ms=50.00 "
+                        "depth_grid_ms=4.00 pipeline_ms=2.00 total_ms=86.00",
+                        "05-29 10:00:00.320 I/RoanaV0a: "
+                        "corridor_live_timing depth_input_ms=40.00 depth_model_ms=60.00 "
+                        "depth_grid_ms=6.00 pipeline_ms=4.00 total_ms=110.00",
+                        "05-29 10:00:00.330 I/RoanaV0a: "
+                        "yolo_timing input_ms=20.00 model_ms=3.00 decode_ms=7.00 total_ms=30.00",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            data = self.run_analyzer(log_path, require_safe_stop=True)
+            details = data["details"]
+
+            self.assertEqual([], data["missing"])
+            self.assertEqual(35.0, details["depth_input_elapsed_ms"])
+            self.assertEqual(55.0, details["depth_model_elapsed_ms"])
+            self.assertEqual(5.0, details["depth_grid_elapsed_ms"])
+            self.assertEqual(3.0, details["corridor_pipeline_elapsed_ms"])
+            self.assertEqual(98.0, details["corridor_total_elapsed_ms"])
+            self.assertEqual(20.0, details["yolo_input_elapsed_ms"])
+            self.assertEqual(3.0, details["yolo_model_elapsed_ms"])
+            self.assertEqual(7.0, details["yolo_decode_elapsed_ms"])
+            self.assertEqual(30.0, details["yolo_total_elapsed_ms"])
+
     def test_main_gate_reports_all_machine_blockers_from_slow_fallback_log(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             log_path = Path(temp_dir) / "main.log"

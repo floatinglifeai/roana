@@ -20,4 +20,19 @@ class FrameSchedulingTest {
         assertFalse(shouldRunPeriodicFrame(frame = 10, interval = 10))
         assertTrue(shouldRunPeriodicFrame(frame = 11, interval = 10))
     }
+
+    @Test
+    fun warmupFrameGapsDoNotTriggerSafetyStop() {
+        assertTrue(isWarmupFrameGap(frame = 1))
+        assertFalse(isUnsafeFrameGap(gapMs = 2_000, frame = 1))
+        assertFalse(isUnsafeFrameGap(gapMs = 2_000, frame = 3))
+    }
+
+    @Test
+    fun onlySevereRuntimeFrameGapsTriggerSafetyStop() {
+        assertFalse(isWarmupFrameGap(frame = 4))
+        assertFalse(isUnsafeFrameGap(gapMs = 199, frame = 4))
+        assertFalse(isUnsafeFrameGap(gapMs = 500, frame = 4))
+        assertTrue(isUnsafeFrameGap(gapMs = 501, frame = 4))
+    }
 }

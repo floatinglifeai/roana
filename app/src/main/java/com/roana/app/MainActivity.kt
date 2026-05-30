@@ -452,6 +452,13 @@ class MainActivity : ComponentActivity() {
                 if (lastCameraTimestampNs > 0L) {
                     val cameraGapMs = (cameraTimestampNs - lastCameraTimestampNs) / NS_PER_MS
                     if (cameraGapMs > FRAME_GAP_WARNING_MS) {
+                        Log.w(
+                            TAG,
+                            "camera_frame_delay gap_ms=$cameraGapMs " +
+                                "warmup=${isWarmupFrameGap(frames)}",
+                        )
+                    }
+                    if (isUnsafeFrameGap(cameraGapMs, frames)) {
                         gapCount += 1
                         Log.w(
                             TAG,
@@ -462,7 +469,8 @@ class MainActivity : ComponentActivity() {
                 }
                 lastCameraTimestampNs = cameraTimestampNs
 
-                if (frames % YOLO_FRAME_INTERVAL == 1L) {
+                val ranYolo = frames % YOLO_FRAME_INTERVAL == 1L
+                if (ranYolo) {
                     try {
                         lastResult = detector.detect(image)
                         Log.i(
@@ -470,6 +478,15 @@ class MainActivity : ComponentActivity() {
                             "yolo_inference inference_ms=${"%.2f".format(Locale.US, lastResult.inferenceMs)} " +
                                 "detection=${lastResult.bestDetection?.label ?: "none"}",
                         )
+                        lastResult.timing?.let { timing ->
+                            Log.i(
+                                TAG,
+                                "yolo_timing input_ms=${"%.2f".format(Locale.US, timing.inputMs)} " +
+                                    "model_ms=${"%.2f".format(Locale.US, timing.modelMs)} " +
+                                    "decode_ms=${"%.2f".format(Locale.US, timing.decodeMs)} " +
+                                    "total_ms=${"%.2f".format(Locale.US, timing.totalMs)}",
+                            )
+                        }
                         lastResult.bestDetection?.let { detection ->
                             Log.i(
                                 TAG,
@@ -491,7 +508,7 @@ class MainActivity : ComponentActivity() {
                         stopCorridorForSafety(REASON_LOW_CONFIDENCE)
                     }
                 }
-                maybeRunLiveCorridor(image)
+                maybeRunLiveCorridor(image, skipForYoloFrame = ranYolo)
                 val analysisMs =
                     (SystemClock.elapsedRealtimeNanos() - analysisStartNs).toDouble() / NS_PER_MS
 
@@ -525,21 +542,41 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        private fun maybeRunLiveCorridor(image: ImageProxy) {
+        private fun maybeRunLiveCorridor(
+            image: ImageProxy,
+            skipForYoloFrame: Boolean,
+        ) {
             val runner = depthRunner ?: return
             val pipeline = corridorPipeline ?: return
+            if (skipForYoloFrame) {
+                return
+            }
             if (!shouldRunPeriodicFrame(frames, DEPTH_FRAME_INTERVAL)) {
                 return
             }
 
             try {
-                val depthResult = runner.inferGrid(CameraFrameConverter.toYuvSampler(image))
+                val corridorStartedNs = SystemClock.elapsedRealtimeNanos()
+                val depthResult = runner.inferGridTimed(CameraFrameConverter.toYuvSampler(image))
+                val pipelineStartedNs = SystemClock.elapsedRealtimeNanos()
                 val corridorResult = pipeline.process(
                     grid = depthResult.depthGrid,
                     detections = listOfNotNull(lastResult.bestDetection),
                 )
+                val pipelineMs = elapsedRealtimeMs(pipelineStartedNs)
+                val corridorTotalMs = elapsedRealtimeMs(corridorStartedNs)
                 lastDepthInferenceMs = depthResult.inferenceMs
                 lastCorridorCommand = corridorResult.state.command
+                depthResult.timing?.let { timing ->
+                    Log.i(
+                        TAG,
+                        "corridor_live_timing depth_input_ms=${"%.2f".format(Locale.US, timing.inputMs)} " +
+                            "depth_model_ms=${"%.2f".format(Locale.US, timing.inferenceMs)} " +
+                            "depth_grid_ms=${"%.2f".format(Locale.US, timing.outputGridMs)} " +
+                            "pipeline_ms=${"%.2f".format(Locale.US, pipelineMs)} " +
+                            "total_ms=${"%.2f".format(Locale.US, corridorTotalMs)}",
+                    )
+                }
                 Log.i(
                     TAG,
                     "corridor_live status=ok depth_ms=" +
@@ -563,6 +600,9 @@ class MainActivity : ComponentActivity() {
                 onCorridorState(stopResult.state)
             }
         }
+
+        private fun elapsedRealtimeMs(startedNs: Long): Double =
+            (SystemClock.elapsedRealtimeNanos() - startedNs).toDouble() / NS_PER_MS
 
         private fun stopCorridorForSafety(reason: String) {
             val pipeline = corridorPipeline ?: return
@@ -626,3 +666,12 @@ internal fun shouldRunPeriodicFrame(frame: Long, interval: Long): Boolean {
     require(interval > 0) { "interval must be positive" }
     return frame > 0L && (frame - 1L) % interval == 0L
 }
+
+internal fun isUnsafeFrameGap(gapMs: Long, frame: Long): Boolean =
+    !isWarmupFrameGap(frame) && gapMs > FRAME_GAP_SAFETY_MS
+
+internal fun isWarmupFrameGap(frame: Long): Boolean =
+    frame <= FRAME_GAP_WARMUP_FRAMES
+
+private const val FRAME_GAP_SAFETY_MS = 500L
+private const val FRAME_GAP_WARMUP_FRAMES = 3L
