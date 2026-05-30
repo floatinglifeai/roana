@@ -50,25 +50,26 @@ class QnnModelSmoke(private val context: Context) {
     ) {
         val startedNs = System.nanoTime()
         val model = loadModel(spec.asset)
-        logCpuMetadata(spec, model)
+        logTensorMetadata(spec, model)
 
-        val backend = InferenceBackend.create(
-            context = context,
-            precision = spec.precision,
-            variant = variant,
-        )
-        if (!backend.usesDelegate) {
-            Log.w(
-                TAG,
-                "qnn_model_smoke status=unavailable model=${spec.name} " +
-                    "asset=${spec.asset} precision=${spec.precision.logValue} " +
-                    "variant=${variant.id} backend=${backend.name} " +
-                    "reason=${backend.failureReason ?: "none"}",
+        val backend = try {
+            InferenceBackend.create(
+                context = context,
+                precision = spec.precision,
+                variant = variant,
             )
-            backend.close()
+        } catch (error: Exception) {
+            Log.e(
+                TAG,
+                "qnn_model_smoke status=failed model=${spec.name} " +
+                    "asset=${spec.asset} precision=${spec.precision.logValue} " +
+                    "variant=${variant.id} backend=qnn_required " +
+                    "error=${error.javaClass.simpleName} " +
+                    "message=${error.message?.sanitizeLogValue() ?: "none"}",
+                error,
+            )
             return
         }
-
         try {
             Interpreter(model.buffer, backend.applyTo(Interpreter.Options().setNumThreads(2))).use { interpreter ->
                 val loadMs = (System.nanoTime() - startedNs).toDouble() / NS_PER_MS
@@ -99,8 +100,9 @@ class QnnModelSmoke(private val context: Context) {
         }
     }
 
-    private fun logCpuMetadata(spec: ModelSpec, model: LoadedModel) {
+    private fun logTensorMetadata(spec: ModelSpec, model: LoadedModel) {
         try {
+            // Metadata-only interpreter. Product runtime remains TFLite + QNN.
             Interpreter(
                 model.buffer,
                 Interpreter.Options().setNumThreads(1).setUseXNNPACK(true),

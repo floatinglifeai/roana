@@ -15,9 +15,8 @@ import org.tensorflow.lite.Interpreter
 
 class YoloObstacleDetector(
     context: Context,
-    backend: InferenceBackend,
+    private val backend: InferenceBackend,
 ) : AutoCloseable {
-    private var backend = backend
     private val labels = context.assets.open(LABELS_ASSET).bufferedReader().useLines { lines ->
         lines.map { it.trim() }.filter { it.isNotEmpty() }.toList()
     }
@@ -26,7 +25,7 @@ class YoloObstacleDetector(
             channel.map(FileChannel.MapMode.READ_ONLY, descriptor.startOffset, descriptor.declaredLength)
         }
     }
-    private val interpreter = createInterpreterWithFallback()
+    private val interpreter = createInterpreter()
     private val inputShape = interpreter.getInputTensor(0).shape()
     private val inputWidth = inputShape[2]
     private val inputHeight = inputShape[1]
@@ -108,25 +107,17 @@ class YoloObstacleDetector(
         backend.close()
     }
 
-    private fun createInterpreterWithFallback(): Interpreter =
+    private fun createInterpreter(): Interpreter =
         try {
             Interpreter(modelBuffer, interpreterOptions(backend))
         } catch (error: Exception) {
-            if (!backend.usesDelegate) {
-                throw error
-            }
-
-            Log.w(
+            Log.e(
                 TAG,
-                "inference_backend selected=cpu_xnnpack precision=quantized " +
-                    "reason=qnn_interpreter_failed",
+                "inference_backend selected=unavailable precision=quantized reason=qnn_interpreter_failed",
                 error,
             )
             backend.close()
-            backend = InferenceBackend.cpu(
-                reason = "${error.javaClass.simpleName}:${error.message.orEmpty()}",
-            )
-            Interpreter(modelBuffer, interpreterOptions(backend))
+            throw error
         }
 
     private fun interpreterOptions(backend: InferenceBackend): Interpreter.Options =

@@ -13,10 +13,10 @@
 ### 1.1 Official V0 app route
 
 V0 implementation starts as a **native Kotlin Android app** using CameraX,
-LiteRT/TFLite, and the Qualcomm QNN delegate path where available.
+TFLite, and the Qualcomm QNN delegate path on target Android hardware.
 
-The web, PWA, and Capacitor routes remain useful research and emergency
-fallbacks, but they are not the V0 implementation path.
+The web, PWA, Capacitor, and CPU inference routes remain useful research or
+debugging references, but they are not the V0 implementation path.
 
 ### 1.2 V0 is split into V0a and V0b
 
@@ -25,7 +25,7 @@ sub-slices:
 
 | Slice | Goal | Acceptance gate |
 |---|---|---|
-| **V0a: minimum closed loop** | CameraX frame capture -> YOLO CPU/XNNPACK inference -> simple TTS alert | Runs on one real Android device; frame analysis does not backlog; a detected obstacle can trigger spoken output |
+| **V0a: minimum closed loop** | CameraX frame capture -> YOLO inference -> simple TTS alert | Runs on one real Android device; frame analysis does not backlog; a detected obstacle can trigger spoken output |
 | **V0b: corridor demo** | Add Depth Anything, QNN/NPU path, DFS corridor decision, and conservative state machine | Known indoor corridor blindfold test with sighted spotter; pipeline reaches >=10 FPS; no 30-minute thermal throttle |
 
 ### 1.3 No custom walkable-area training in V0
@@ -122,7 +122,7 @@ Build the smallest real-device Android loop first:
 2. Add CameraX preview and `ImageAnalysis` with
    `STRATEGY_KEEP_ONLY_LATEST`.
 3. Load an off-the-shelf YOLO TFLite model from app assets.
-4. Run initial inference with CPU/XNNPACK.
+4. Run initial YOLO inference and log the selected backend.
 5. Convert one simple detection event into Android `TextToSpeech` output.
 6. Log frame timing, inference timing, dropped-frame count, and TTS events.
 
@@ -134,7 +134,7 @@ operation, and distribution concerns.
 After V0a is stable:
 
 1. Add Depth Anything V2-Small mobile asset.
-2. Add QNN delegate initialization with safe fallback.
+2. Add QNN delegate initialization and fail explicitly when QNN is unavailable.
 3. Combine depth output and obstacle detections into a coarse 15x15 grid.
 4. Implement DFS corridor extraction and a conservative state machine.
 5. Add emergency override for near obstacle, frame loss, and low confidence.
@@ -214,7 +214,7 @@ Device requirements:
 
 | Slice | Minimum practical phone | Why |
 |---|---|---|
-| **V0a** | Android 12+ arm64 phone with rear camera and working TTS | CPU/XNNPACK YOLO smoke test, no depth or NPU required |
+| **V0a** | Android 12+ arm64 phone with rear camera and working TTS | YOLO smoke test, no depth required |
 | **V0b** | Snapdragon 8 Gen 2 / Gen 3 / Elite, or Dimensity 9300/9400-class Android phone; 8-12 GB RAM recommended | Depth Anything V2-Small needs NPU-class performance to reach the >=10 FPS gate |
 
 No Google Play account, app-store signing, MIIT filing, or release keystore is

@@ -10,8 +10,11 @@ Updated: 2026-05-30.
   and Depth Anything on QNN HTP, passes the short machine gate, and passes the
   30-minute thermal live-corridor gate without severe frame gaps.
 - Current V0b slice: the remaining proof is the known-corridor
-  sighted-spotter run. Do not add a CPU fallback performance profile; the
-  remaining work should keep diagnosing actual Android/iOS support gaps.
+  sighted-spotter run. Android production inference is now QNN-required:
+  missing QNN capability, delegate creation failure, or delegate application
+  failure must fail the gate instead of silently using CPU/XNNPACK. Do not add a
+  CPU fallback performance profile; remaining work should keep diagnosing actual
+  Android/iOS support gaps.
 - Rebased onto `origin/main` after the QNN smoke-gate work. The acceleration
   research now tracks the Android speedup-library direction (LiteRT Next
   primary, ONNX Runtime QNN diagnostic, ExecuTorch later candidate) and the iOS
@@ -34,21 +37,20 @@ Updated: 2026-05-30.
   - Detection-to-TTS proof artifact: `logs/v0a-device-20260529T091205Z.log`
     contains `debug_person_detection_proof`, `message=person_ahead`, sustained
     `frame_stats`, and repeated `yolo_inference` lines with no `yolo_error`.
-  - QNN/fallback proof artifact: `logs/v0a-device-20260529T092038Z.log`
-    contains `qnn_probe`, `qnn_capabilities`, a QNN delegate creation attempt,
-    `reason=qnn_interpreter_failed`, and continued CPU/XNNPACK
-    `yolo_inference` with no `yolo_error`.
-  - Depth smoke proof artifact: `logs/v0a-device-20260529T093023Z.log`
-    contains `qnn_probe precision=fp16`, `htp_fp16=false`,
-    `reason=qnn_fp16_unavailable`, and `depth_smoke status=loaded` for the
-    `[1,518,518,3] -> [1,518,518,1]` Depth Anything V2 TFLite model.
+  - Historical QNN diagnostic artifact: `logs/v0a-device-20260529T092038Z.log`
+    showed the earlier CPU/XNNPACK fallback after QNN delegate application
+    failure. That fallback path has since been removed from production runtime.
+  - Historical Depth smoke artifact: `logs/v0a-device-20260529T093023Z.log`
+    showed `htp_fp16=false` on a non-target device. Current production runtime
+    treats missing QNN capability as unavailable rather than falling back to CPU.
   - Corridor planner proof: Docker Android `:app:testDebugUnitTest` passes
     `CorridorPlannerTest` for straight, left, right, near-obstacle STOP,
     Depth Anything-sized downsampling, 3-frame state-machine confirmation,
     immediate STOP, frame-loss STOP, and low-confidence STOP.
-  - Depth-to-planner proof artifact: `logs/v0a-device-20260529T094954Z.log`
-    contains `depth_plan status=ok`, `decision=RIGHT`, `state=RIGHT`,
-    `path_cells=15`, and `elapsed_ms=14904.30` after CPU fallback.
+  - Historical Depth-to-planner artifact: `logs/v0a-device-20260529T094954Z.log`
+    contained `depth_plan status=ok`, `decision=RIGHT`, `state=RIGHT`,
+    `path_cells=15`, and `elapsed_ms=14904.30` on CPU fallback. Current
+    production runtime no longer accepts that path.
   - V0b gate artifact: `logs/v0b-device-20260529T095818Z.json` records the
     current device as `target_soc=false`, `fp16_htp=false`, `depth_fps=0.071`,
     and `gap_count=166`; the gate correctly fails instead of treating this
@@ -243,11 +245,20 @@ Updated: 2026-05-30.
     the passing QNN HTP delegate as the production path, reserve LiteRT for an
     optional broader-device spike, use ORT QNN only as a diagnostic cross-check,
     and defer ExecuTorch migration.
+  - CPU fallback cleanup artifact set: Docker `:app:testDebugUnitTest`,
+    `scripts/build-debug.sh`, `scripts/verify-qnn-smoke-device.sh` with
+    artifact `logs/qnn-smoke-20260530T045117Z.log`, and the short V0b gate
+    artifact `logs/v0a-device-20260530T044604Z.log`. Production inference now
+    selects `qnn_htp` for quantized YOLO and FP16 Depth Anything or fails with
+    `selected=unavailable`; `InferenceBackendPolicyTest` blocks reintroducing
+    the old CPU fallback selectors, XNNPACK runtime option, and nullable
+    delegate-state fields into production runtime. The QNN smoke metadata-only
+    XNNPACK interpreter remains diagnostic-only and is not a runtime fallback.
 
 ## Stop Condition
 
-V0a is complete. V0b has verified backend fallback, Depth Anything asset
-loading, reusable Depth Anything preprocessing/inference, Depth Anything-sized
+V0a is complete. V0b has verified QNN-required backend behavior, Depth Anything
+asset loading, reusable Depth Anything preprocessing/inference, Depth Anything-sized
 downsampling plus YOLO detection fusion into the 15x15 planner, a reusable
 corridor pipeline, and a pure-Kotlin 3-frame command confirmation state
 machine. QNN HTP transport is now operational on the current target-class
@@ -271,7 +282,7 @@ regression gate. The next V0b proof is the known-corridor sighted-spotter run
 when a human can perform it. Agent-owned follow-up work can proceed on the
 origin/main research directions: optional LiteRT metadata/API exploration and
 iOS S0 physical-device verification after full Xcode is installed. Do not add a
-lower-performance CPU fallback profile.
+lower-performance CPU fallback path.
 
 For the corridor proof, run:
 
@@ -284,5 +295,5 @@ CORRIDOR_TEST_NOTES="known indoor corridor; blindfolded tester; sighted spotter;
 
 - Do not start BLE, outdoor navigation, cloud/VLM, or custom training work in
   V0.
-- Do not add fallback-performance tuning for the Snapdragon 8 Gen 2 path; QNN
-  HTP transport and the short live V0b gate are now proven on the target phone.
+- Do not add CPU/XNNPACK fallback for the Snapdragon 8 Gen 2 path; QNN HTP
+  transport and the short live V0b gate are now proven on the target phone.

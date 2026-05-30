@@ -132,9 +132,9 @@ def parse_log(log_path: Path, tail_sample_count: int) -> dict[str, object]:
         depth_elapsed_ms = rounded(mean(live_depth_values), 2)
     else:
         depth_elapsed_ms = 0.0
-        fallback_elapsed = first_regex(lines, "depth_plan status=ok", r"\belapsed_ms=([0-9.]+)")
-        if fallback_elapsed:
-            depth_elapsed_ms = rounded(float(fallback_elapsed), 2)
+        depth_plan_elapsed = first_regex(lines, "depth_plan status=ok", r"\belapsed_ms=([0-9.]+)")
+        if depth_plan_elapsed:
+            depth_elapsed_ms = rounded(float(depth_plan_elapsed), 2)
 
     tail_values = live_depth_values[-tail_sample_count:]
     tail_depth_elapsed_ms = rounded(mean(tail_values), 2) if tail_values else 0.0

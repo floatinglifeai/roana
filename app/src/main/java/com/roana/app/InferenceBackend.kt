@@ -9,39 +9,23 @@ import java.io.File
 
 class InferenceBackend private constructor(
     val name: String,
-    val delegate: Delegate?,
-    val failureReason: String?,
+    private val delegate: Delegate,
 ) : AutoCloseable {
-    val usesDelegate: Boolean = delegate != null
-
     fun applyTo(options: Interpreter.Options): Interpreter.Options {
-        if (delegate != null) {
-            options.addDelegate(delegate)
-        } else {
-            options.setUseXNNPACK(true)
-        }
+        options.addDelegate(delegate)
         return options
     }
 
     override fun close() {
-        delegate?.close()
+        delegate.close()
     }
 
     companion object {
         fun create(
             context: Context? = null,
-            preferQnn: Boolean = true,
             precision: Precision = Precision.QUANTIZED,
             variant: QnnVariant = QnnVariant.EXPLICIT_PATHS,
         ): InferenceBackend {
-            if (!preferQnn) {
-                Log.i(
-                    TAG,
-                    "inference_backend selected=cpu_xnnpack precision=${precision.logValue} reason=qnn_disabled",
-                )
-                return InferenceBackend(CPU_XNNPACK, delegate = null, failureReason = null)
-            }
-
             val qnnVersion = runCatching {
                 QnnDelegate.getVersion().joinToString(".")
             }.getOrElse { error ->
@@ -72,11 +56,11 @@ class InferenceBackend private constructor(
             }
             if (!requiredCapabilityAvailable) {
                 val reason = "qnn_${precision.logValue}_unavailable"
-                Log.i(
+                Log.e(
                     TAG,
-                    "inference_backend selected=cpu_xnnpack precision=${precision.logValue} reason=$reason",
+                    "inference_backend selected=unavailable precision=${precision.logValue} reason=$reason",
                 )
-                return InferenceBackend(CPU_XNNPACK, delegate = null, failureReason = reason)
+                throw IllegalStateException("Required QNN ${precision.logValue} capability is unavailable")
             }
 
             return runCatching {
@@ -96,20 +80,18 @@ class InferenceBackend private constructor(
                     "inference_backend selected=qnn_htp precision=${precision.logValue} " +
                         "variant=${variant.id}",
                 )
-                InferenceBackend(QNN_HTP, delegate = delegate, failureReason = null)
+                InferenceBackend(QNN_HTP, delegate = delegate)
             }.getOrElse { error ->
                 val reason = "${error.javaClass.simpleName}:${error.message.orEmpty()}"
-                Log.w(
+                Log.e(
                     TAG,
-                    "inference_backend selected=cpu_xnnpack precision=${precision.logValue} " +
+                    "inference_backend selected=unavailable precision=${precision.logValue} " +
                         "variant=${variant.id} reason=qnn_create_failed:$reason",
+                    error,
                 )
-                InferenceBackend(CPU_XNNPACK, delegate = null, failureReason = reason)
+                throw IllegalStateException("Required QNN ${precision.logValue} delegate creation failed", error)
             }
         }
-
-        fun cpu(reason: String? = null): InferenceBackend =
-            InferenceBackend(CPU_XNNPACK, delegate = null, failureReason = reason)
 
         private fun createQnnOptions(
             context: Context?,
@@ -137,7 +119,6 @@ class InferenceBackend private constructor(
 
         private const val TAG = "RoanaV0a"
         private const val QNN_HTP = "qnn_htp"
-        private const val CPU_XNNPACK = "cpu_xnnpack"
         private const val QNN_HTP_LIBRARY = "libQnnHtp.so"
     }
 

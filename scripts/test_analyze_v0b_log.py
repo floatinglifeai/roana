@@ -195,7 +195,7 @@ class AnalyzeV0bLogTest(unittest.TestCase):
             self.assertEqual(7.0, details["yolo_decode_elapsed_ms"])
             self.assertEqual(30.0, details["yolo_total_elapsed_ms"])
 
-    def test_main_gate_reports_all_machine_blockers_from_slow_fallback_log(self) -> None:
+    def test_main_gate_reports_all_machine_blockers_from_slow_log(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             log_path = Path(temp_dir) / "main.log"
             log_path.write_text(
