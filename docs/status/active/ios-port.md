@@ -1,0 +1,112 @@
+# iOS Port Active Status
+
+Updated: 2026-05-30.
+
+## Current State
+
+- Active objective: implement `docs/plan/ios-port-plan.md` via `intuitive-flow`.
+- Latest user instruction: do code development first because no iPhone is
+  currently connected; defer hardware tests until all or most code parts are
+  done.
+- Current slice: iOS-S0 skeleton and camera callback gate.
+- Host readiness observed on this machine:
+  - `xcode-select -p` returns `/Library/Developer/CommandLineTools`.
+  - `xcodebuild -version` fails because full Xcode is not the active developer
+    directory.
+  - `xcrun simctl` and `xcrun devicectl` are unavailable for the same reason.
+
+## Implemented Code
+
+- Native SwiftUI app scaffold under `ios/Roana`.
+- Xcode project shell at `ios/Roana/Roana.xcodeproj`.
+- Camera permission declaration in `Info.plist`.
+- SwiftUI entry point and camera screen.
+- `AVCaptureSession` setup for the back wide-angle camera.
+- `AVCaptureVideoPreviewLayer` SwiftUI bridge.
+- `AVCaptureVideoDataOutput` using
+  `kCVPixelFormatType_420YpCbCr8BiPlanarFullRange`.
+- `alwaysDiscardsLateVideoFrames = true`.
+- Dedicated serial queues for session setup and frame callbacks.
+- Device diagnostics for hardware identifier, iOS version, launch uptime,
+  thermal state, and camera authorization state.
+- Frame diagnostics with dimensions, pixel format, callback interval, rolling
+  p50/p95 interval, dropped-frame count, backlog indicator, and thermal state.
+- Stable log prefix:
+  `roana_ios_frame_stats width=... height=... interval_ms=... p50_ms=... p95_ms=... dropped=... thermal=...`.
+- Foreground/background handling stops camera work in background and restarts
+  when active.
+- `UIApplication.isIdleTimerDisabled = true` while the camera view is active.
+- Code-only iOS-V0a path:
+  - YOLO11n Core ML loader scaffold using `VNCoreMLRequest`.
+  - NMS-export consumption shape via `VNRecognizedObjectObservation`.
+  - Missing model state is non-crashing and logs `roana_ios_yolo
+    status=model_missing`.
+  - Detection timing logs use `roana_ios_yolo`.
+  - Detection-to-speech wiring uses `AVSpeechSynthesizer` and logs
+    `roana_ios_speech`.
+- Code-only iOS-V0b decision-core path:
+  - Swift `CorridorPlanner` port with near-obstacle STOP, 15x15 DFS path
+    search, safe-cell thresholds, horizontal-clearance tie-break, and
+    LEFT/STRAIGHT/RIGHT/STOP commands.
+  - Swift `CorridorStateMachine` port with 3-frame confirmation and immediate
+    emergency STOP for `frame_loss` / `low_confidence`.
+  - Swift `CorridorGridFusion` port that marks high-confidence detections as
+    obstacle cells in the planner grid.
+  - Swift `CorridorPipeline` wrapper that logs `roana_ios_corridor`.
+- Executable local proof:
+  - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
+    passes with `CorridorCoreSmoke passed`.
+
+## Local Code Gate
+
+Run:
+
+```bash
+scripts/verify-ios-s0-local.sh
+```
+
+Expected result on this machine until full Xcode is selected: structural checks
+and the portable Swift corridor smoke pass, then the script exits `2` with
+build deferred. Latest observed output:
+
+```text
+xcodebuild requires full Xcode; iOS local structural checks passed, build deferred
+```
+
+Expected result on a full-Xcode host: structural checks pass and
+`xcodebuild -project ios/Roana/Roana.xcodeproj -scheme Roana -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build`
+passes.
+
+## Deferred Hardware Proof
+
+The following iOS-S0 acceptance items remain intentionally unproven until an
+iPhone and full Xcode are available:
+
+- Xcode project opens and builds in Xcode.
+- App signs, installs, and launches on a physical iPhone.
+- Permission prompt appears on first launch.
+- Denied permission produces a clear non-crashing app state.
+- Granted permission starts preview.
+- Preview orientation matches the physical device orientation used for testing.
+- A 60-second physical-device run produces repeated `roana_ios_frame_stats`.
+- No backlog accumulates before model inference exists.
+- Entering background stops camera work; returning foreground restarts cleanly.
+
+Acceptance artifact target:
+
+```text
+logs/ios-skeleton-<timestamp>.log
+```
+
+## No-Touch Scope
+
+- Do not start iOS Core ML model integration until iOS-S0 code builds.
+- Do not add large Core ML model artifacts directly to git; keep generated
+  `.mlmodelc` / `.mlpackage` outputs out of normal source commits unless Git
+  LFS or an explicit model-fetch path is added.
+- Do not treat the Swift corridor smoke as full anti-divergence proof; the
+  golden JSON fixture mechanism from `docs/plan/ios-port-plan.md` is still
+  pending.
+- Do not claim iPhone performance, preview orientation, signing, installation,
+  or camera callback cadence until physical-device evidence exists.
+- Do not resume Android QNN diagnosis while this iOS port slice is active.
