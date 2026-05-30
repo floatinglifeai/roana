@@ -10,6 +10,11 @@ Updated: 2026-05-30.
   done.
 - Current slice: code-first iOS S0/V0a/V0b scaffold while hardware proof is
   deferred.
+- Current code-only model execution mode: S0 defaults to
+  `roana_ios_model_mode value=disabled` and does not schedule YOLO/depth
+  inference. Debug builds opt into V0a YOLO with `--roana-enable-yolo` or
+  `ROANA_IOS_MODEL_MODE=yolo`, and opt into V0b corridor/depth with
+  `--roana-enable-corridor` or `ROANA_IOS_MODEL_MODE=corridor`.
 - Host readiness observed on this machine:
   - `xcode-select -p` returns `/Library/Developer/CommandLineTools`.
   - `xcodebuild -version` fails because full Xcode is not the active developer
@@ -40,6 +45,11 @@ Updated: 2026-05-30.
   callbacks short, runs model work on `app.roana.ios.inference`, and logs
   `roana_ios_inference status=scheduled|skipped|finished` so slow model frames
   are dropped instead of accumulating queued inference work.
+- Model-backed inference is launch-mode gated for code-first development:
+  default S0 camera runs remain a true no-model skeleton, V0a runs enable YOLO
+  only, and V0b runs enable YOLO plus Depth Anything/corridor feedback. The
+  physical log verifier now checks `roana_ios_model_mode` by gate so artifacts
+  prove which path was actually exercised.
 - Foreground/background handling stops camera work in background and restarts
   when active; the physical log verifier now requires ordered background-stop
   then camera-restart evidence for granted-camera S0/V0 artifacts.
@@ -180,6 +190,8 @@ Updated: 2026-05-30.
     V0b defaults also require frame-loss fail-safe STOP evidence, p95 frame
     cadence at or below 100 ms, and thermal state no worse than `fair`,
     matching the corridor-demo ≥10 FPS / no-throttle acceptance gate.
+    Gate defaults also require mode evidence: S0 and denied-camera artifacts
+    require `disabled`, V0a requires `yolo`, and V0b requires `corridor`.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
     permission artifact without requiring camera start, frame stats, or
     orientation logs.
