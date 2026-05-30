@@ -18,6 +18,7 @@ required_files=(
   "$IOS_DIR/Roana/RoanaApp.swift"
   "$IOS_DIR/Roana/ContentView.swift"
   "$IOS_DIR/Roana/Camera/CameraAuthorization.swift"
+  "$IOS_DIR/Roana/Camera/FrameInferenceCoordinator.swift"
   "$IOS_DIR/Roana/Camera/CameraPreviewView.swift"
   "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
   "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift"
@@ -36,6 +37,7 @@ required_files=(
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
+  "$IOS_DIR/RoanaTests/Inference/main.swift"
   "$IOS_DIR/RoanaTests/main.swift"
   "$IOS_DIR/RoanaTests/Privacy/main.swift"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
@@ -67,6 +69,10 @@ grep -q "AVCaptureVideoDataOutput" "$IOS_DIR/Roana/Camera/CameraSessionControlle
 grep -q "kCVPixelFormatType_420YpCbCr8BiPlanarFullRange" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "alwaysDiscardsLateVideoFrames = true" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "DispatchQueue(label: \"app.roana.ios.camera.frames\")" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "FrameInferenceCoordinator<CMSampleBuffer>" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "inferenceCoordinator.submit(sampleBuffer)" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "app.roana.ios.inference" "$IOS_DIR/Roana/Camera/FrameInferenceCoordinator.swift"
+grep -q "roana_ios_inference" "$IOS_DIR/Roana/Camera/FrameInferenceCoordinator.swift"
 grep -q "UIApplication.shared.isIdleTimerDisabled = true" "$IOS_DIR/Roana/ContentView.swift"
 grep -q "roana_ios_frame_stats" "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
 grep -q "camera_background_stop" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
@@ -111,6 +117,12 @@ swiftc \
   "$IOS_DIR/RoanaTests/Parity/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" "$ROOT_DIR/parity/corridor-core.json" >/dev/null
+
+swiftc \
+  "$IOS_DIR/Roana/Camera/FrameInferenceCoordinator.swift" \
+  "$IOS_DIR/RoanaTests/Inference/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" >/dev/null
 
 swiftc \
   "$IOS_DIR/RoanaTests/Privacy/main.swift" \

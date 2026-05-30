@@ -27,6 +27,7 @@
 		8F4C00332CAE000100000001 /* CorridorFeedbackDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00342CAE000100000001 /* CorridorFeedbackDispatcher.swift */; };
 		8F4C00352CAE000100000001 /* ModelAssetResourceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00362CAE000100000001 /* ModelAssetResourceLocator.swift */; };
 		8F4C00372CAE000100000001 /* ModelAssets in Resources */ = {isa = PBXBuildFile; fileRef = 8F4C00382CAE000100000001 /* ModelAssets */; };
+		8F4C00392CAE000100000001 /* FrameInferenceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C003A2CAE000100000001 /* FrameInferenceCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +53,7 @@
 		8F4C00342CAE000100000001 /* CorridorFeedbackDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorridorFeedbackDispatcher.swift; sourceTree = "<group>"; };
 		8F4C00362CAE000100000001 /* ModelAssetResourceLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetResourceLocator.swift; sourceTree = "<group>"; };
 		8F4C00382CAE000100000001 /* ModelAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ModelAssets; sourceTree = "<group>"; };
+		8F4C003A2CAE000100000001 /* FrameInferenceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameInferenceCoordinator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +107,7 @@
 				8F4C000A2CAE000100000001 /* CameraAuthorization.swift */,
 				8F4C000B2CAE000100000001 /* CameraPreviewView.swift */,
 				8F4C000C2CAE000100000001 /* CameraSessionController.swift */,
+				8F4C003A2CAE000100000001 /* FrameInferenceCoordinator.swift */,
 			);
 			path = Camera;
 			sourceTree = "<group>";
@@ -232,6 +235,7 @@
 				8F4C00162CAE000100000001 /* CameraAuthorization.swift in Sources */,
 				8F4C00172CAE000100000001 /* CameraPreviewView.swift in Sources */,
 				8F4C00182CAE000100000001 /* CameraSessionController.swift in Sources */,
+				8F4C00392CAE000100000001 /* FrameInferenceCoordinator.swift in Sources */,
 				8F4C00192CAE000100000001 /* DeviceDiagnostics.swift in Sources */,
 				8F4C001A2CAE000100000001 /* FrameDiagnostics.swift in Sources */,
 				8F4C001B2CAE000100000001 /* RollingPercentileWindow.swift in Sources */,
