@@ -63,6 +63,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
     corridor_ok = []
     corridor_feedback_spoken = []
     speech_queued = []
+    speech_labels = set()
+    yolo_detection_labels = set()
     safety_fail_safe_stop = []
     safety_fail_safe_stop_reasons = set()
     yolo_vision_orientation_lines = []
@@ -119,6 +121,9 @@ def parse_log(log_path: Path) -> dict[str, object]:
             vision_orientation = fields.get("vision")
             if vision_orientation:
                 yolo_vision_orientations.add(vision_orientation)
+            label = fields.get("label")
+            if label:
+                yolo_detection_labels.add(label)
         if "roana_ios_depth status=model_description" in line:
             depth_descriptions.append(line)
             resource = fields.get("resource")
@@ -143,6 +148,9 @@ def parse_log(log_path: Path) -> dict[str, object]:
             corridor_feedback_spoken.append(line)
         if "roana_ios_speech status=queued" in line:
             speech_queued.append(line)
+            label = fields.get("label")
+            if label:
+                speech_labels.add(label)
         if "roana_ios_safety event=fail_safe_stop" in line:
             safety_fail_safe_stop.append(line)
             reason = fields.get("reason")
@@ -190,6 +198,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
             normal_corridor_feedback = line
         if command == "STOP" and fields.get("message") == "stop" and not stop_corridor_feedback:
             stop_corridor_feedback = line
+
+    matched_speech_labels = sorted(yolo_detection_labels & speech_labels)
 
     permission_seen = any("camera_authorization state=" in line for line in lifecycle_lines)
     permission_denied_seen = any(
@@ -258,6 +268,9 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "depth_ok_count": len(depth_ok),
         "corridor_count": len(corridor_ok),
         "speech_queued_count": len(speech_queued),
+        "speech_labels": sorted(speech_labels),
+        "yolo_detection_labels": sorted(yolo_detection_labels),
+        "matched_yolo_speech_labels": matched_speech_labels,
         "safety_fail_safe_stop_count": len(safety_fail_safe_stop),
         "safety_fail_safe_stop_reasons": sorted(safety_fail_safe_stop_reasons),
         "preview_orientation_count": len(preview_orientation_lines),
@@ -391,6 +404,8 @@ def missing_evidence(
         missing.append("corridor_decision")
     if require_speech and details["speech_queued_count"] < 1:
         missing.append("speech_queued")
+    if require_speech and require_yolo and not details["matched_yolo_speech_labels"]:
+        missing.append("yolo_speech_match")
     if require_orientation and details["preview_orientation_count"] < 1:
         missing.append("preview_orientation")
     if require_orientation and details["capture_orientation_count"] < 1:

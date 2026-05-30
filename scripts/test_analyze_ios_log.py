@@ -25,6 +25,7 @@ def fake_log(
     include_depth_description: bool = False,
     include_corridor: bool = False,
     include_speech: bool = False,
+    speech_label: str = "person",
     include_fail_safe_stop: bool = False,
     include_inference: bool = False,
     inference_skipped: int = 0,
@@ -105,7 +106,7 @@ def fake_log(
                 "label=person score=91"
             )
     if include_speech:
-        lines.append("roana_ios_speech status=queued label=person score=91 message=Person_ahead")
+        lines.append(f"roana_ios_speech status=queued label={speech_label} score=91 message=Person_ahead")
     if include_fail_safe_stop:
         lines.append("roana_ios_safety event=fail_safe_stop reason=frame_loss")
         lines.append(
@@ -224,6 +225,9 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(1, data["details"]["preview_orientation_count"])
         self.assertEqual(1, data["details"]["capture_orientation_count"])
         self.assertEqual(1, data["details"]["inference_finished_count"])
+        self.assertEqual(["person"], data["details"]["yolo_detection_labels"])
+        self.assertEqual(["person"], data["details"]["speech_labels"])
+        self.assertEqual(["person"], data["details"]["matched_yolo_speech_labels"])
         self.assertEqual(1, data["details"]["safety_fail_safe_stop_count"])
         self.assertEqual(["frame_loss"], data["details"]["safety_fail_safe_stop_reasons"])
 
@@ -318,6 +322,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "depth_vision_orientation",
                 "corridor_decision",
                 "speech_queued",
+                "yolo_speech_match",
                 "preview_orientation",
                 "capture_orientation",
                 "camera_vision_orientation",
@@ -385,6 +390,26 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("inference_skipped<=2", data["missing"])
         self.assertEqual(3, data["details"]["max_inference_skipped"])
+
+    def test_reports_speech_not_tied_to_yolo_detection(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_speech=True,
+                speech_label="chair",
+            ),
+            "--require-yolo",
+            "1",
+            "--require-speech",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("yolo_speech_match", data["missing"])
+        self.assertEqual(["person"], data["details"]["yolo_detection_labels"])
+        self.assertEqual(["chair"], data["details"]["speech_labels"])
+        self.assertEqual([], data["details"]["matched_yolo_speech_labels"])
 
     def test_reports_missing_fail_safe_stop_evidence(self) -> None:
         data = self.run_analyzer(
