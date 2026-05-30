@@ -189,6 +189,7 @@ final class CameraSessionController: NSObject, ObservableObject {
     private func setIdleTimer(_ disabled: Bool) {
         DispatchQueue.main.async {
             UIApplication.shared.isIdleTimerDisabled = disabled
+            print("roana_ios_lifecycle idle_timer_disabled value=\(disabled)")
         }
     }
 

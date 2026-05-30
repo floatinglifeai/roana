@@ -127,6 +127,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
     camera_started = any("camera_started" in line for line in lifecycle_lines)
     camera_background_stop = any("camera_background_stop" in line for line in lifecycle_lines)
     camera_stopped = any("camera_stopped" in line for line in lifecycle_lines)
+    idle_timer_disabled = any("idle_timer_disabled value=true" in line for line in lifecycle_lines)
+    idle_timer_enabled = any("idle_timer_disabled value=false" in line for line in lifecycle_lines)
     background_cycle_seen = any(
         event in {"camera_background_stop", "camera_stopped"}
         and "camera_started" in lifecycle_events[index + 1 :]
@@ -176,6 +178,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "camera_started": camera_started,
         "camera_background_stop": camera_background_stop,
         "camera_stopped": camera_stopped,
+        "idle_timer_disabled": idle_timer_disabled,
+        "idle_timer_enabled": idle_timer_enabled,
         "background_cycle_seen": background_cycle_seen,
     }
 
@@ -195,6 +199,7 @@ def missing_evidence(
     require_orientation: bool,
     require_background_stop: bool,
     require_background_cycle: bool,
+    require_idle_timer: bool,
     require_permission: bool,
     require_permission_denied: bool,
     require_camera_start: bool,
@@ -222,6 +227,10 @@ def missing_evidence(
         missing.append("camera_background_stop")
     if require_background_cycle and not details["background_cycle_seen"]:
         missing.append("camera_background_restart")
+    if require_idle_timer and not details["idle_timer_disabled"]:
+        missing.append("idle_timer_disabled")
+    if require_idle_timer and not details["idle_timer_enabled"]:
+        missing.append("idle_timer_enabled")
     if require_yolo and details["yolo_ok_count"] < 1:
         missing.append("yolo_inference")
     if require_yolo_description and details["yolo_description_count"] < 1:
@@ -266,6 +275,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-inference", default="0")
     parser.add_argument("--require-background-stop", default="0")
     parser.add_argument("--require-background-cycle", default="0")
+    parser.add_argument("--require-idle-timer", default="0")
     parser.add_argument("--require-permission", default="1")
     parser.add_argument("--require-permission-denied", default="0")
     parser.add_argument("--require-camera-start", default="1")
@@ -289,6 +299,7 @@ def main() -> None:
         require_orientation=parse_bool(args.require_orientation),
         require_background_stop=parse_bool(args.require_background_stop),
         require_background_cycle=parse_bool(args.require_background_cycle),
+        require_idle_timer=parse_bool(args.require_idle_timer),
         require_permission=parse_bool(args.require_permission),
         require_permission_denied=parse_bool(args.require_permission_denied),
         require_camera_start=parse_bool(args.require_camera_start),

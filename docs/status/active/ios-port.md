@@ -45,6 +45,10 @@ Updated: 2026-05-30.
   leaves the app in a non-crashing permission-required state; the future denied
   permission artifact can be checked separately from the granted-camera run.
 - `UIApplication.isIdleTimerDisabled = true` while the camera view is active.
+  Idle-timer state changes emit `roana_ios_lifecycle idle_timer_disabled`
+  evidence, and granted-camera physical log gates now require disable/enable
+  evidence so the first device run proves the app keeps the camera session
+  awake only while active.
 - Preview and capture-output orientation configuration now emit stable
   `roana_ios_orientation` / `camera_output_orientation` logs so the first
   physical S0 run has machine-checkable evidence that orientation handling was
@@ -124,16 +128,18 @@ Updated: 2026-05-30.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts,
     including frame stats, orientation evidence, Core ML model-description
-    logs, ordered background-stop/restart evidence, model/corridor/speech
-    evidence, and inference coordinator scheduled/skipped/finished counts.
+    logs, ordered background-stop/restart evidence, idle-timer disable/enable
+    evidence, model/corridor/speech evidence, and inference coordinator
+    scheduled/skipped/finished counts.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
     artifacts. All granted-camera physical-run gates require preview/capture
-    orientation evidence and ordered background-stop/restart evidence by
-    default. V0a/V0b defaults require YOLO model-description evidence, and V0b
-    defaults require Depth Anything model-description evidence, so the first
-    model-backed device artifact proves the exported Core ML feature contract
-    instead of only proving inference callbacks.
+    orientation evidence, ordered background-stop/restart evidence, and
+    idle-timer disable/enable evidence by default. V0a/V0b defaults require
+    YOLO model-description evidence, and V0b defaults require Depth Anything
+    model-description evidence, so the first model-backed device artifact
+    proves the exported Core ML feature contract instead of only proving
+    inference callbacks.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
     permission artifact without requiring camera start, frame stats, or
     orientation logs.
@@ -194,7 +200,7 @@ logs/ios-skeleton-<timestamp>.log
 Machine-check the artifact with:
 
 ```bash
-scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-background-stop 1 --require-background-cycle 1 --require-orientation 1
+scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-background-stop 1 --require-background-cycle 1 --require-orientation 1 --require-idle-timer 1
 ```
 
 Or use the physical-run wrapper:
