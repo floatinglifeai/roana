@@ -82,9 +82,13 @@ Updated: 2026-05-30.
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
-  - Automatic Kotlin fixture generation is still pending because local Gradle
-    currently fails before task execution under the installed OpenJDK 25
-    environment (`What went wrong: 25.0.1`). Use JDK 17 or 21 before relying on
+  - Kotlin fixture generation source exists at
+    `app/src/test/java/com/roana/app/parity/CorridorParityFixtureGenerator.kt`.
+  - Gradle task `:app:generateCorridorParityFixtures` is wired to regenerate
+    `parity/corridor-core.json`.
+  - Running the Gradle task is still pending because local Gradle currently
+    fails before task execution under the installed OpenJDK 25 environment
+    (`What went wrong: 25.0.1`). Use JDK 17 or 21 before relying on
     Gradle-backed Kotlin generation.
 
 ## Local Code Gate
