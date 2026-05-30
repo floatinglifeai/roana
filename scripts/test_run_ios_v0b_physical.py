@@ -52,6 +52,26 @@ class RunIosV0bPhysicalTest(unittest.TestCase):
         details = json.loads(result.stdout)
         self.assertNotIn("log_file", details["missing"])
 
+    def test_blocked_dry_run_with_team_reports_planned_commands(self) -> None:
+        env = os.environ.copy()
+        env["ROANA_IOS_DEVELOPMENT_TEAM"] = "TEAM123"
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--dry-run", "--capture-seconds", "12"],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        details = json.loads(result.stdout)
+        if details["status"] == "blocked":
+            commands = details["details"]["commands"]
+            self.assertEqual(3, len(commands))
+            self.assertIn("DEVELOPMENT_TEAM=TEAM123", commands[0])
+            self.assertIn("Roana-V0b-Corridor", commands[0])
+            self.assertIn("app.roana.ios", commands[2])
+            self.assertIn("12.0", commands[2])
+
     def test_build_command_uses_command_line_team(self) -> None:
         command = run_ios_v0b_physical.build_command(
             team_id="TEAM123",
@@ -88,6 +108,19 @@ class RunIosV0bPhysicalTest(unittest.TestCase):
         self.assertIn("app.roana.ios", command)
         self.assertIn("--roana-enable-corridor", command)
         self.assertIn("--roana-debug-fail-safe-stop", command)
+
+    def test_physical_commands_are_ordered_build_install_capture(self) -> None:
+        commands = run_ios_v0b_physical.physical_commands(
+            team_id="TEAM123",
+            device="DEVICE123",
+            log_dir=Path("/tmp/roana-logs"),
+            derived_data_path=Path("/tmp/derived"),
+            capture_seconds=12.0,
+        )
+
+        self.assertEqual("xcodebuild", commands[0][0])
+        self.assertEqual(["xcrun", "devicectl", "device", "install", "app"], commands[1][:5])
+        self.assertIn("capture-ios-device-log.py", commands[2][0])
 
 
 if __name__ == "__main__":

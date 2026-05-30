@@ -391,7 +391,8 @@ The wrapper checks model assets and device readiness, builds
 `--roana-enable-corridor --roana-debug-fail-safe-stop`, then captures and
 verifies the V0b log through `scripts/capture-ios-device-log.py`. It blocks
 with `iphone_device_available` while CoreDevice reports the phone as
-offline/unavailable.
+offline/unavailable. Add `--dry-run` to preview the exact build/install/capture
+commands even while the phone is unavailable; keep the team ID environment-only.
 
 ## No-Touch Scope
 
