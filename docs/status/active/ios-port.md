@@ -105,7 +105,9 @@ Updated: 2026-05-30.
   - Swift privacy boundary verifier passes without full Xcode.
   - Frame inference coordinator smoke verifier passes without full Xcode.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
-    the future machine-checkable log gates for iOS S0/V0a/V0b artifacts.
+    the future machine-checkable log gates for iOS S0/V0a/V0b artifacts,
+    including frame stats, model/corridor/speech evidence, and inference
+    coordinator scheduled/skipped/finished counts.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -165,7 +167,7 @@ scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-bac
 ```
 
 After model assets are available, add `--require-yolo 1 --require-depth 1
---require-corridor 1 --require-speech 1`.
+--require-corridor 1 --require-speech 1 --require-inference 1`.
 
 Before running model-backed iOS V0a/V0b gates, check the local asset contract:
 

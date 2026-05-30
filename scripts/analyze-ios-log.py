@@ -47,8 +47,12 @@ def parse_log(log_path: Path) -> dict[str, object]:
     corridor_feedback_spoken = []
     speech_queued = []
     lifecycle_lines = []
+    inference_scheduled = []
+    inference_skipped = []
+    inference_finished = []
     max_backlog = 0
     max_dropped = 0
+    max_inference_skipped = 0
     p95_values = []
 
     for line in lines:
@@ -70,6 +74,20 @@ def parse_log(log_path: Path) -> dict[str, object]:
             speech_queued.append(line)
         if "roana_ios_lifecycle" in line:
             lifecycle_lines.append(line)
+        if "roana_ios_inference status=scheduled" in line:
+            inference_scheduled.append(line)
+        if "roana_ios_inference status=skipped" in line:
+            inference_skipped.append(line)
+            max_inference_skipped = max(
+                max_inference_skipped,
+                int(numeric_field(fields, "skipped") or 0),
+            )
+        if "roana_ios_inference status=finished" in line:
+            inference_finished.append(line)
+            max_inference_skipped = max(
+                max_inference_skipped,
+                int(numeric_field(fields, "skipped") or 0),
+            )
 
     normal_corridor_feedback = ""
     stop_corridor_feedback = ""
@@ -112,6 +130,10 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "depth_ok_count": len(depth_ok),
         "corridor_count": len(corridor_ok),
         "speech_queued_count": len(speech_queued),
+        "inference_scheduled_count": len(inference_scheduled),
+        "inference_skipped_count": len(inference_skipped),
+        "inference_finished_count": len(inference_finished),
+        "max_inference_skipped": max_inference_skipped,
         "corridor_feedback_spoken_count": len(corridor_feedback_spoken),
         "normal_corridor_feedback": normal_corridor_feedback,
         "stop_corridor_feedback": stop_corridor_feedback,
@@ -134,6 +156,8 @@ def missing_evidence(
     require_speech: bool,
     require_background_stop: bool,
     require_permission: bool,
+    require_inference: bool,
+    max_inference_skipped: int,
 ) -> list[str]:
     missing: list[str] = []
     if details["frame_stats_count"] < min_frame_stats:
@@ -158,6 +182,10 @@ def missing_evidence(
         missing.append("corridor_decision")
     if require_speech and details["speech_queued_count"] < 1:
         missing.append("speech_queued")
+    if require_inference and details["inference_finished_count"] < 1:
+        missing.append("inference_finished")
+    if details["max_inference_skipped"] > max_inference_skipped:
+        missing.append(f"inference_skipped<={max_inference_skipped}")
     if require_corridor and not details["normal_corridor_feedback"]:
         missing.append("corridor_guidance_feedback")
     if require_corridor and not details["stop_corridor_feedback"]:
@@ -171,10 +199,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-frame-stats", default=120, type=int)
     parser.add_argument("--max-backlog", default=0, type=int)
     parser.add_argument("--max-dropped", default=0, type=int)
+    parser.add_argument("--max-inference-skipped", default=0, type=int)
     parser.add_argument("--require-yolo", default="0")
     parser.add_argument("--require-depth", default="0")
     parser.add_argument("--require-corridor", default="0")
     parser.add_argument("--require-speech", default="0")
+    parser.add_argument("--require-inference", default="0")
     parser.add_argument("--require-background-stop", default="0")
     parser.add_argument("--require-permission", default="1")
     return parser
@@ -194,6 +224,8 @@ def main() -> None:
         require_speech=parse_bool(args.require_speech),
         require_background_stop=parse_bool(args.require_background_stop),
         require_permission=parse_bool(args.require_permission),
+        require_inference=parse_bool(args.require_inference),
+        max_inference_skipped=args.max_inference_skipped,
     )
     status = "passed" if not missing else "blocked"
     print(
