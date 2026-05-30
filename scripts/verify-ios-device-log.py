@@ -98,6 +98,10 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         args.require_inference,
         "--require-permission",
         args.require_permission,
+        "--require-permission-denied",
+        args.require_permission_denied,
+        "--require-camera-start",
+        args.require_camera_start,
     ]
     status, output = run_command(command)
     if status != 0:
@@ -112,13 +116,15 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", required=True, type=Path)
-    parser.add_argument("--gate", choices=("s0", "v0a", "v0b"), default="s0")
+    parser.add_argument("--gate", choices=("s0", "s0-denied", "v0a", "v0b"), default="s0")
     parser.add_argument("--min-frame-stats", default=120, type=int)
     parser.add_argument("--max-backlog", default=0, type=int)
     parser.add_argument("--max-dropped", default=0, type=int)
     parser.add_argument("--max-inference-skipped", default=0, type=int)
     parser.add_argument("--require-background-stop", default="1")
     parser.add_argument("--require-permission", default="1")
+    parser.add_argument("--require-permission-denied", default=None)
+    parser.add_argument("--require-camera-start", default=None)
     parser.add_argument("--require-device", default="1")
     parser.add_argument("--skip-host-checks", action="store_true")
     parser.add_argument("--require-model-assets", default=None)
@@ -134,11 +140,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
+    denied_gate = args.gate == "s0-denied"
     model_gate = args.gate in {"v0a", "v0b"}
     corridor_gate = args.gate == "v0b"
 
     if args.require_model_assets is None:
         args.require_model_assets = "1" if model_gate else "0"
+    if denied_gate:
+        args.min_frame_stats = 0
+        args.max_backlog = max(args.max_backlog, 0)
+        args.max_dropped = max(args.max_dropped, 0)
+        args.require_background_stop = "0"
+        args.require_orientation = "0" if args.require_orientation is None else args.require_orientation
     if args.require_yolo is None:
         args.require_yolo = "1" if model_gate else "0"
     if args.require_yolo_description is None:
@@ -153,6 +166,10 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.require_speech = "1" if model_gate else "0"
     if args.require_orientation is None:
         args.require_orientation = "1"
+    if args.require_permission_denied is None:
+        args.require_permission_denied = "1" if denied_gate else "0"
+    if args.require_camera_start is None:
+        args.require_camera_start = "0" if denied_gate else "1"
     if args.require_inference is None:
         args.require_inference = "1" if model_gate else "0"
     return args

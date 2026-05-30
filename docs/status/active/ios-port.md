@@ -40,6 +40,9 @@ Updated: 2026-05-30.
   are dropped instead of accumulating queued inference work.
 - Foreground/background handling stops camera work in background and restarts
   when active.
+- Denied or restricted camera authorization logs `camera_permission_denied` and
+  leaves the app in a non-crashing permission-required state; the future denied
+  permission artifact can be checked separately from the granted-camera run.
 - `UIApplication.isIdleTimerDisabled = true` while the camera view is active.
 - Preview and capture-output orientation configuration now emit stable
   `roana_ios_orientation` / `camera_output_orientation` logs so the first
@@ -129,6 +132,9 @@ Updated: 2026-05-30.
     evidence, and V0b defaults require Depth Anything model-description
     evidence, so the first model-backed device artifact proves the exported
     Core ML feature contract instead of only proving inference callbacks.
+  - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
+    permission artifact without requiring camera start, frame stats, or
+    orientation logs.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -193,6 +199,13 @@ Or use the physical-run wrapper:
 
 ```bash
 scripts/verify-ios-device-log.py --gate s0 --log logs/ios-skeleton-<timestamp>.log
+```
+
+For the denied-permission S0 artifact, capture the launch after denying camera
+permission and run:
+
+```bash
+scripts/verify-ios-device-log.py --gate s0-denied --log logs/ios-permission-denied-<timestamp>.log
 ```
 
 After model assets are available, add `--require-yolo 1

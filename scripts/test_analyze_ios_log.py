@@ -98,6 +98,15 @@ def fake_log(
     return "\n".join(lines) + "\n"
 
 
+def fake_denied_log() -> str:
+    return "\n".join(
+        [
+            "roana_ios_lifecycle camera_authorization state=denied",
+            "roana_ios_lifecycle camera_permission_denied state=denied",
+        ],
+    ) + "\n"
+
+
 class AnalyzeIosLogTest(unittest.TestCase):
     def run_analyzer(self, log_text: str, *extra_args: str) -> dict[str, object]:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -265,6 +274,36 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("preview_orientation", data["missing"])
         self.assertIn("capture_orientation", data["missing"])
+
+    def test_permission_denied_gate_passes_without_camera_start(self) -> None:
+        data = self.run_analyzer(
+            fake_denied_log(),
+            "--min-frame-stats",
+            "0",
+            "--require-camera-start",
+            "0",
+            "--require-permission-denied",
+            "1",
+        )
+
+        self.assertEqual("passed", data["status"])
+        self.assertEqual([], data["missing"])
+        self.assertTrue(data["details"]["permission_denied_seen"])
+        self.assertTrue(data["details"]["camera_permission_denied"])
+
+    def test_permission_denied_gate_reports_missing_denied_ui_evidence(self) -> None:
+        data = self.run_analyzer(
+            "roana_ios_lifecycle camera_authorization state=denied\n",
+            "--min-frame-stats",
+            "0",
+            "--require-camera-start",
+            "0",
+            "--require-permission-denied",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("camera_permission_denied_ui", data["missing"])
 
 
 if __name__ == "__main__":

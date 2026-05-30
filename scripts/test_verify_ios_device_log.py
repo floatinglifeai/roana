@@ -86,6 +86,15 @@ def fake_log(
     return "\n".join(lines) + "\n"
 
 
+def fake_denied_log() -> str:
+    return "\n".join(
+        [
+            "roana_ios_lifecycle camera_authorization state=denied",
+            "roana_ios_lifecycle camera_permission_denied state=denied",
+        ],
+    ) + "\n"
+
+
 class VerifyIosDeviceLogTest(unittest.TestCase):
     def run_verifier(self, log_text: str, *extra_args: str) -> tuple[int, dict[str, object]]:
         with tempfile.TemporaryDirectory() as tmp:
@@ -194,6 +203,28 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(details["status"], "blocked")
         self.assertIn("preview_orientation", details["missing"])
         self.assertIn("capture_orientation", details["missing"])
+
+    def test_s0_denied_gate_passes_without_camera_start_or_frames(self) -> None:
+        status, details = self.run_verifier(
+            fake_denied_log(),
+            "--gate",
+            "s0-denied",
+        )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(details["status"], "passed")
+        self.assertEqual(details["missing"], [])
+
+    def test_s0_denied_gate_requires_denied_ui_evidence(self) -> None:
+        status, details = self.run_verifier(
+            "roana_ios_lifecycle camera_authorization state=denied\n",
+            "--gate",
+            "s0-denied",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("camera_permission_denied_ui", details["missing"])
 
     def test_missing_log_file_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
