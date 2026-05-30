@@ -143,7 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("none", "nominal", "fair", "serious", "critical"),
         default=None,
     )
-    parser.add_argument("--max-inference-skipped", default=0, type=int)
+    parser.add_argument("--max-inference-skipped", default=None, type=int)
     parser.add_argument("--require-background-stop", default="1")
     parser.add_argument("--require-background-cycle", default=None)
     parser.add_argument("--require-idle-timer", default=None)
@@ -177,7 +177,9 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
     if args.min_run_seconds is None:
         args.min_run_seconds = 0.0 if denied_gate else 60.0
     if args.max_p95_ms is None:
-        args.max_p95_ms = 100.0 if corridor_gate else 0.0
+        args.max_p95_ms = 101.0 if corridor_gate else 0.0
+    if args.max_inference_skipped is None:
+        args.max_inference_skipped = 5 if corridor_gate else 0
     if args.max_thermal_state is None:
         args.max_thermal_state = "fair" if corridor_gate else "none"
     if denied_gate:

@@ -35,8 +35,8 @@ def write_manifest(path: Path) -> None:
                         "acceptedExtensions": ["mlmodelc", "mlpackage"],
                         "runtime": "DepthAnythingRunner",
                         "source": "test",
-                        "expectedInput": {"width": 518, "height": 518},
-                        "expectedOutputs": ["MLMultiArray"],
+                        "expectedInput": {"width": 518, "height": 392},
+                        "expectedOutputs": ["MLMultiArray", "VNPixelBufferObservation"],
                     },
                 ],
             },
@@ -131,7 +131,7 @@ class CheckIosModelAssetsTest(unittest.TestCase):
             manifest = Path(tmp) / "manifest.json"
             write_manifest(manifest)
             data = json.loads(manifest.read_text(encoding="utf-8"))
-            data["models"][1]["expectedInput"]["height"] = 392
+            data["models"][1]["expectedInput"]["height"] = 518
             manifest.write_text(json.dumps(data), encoding="utf-8")
 
             result = subprocess.run(
@@ -144,7 +144,7 @@ class CheckIosModelAssetsTest(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             details = json.loads(result.stdout)
             self.assertEqual(details["status"], "invalid")
-            self.assertIn("models[1].expectedInput={'width': 518, 'height': 518}", details["errors"])
+            self.assertIn("models[1].expectedInput={'width': 518, 'height': 392}", details["errors"])
 
 
 if __name__ == "__main__":

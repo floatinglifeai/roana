@@ -2,11 +2,12 @@
 // Copyright (C) 2026 The Roana Authors.
 
 import CoreML
+import CoreVideo
 import Foundation
 
 enum DepthAnythingOutputAdapter {
     static let expectedInputWidth = 518
-    static let expectedInputHeight = 518
+    static let expectedInputHeight = 392
     static let expectedOutputChannels = 1
 
     static func plannerGrid(
@@ -59,6 +60,31 @@ enum DepthAnythingOutputAdapter {
         return plannerGrid(values: values, rows: parsedShape.rows, cols: parsedShape.cols)
     }
 
+    static func plannerGrid(from pixelBuffer: CVPixelBuffer) throws -> DepthGrid {
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
+        }
+
+        let rows = CVPixelBufferGetHeight(pixelBuffer)
+        let cols = CVPixelBufferGetWidth(pixelBuffer)
+        guard rows > 0, cols > 0 else {
+            throw DepthAdapterError.unsupportedPixelBuffer(width: cols, height: rows, pixelFormat: CVPixelBufferGetPixelFormatType(pixelBuffer))
+        }
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw DepthAdapterError.missingPixelBufferBaseAddress
+        }
+
+        let values = try extractDepthValues(
+            from: baseAddress,
+            rows: rows,
+            cols: cols,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+            pixelFormat: CVPixelBufferGetPixelFormatType(pixelBuffer),
+        )
+        return plannerGrid(values: values, rows: rows, cols: cols)
+    }
+
     private static func parseDepthShape(_ shape: [Int]) throws -> ParsedDepthShape {
         switch shape {
         case let shape where shape.count == 2:
@@ -96,6 +122,95 @@ enum DepthAnythingOutputAdapter {
         return values
     }
 
+    private static func extractDepthValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+        pixelFormat: OSType,
+    ) throws -> [Float] {
+        switch pixelFormat {
+        case kCVPixelFormatType_OneComponent16Half,
+             kCVPixelFormatType_DepthFloat16,
+             kCVPixelFormatType_DisparityFloat16:
+            return extractFloat16PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: bytesPerRow)
+        case kCVPixelFormatType_OneComponent32Float,
+             kCVPixelFormatType_DepthFloat32,
+             kCVPixelFormatType_DisparityFloat32:
+            return extractFloat32PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: bytesPerRow)
+        case kCVPixelFormatType_OneComponent8:
+            return extractUInt8PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: bytesPerRow)
+        case kCVPixelFormatType_OneComponent16:
+            return extractUInt16PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: bytesPerRow)
+        default:
+            throw DepthAdapterError.unsupportedPixelBuffer(width: cols, height: rows, pixelFormat: pixelFormat)
+        }
+    }
+
+    private static func extractFloat16PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> [Float] {
+        var values = Array<Float>(repeating: 0, count: rows * cols)
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: UInt16.self)
+            for col in 0..<cols {
+                values[row * cols + col] = Float(Float16(bitPattern: rowPointer[col]))
+            }
+        }
+        return values
+    }
+
+    private static func extractFloat32PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> [Float] {
+        var values = Array<Float>(repeating: 0, count: rows * cols)
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: Float.self)
+            for col in 0..<cols {
+                values[row * cols + col] = rowPointer[col]
+            }
+        }
+        return values
+    }
+
+    private static func extractUInt8PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> [Float] {
+        var values = Array<Float>(repeating: 0, count: rows * cols)
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: UInt8.self)
+            for col in 0..<cols {
+                values[row * cols + col] = Float(rowPointer[col])
+            }
+        }
+        return values
+    }
+
+    private static func extractUInt16PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> [Float] {
+        var values = Array<Float>(repeating: 0, count: rows * cols)
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: UInt16.self)
+            for col in 0..<cols {
+                values[row * cols + col] = Float(rowPointer[col])
+            }
+        }
+        return values
+    }
+
     private static func fillFloat32Values(
         values: inout [Float],
         multiArray: MLMultiArray,
@@ -127,6 +242,8 @@ enum DepthAnythingOutputAdapter {
 enum DepthAdapterError: Error, Equatable {
     case unsupportedShape([Int])
     case unsupportedDataType(MLMultiArrayDataType)
+    case missingPixelBufferBaseAddress
+    case unsupportedPixelBuffer(width: Int, height: Int, pixelFormat: OSType)
 }
 
 private struct ParsedDepthShape {

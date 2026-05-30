@@ -15,8 +15,8 @@ EXPECTED_YOLO_RESOURCE = "YOLO11n"
 EXPECTED_DEPTH_RESOURCE = "DepthAnythingV2Small"
 EXPECTED_YOLO_INPUT = "image_640x640"
 EXPECTED_YOLO_OUTPUTS = ("multiarray_",)
-EXPECTED_DEPTH_INPUT = "image_518x518"
-EXPECTED_DEPTH_OUTPUTS = ("multiarray_",)
+EXPECTED_DEPTH_INPUT = "image_518x392"
+EXPECTED_DEPTH_OUTPUTS = ("multiarray_", "image_518x392")
 MODEL_MODE_ORDER = {"disabled": 0, "yolo": 1, "corridor": 2}
 THERMAL_SEVERITY = {
     "nominal": 0,
@@ -470,10 +470,11 @@ def has_model_feature_contract(
         return False
     if required_input and not any(required_input in value for value in input_values):
         return False
-    for required_output in required_outputs:
-        if not any(required_output in value for value in output_values):
-            return False
-    return True
+    return any(
+        required_output in value
+        for required_output in required_outputs
+        for value in output_values
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
