@@ -37,6 +37,7 @@ required_files=(
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/main.swift"
+  "$IOS_DIR/RoanaTests/Privacy/main.swift"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
 )
 
@@ -110,6 +111,11 @@ swiftc \
   "$IOS_DIR/RoanaTests/Parity/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" "$ROOT_DIR/parity/corridor-core.json" >/dev/null
+
+swiftc \
+  "$IOS_DIR/RoanaTests/Privacy/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" "$ROOT_DIR" >/dev/null
 
 swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift" \
