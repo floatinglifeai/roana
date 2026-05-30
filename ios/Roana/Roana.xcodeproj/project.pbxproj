@@ -28,6 +28,7 @@
 		8F4C00352CAE000100000001 /* ModelAssetResourceLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00362CAE000100000001 /* ModelAssetResourceLocator.swift */; };
 		8F4C00372CAE000100000001 /* ModelAssets in Resources */ = {isa = PBXBuildFile; fileRef = 8F4C00382CAE000100000001 /* ModelAssets */; };
 		8F4C00392CAE000100000001 /* FrameInferenceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C003A2CAE000100000001 /* FrameInferenceCoordinator.swift */; };
+		8F4C003B2CAE000100000001 /* ModelDescriptionLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C003C2CAE000100000001 /* ModelDescriptionLogger.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +55,7 @@
 		8F4C00362CAE000100000001 /* ModelAssetResourceLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetResourceLocator.swift; sourceTree = "<group>"; };
 		8F4C00382CAE000100000001 /* ModelAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ModelAssets; sourceTree = "<group>"; };
 		8F4C003A2CAE000100000001 /* FrameInferenceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameInferenceCoordinator.swift; sourceTree = "<group>"; };
+		8F4C003C2CAE000100000001 /* ModelDescriptionLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDescriptionLogger.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +148,7 @@
 			isa = PBXGroup;
 			children = (
 				8F4C00362CAE000100000001 /* ModelAssetResourceLocator.swift */,
+				8F4C003C2CAE000100000001 /* ModelDescriptionLogger.swift */,
 				8F4C00202CAE000100000001 /* YoloObstacleDetector.swift */,
 			);
 			path = Models;
@@ -240,6 +243,7 @@
 				8F4C001A2CAE000100000001 /* FrameDiagnostics.swift in Sources */,
 				8F4C001B2CAE000100000001 /* RollingPercentileWindow.swift in Sources */,
 				8F4C00352CAE000100000001 /* ModelAssetResourceLocator.swift in Sources */,
+				8F4C003B2CAE000100000001 /* ModelDescriptionLogger.swift in Sources */,
 				8F4C001F2CAE000100000001 /* YoloObstacleDetector.swift in Sources */,
 				8F4C00212CAE000100000001 /* SpeechFeedbackDispatcher.swift in Sources */,
 				8F4C00252CAE000100000001 /* CorridorPlanner.swift in Sources */,
