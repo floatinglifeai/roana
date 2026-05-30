@@ -243,13 +243,17 @@ Updated: 2026-05-30.
     --require-present` reports `status=ready` for `YOLO11n.mlmodelc` and
     `DepthAnythingV2Small.mlmodelc`.
   - Local offline replay proof passes against the user-recorded, git-ignored
-    `samples/home_iphone_0530.mp4` fixture:
+    `samples/home_iphone_0530.mp4` fixture. The short STOP smoke passes with:
     `scripts/replay-ios-video.sh samples/home_iphone_0530.mp4 --fps 1
     --max-seconds 2 | tee /tmp/roana-ios-video-replay-smoke.log`, followed by
     `scripts/verify-ios-replay-log.py --log
     /tmp/roana-ios-video-replay-smoke.log --fixture stop --min-run-seconds 2
     --max-p95-ms 1000`. The verifier reports `status=passed` with YOLO,
     Depth Anything, Vision orientation, corridor feedback, and STOP evidence.
+    The longer guidance probe also passes with `--fps 2 --max-seconds 20` and
+    `scripts/verify-ios-replay-log.py --fixture guidance --min-run-seconds 20
+    --max-p95-ms 500`, proving at least one normal RIGHT/STRAIGHT guidance
+    utterance plus audio-session evidence from the replay harness.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at

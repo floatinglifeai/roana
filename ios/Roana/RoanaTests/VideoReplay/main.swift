@@ -131,6 +131,13 @@ func replay(_ options: ReplayOptions) async throws {
     var utteranceID = 0
     let feedback = CorridorFeedbackDispatcher(
         speaker: { message, _, utteranceId in
+            guard SpeechAudioSession.activate() else {
+                print(
+                    "roana_ios_corridor_feedback_audio status=suppressed " +
+                        "reason=audio_session_failed id=\(utteranceId)",
+                )
+                return
+            }
             print(
                 "roana_ios_corridor_feedback_audio status=queued id=\(utteranceId) " +
                     "message=\(sanitizeReplayValue(message))",
