@@ -15,6 +15,9 @@ Updated: 2026-05-30.
   inference. Debug builds opt into V0a YOLO with `--roana-enable-yolo` or
   `ROANA_IOS_MODEL_MODE=yolo`, and opt into V0b corridor/depth with
   `--roana-enable-corridor` or `ROANA_IOS_MODEL_MODE=corridor`.
+  Shared Xcode schemes keep those runs explicit: `Roana` is the no-model S0
+  scheme, `Roana-V0a-YOLO` enables YOLO only, and `Roana-V0b-Corridor` enables
+  corridor mode plus the debug frame-loss proof hook.
 - Host readiness observed on this machine:
   - `xcode-select -p` returns `/Library/Developer/CommandLineTools`.
   - `xcodebuild -version` fails because full Xcode is not the active developer
@@ -52,6 +55,9 @@ Updated: 2026-05-30.
   prove which path was actually exercised. Frame-loss safety is routed through
   corridor STOP feedback only in corridor mode; S0/V0a still log dropped frames
   without emitting corridor guidance.
+- Shared Xcode schemes exist for the three code paths: `Roana` for S0,
+  `Roana-V0a-YOLO` for YOLO-only V0a, and `Roana-V0b-Corridor` for
+  corridor/depth V0b with `--roana-debug-fail-safe-stop`.
 - Foreground/background handling stops camera work in background and restarts
   when active; the physical log verifier now requires ordered background-stop
   then camera-restart evidence for granted-camera S0/V0 artifacts.
@@ -302,6 +308,9 @@ Before running model-backed iOS V0a/V0b gates, check the local asset contract:
 ```bash
 scripts/check-ios-model-assets.py --require-present
 ```
+
+Use the matching shared Xcode scheme for each device run: `Roana` for S0,
+`Roana-V0a-YOLO` for V0a, and `Roana-V0b-Corridor` for V0b.
 
 ## No-Touch Scope
 

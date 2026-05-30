@@ -36,6 +36,9 @@ expanding iOS work.
 - For physical-run evidence, use `scripts/capture-ios-device-log.py` to create
   the canonical `logs/ios-*.log` artifact and run `scripts/verify-ios-device-log.py`
   with the matching gate.
+- Keep shared Xcode schemes aligned with the log gates: `Roana` must stay the
+  no-model S0 launch, `Roana-V0a-YOLO` must opt into YOLO only, and
+  `Roana-V0b-Corridor` must opt into corridor mode.
 - Do not claim physical-device acceptance until a full-Xcode host and real
   iPhone produce log artifacts checked by `scripts/analyze-ios-log.py`.
 - Do not claim model performance until real Core ML assets are staged, loaded on

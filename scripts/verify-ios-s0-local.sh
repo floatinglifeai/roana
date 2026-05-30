@@ -47,6 +47,8 @@ required_files=(
   "$IOS_DIR/RoanaTests/main.swift"
   "$IOS_DIR/RoanaTests/Privacy/main.swift"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
+  "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0a-YOLO.xcscheme"
+  "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
   "$ROOT_DIR/scripts/capture-ios-device-log.py"
   "$ROOT_DIR/scripts/test_capture_ios_device_log.py"
 )
@@ -77,12 +79,21 @@ python3 "$ROOT_DIR/scripts/check-ios-model-assets.py" \
 grep -q '"expectedOutputs"' "$IOS_DIR/Roana/ModelAssets/manifest.json"
 grep -q '"VNRecognizedObjectObservation"' "$IOS_DIR/Roana/ModelAssets/manifest.json"
 grep -q '"MLMultiArray"' "$IOS_DIR/Roana/ModelAssets/manifest.json"
-python3 - <<'PY' "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
+python3 - <<'PY' "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme" "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0a-YOLO.xcscheme" "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
 import sys
 import xml.etree.ElementTree as ET
 
-ET.parse(sys.argv[1])
+for path in sys.argv[1:]:
+    ET.parse(path)
 PY
+
+grep -q -- "--roana-enable-yolo" "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0a-YOLO.xcscheme"
+grep -q -- "--roana-enable-corridor" "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
+grep -q -- "--roana-debug-fail-safe-stop" "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
+if grep -q -- "--roana-enable-yolo\\|--roana-enable-corridor" "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"; then
+  echo "Default Roana scheme must remain no-model S0" >&2
+  exit 1
+fi
 
 grep -q "NSCameraUsageDescription" "$INFO_PLIST"
 grep -q "AVCaptureVideoDataOutput" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
