@@ -370,6 +370,21 @@ scripts/check-ios-model-assets.py --require-present
 Use the matching shared Xcode scheme for each device run: `Roana` for S0,
 `Roana-V0a-YOLO` for V0a, and `Roana-V0b-Corridor` for V0b.
 
+When the iPhone is available again, the V0b capture should use the installed
+signed app or a fresh command-line-team build, then launch/capture through the
+canonical wrapper. Keep `DEVELOPMENT_TEAM=XP2NFR9M33` command-line-only:
+
+```bash
+scripts/capture-ios-device-log.py --gate v0b \
+  --exec -- xcrun devicectl device process launch \
+    --device A85B7E8D-1EDD-573F-9C50-BC76B9FB8E03 \
+    --terminate-existing --console app.roana.ios \
+    --roana-enable-corridor --roana-debug-fail-safe-stop
+```
+
+The wrapper will block with `iphone_device_available` while CoreDevice reports
+the phone as offline/unavailable.
+
 ## No-Touch Scope
 
 - Do not add real iOS Core ML model assets, benchmark claims, or performance
