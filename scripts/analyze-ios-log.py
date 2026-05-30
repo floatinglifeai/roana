@@ -66,6 +66,7 @@ def parse_log(log_path: Path) -> dict[str, object]:
     max_dropped = 0
     max_inference_skipped = 0
     p95_values = []
+    run_seconds_values = []
     thermal_states = []
 
     for line in lines:
@@ -77,6 +78,9 @@ def parse_log(log_path: Path) -> dict[str, object]:
             p95 = numeric_field(fields, "p95_ms")
             if p95 is not None:
                 p95_values.append(p95)
+            run_seconds = numeric_field(fields, "run_s")
+            if run_seconds is not None:
+                run_seconds_values.append(run_seconds)
             thermal_state = fields.get("thermal")
             if thermal_state:
                 thermal_states.append(thermal_state)
@@ -174,6 +178,7 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "max_backlog": max_backlog,
         "max_dropped": max_dropped,
         "max_p95_ms": rounded(max(p95_values), 2) if p95_values else 0.0,
+        "max_run_seconds": rounded(max(run_seconds_values), 2) if run_seconds_values else 0.0,
         "max_thermal_state": max_thermal_state,
         "avg_yolo_ms": rounded(mean(yolo_elapsed), 2) if yolo_elapsed else 0.0,
         "avg_depth_ms": rounded(mean(depth_elapsed), 2) if depth_elapsed else 0.0,
@@ -208,6 +213,7 @@ def missing_evidence(
     details: dict[str, object],
     *,
     min_frame_stats: int,
+    min_run_seconds: float,
     max_backlog: int,
     max_dropped: int,
     max_p95_ms: float,
@@ -231,6 +237,8 @@ def missing_evidence(
     missing: list[str] = []
     if details["frame_stats_count"] < min_frame_stats:
         missing.append(f"frame_stats>={min_frame_stats}")
+    if details["max_run_seconds"] < min_run_seconds:
+        missing.append(f"run_s>={min_run_seconds:g}")
     if details["max_backlog"] > max_backlog:
         missing.append(f"backlog<={max_backlog}")
     if details["max_dropped"] > max_dropped:
@@ -292,6 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", required=True, type=Path)
     parser.add_argument("--min-frame-stats", default=120, type=int)
+    parser.add_argument("--min-run-seconds", default=0.0, type=float)
     parser.add_argument("--max-backlog", default=0, type=int)
     parser.add_argument("--max-dropped", default=0, type=int)
     parser.add_argument("--max-p95-ms", default=0.0, type=float)
@@ -324,6 +333,7 @@ def main() -> None:
     missing = missing_evidence(
         details,
         min_frame_stats=args.min_frame_stats,
+        min_run_seconds=args.min_run_seconds,
         max_backlog=args.max_backlog,
         max_dropped=args.max_dropped,
         max_p95_ms=args.max_p95_ms,

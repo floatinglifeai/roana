@@ -25,6 +25,7 @@ def fake_log(
     include_speech: bool = False,
     include_inference: bool = False,
     p95_ms: float = 34.0,
+    run_seconds: float = 60.0,
     thermal_state: str = "nominal",
     include_orientation: bool = False,
     include_background_stop: bool = False,
@@ -45,7 +46,7 @@ def fake_log(
             "roana_ios_frame_stats "
             "width=1280 height=720 pixel_format=420YpCbCr8BiPlanarFullRange "
             f"interval_ms=33.30 p50_ms=33.30 p95_ms={p95_ms:.2f} dropped=0 backlog=0 "
-            f"thermal={thermal_state} frame={index}"
+            f"thermal={thermal_state} run_s={run_seconds:.2f} frame={index}"
         )
     if include_yolo:
         if include_inference:
@@ -164,6 +165,24 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("idle_timer_disabled", details["missing"])
         self.assertIn("idle_timer_enabled", details["missing"])
         self.assertIn("inference_finished", details["missing"])
+
+    def test_s0_defaults_require_sixty_second_run(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                run_seconds=12.5,
+                include_orientation=True,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_idle_timer=True,
+            ),
+            "--gate",
+            "s0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("run_s>=60", details["missing"])
 
     def test_v0b_log_passes_with_model_corridor_evidence(self) -> None:
         status, details = self.run_verifier(

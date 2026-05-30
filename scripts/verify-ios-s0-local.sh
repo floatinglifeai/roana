@@ -84,6 +84,7 @@ if grep -q "isIdleTimerDisabled" "$IOS_DIR/Roana/ContentView.swift"; then
   exit 1
 fi
 grep -q "roana_ios_frame_stats" "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
+grep -q "run_s=" "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
 grep -q "camera_background_stop" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "camera_permission_denied" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "camera_output_orientation" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
