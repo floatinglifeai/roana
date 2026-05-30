@@ -40,6 +40,10 @@ def fake_log(
     include_idle_timer: bool = False,
     include_permission: bool = True,
     include_motion_quality: bool = False,
+    motion_quality_line: str = (
+        "roana_ios_motion_quality label=stable reason=motion_unavailable "
+        "trusts_guidance=true source=replay"
+    ),
 ) -> str:
     lines: list[str] = []
     if include_permission:
@@ -47,10 +51,7 @@ def fake_log(
     lines.append("roana_ios_lifecycle camera_started")
     lines.append(f"roana_ios_model_mode value={model_mode}")
     if include_motion_quality:
-        lines.append(
-            "roana_ios_motion_quality label=stable reason=motion_unavailable "
-            "trusts_guidance=true source=replay"
-        )
+        lines.append(motion_quality_line)
     if include_orientation:
         lines.append("roana_ios_lifecycle camera_output_orientation interface=portrait angle=90 vision=right")
         lines.append("roana_ios_orientation source=preview interface=portrait angle=90 vision=right")
@@ -375,6 +376,39 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("motion_quality", data["missing"])
         self.assertIn("motion_quality_trusts_guidance", data["missing"])
+        self.assertIn("motion_quality_stable", data["missing"])
+        self.assertIn("motion_quality_motion_unavailable", data["missing"])
+        self.assertIn("motion_quality_replay_source", data["missing"])
+
+    def test_reports_wrong_replay_motion_quality_when_required(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=3,
+                include_permission=False,
+                include_motion_quality=True,
+                motion_quality_line=(
+                    "roana_ios_motion_quality label=pointing_down reason=pitch_down "
+                    "trusts_guidance=false source=live"
+                ),
+                run_seconds=2.0,
+            ),
+            "--min-frame-stats",
+            "3",
+            "--min-run-seconds",
+            "2",
+            "--require-camera-start",
+            "0",
+            "--require-permission",
+            "0",
+            "--require-motion-quality",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("motion_quality_trusts_guidance", data["missing"])
+        self.assertIn("motion_quality_stable", data["missing"])
+        self.assertIn("motion_quality_motion_unavailable", data["missing"])
+        self.assertIn("motion_quality_replay_source", data["missing"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
         data = self.run_analyzer(

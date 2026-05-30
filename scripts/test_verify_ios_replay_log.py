@@ -18,6 +18,10 @@ def replay_log(
     *,
     include_replay_markers: bool = True,
     include_motion_quality: bool = True,
+    motion_quality_line: str = (
+        "roana_ios_motion_quality label=stable reason=motion_unavailable "
+        "trusts_guidance=true source=replay"
+    ),
     guidance: bool = False,
 ) -> str:
     lines: list[str] = []
@@ -40,10 +44,7 @@ def replay_log(
         ],
     )
     if include_motion_quality:
-        lines.append(
-            "roana_ios_motion_quality label=stable reason=motion_unavailable "
-            "trusts_guidance=true source=replay"
-        )
+        lines.append(motion_quality_line)
     for index in range(3):
         lines.extend(
             [
@@ -144,6 +145,24 @@ class VerifyIosReplayLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("motion_quality", data["missing"])
         self.assertIn("motion_quality_trusts_guidance", data["missing"])
+
+    def test_reports_wrong_replay_motion_quality(self) -> None:
+        status, data = self.run_verifier(
+            replay_log(
+                motion_quality_line=(
+                    "roana_ios_motion_quality label=unstable reason=high_angular_velocity "
+                    "trusts_guidance=false source=live"
+                ),
+            ),
+            check=False,
+        )
+
+        self.assertEqual(2, status)
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("motion_quality_trusts_guidance", data["missing"])
+        self.assertIn("motion_quality_stable", data["missing"])
+        self.assertIn("motion_quality_motion_unavailable", data["missing"])
+        self.assertIn("motion_quality_replay_source", data["missing"])
 
     def test_reports_missing_replay_markers(self) -> None:
         status, data = self.run_verifier(replay_log(include_replay_markers=False), check=False)

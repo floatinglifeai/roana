@@ -466,6 +466,12 @@ def missing_evidence(
         missing.append("motion_quality")
     if require_motion_quality and not details["motion_quality_trusts_guidance"]:
         missing.append("motion_quality_trusts_guidance")
+    if require_motion_quality and "stable" not in details["motion_quality_labels"]:
+        missing.append("motion_quality_stable")
+    if require_motion_quality and "motion_unavailable" not in details["motion_quality_reasons"]:
+        missing.append("motion_quality_motion_unavailable")
+    if require_motion_quality and "replay" not in details["motion_quality_sources"]:
+        missing.append("motion_quality_replay_source")
     if require_orientation and details["preview_orientation_count"] < 1:
         missing.append("preview_orientation")
     if require_orientation and details["capture_orientation_count"] < 1:
