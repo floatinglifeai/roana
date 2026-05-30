@@ -23,6 +23,7 @@ def fake_log(
     include_depth_description: bool = False,
     include_corridor: bool = False,
     include_speech: bool = False,
+    speech_label: str = "person",
     include_fail_safe_stop: bool = False,
     include_inference: bool = False,
     p95_ms: float = 34.0,
@@ -93,7 +94,7 @@ def fake_log(
                 "label=person score=91"
             )
     if include_speech:
-        lines.append("roana_ios_speech status=queued label=person score=91 message=Person_ahead")
+        lines.append(f"roana_ios_speech status=queued label={speech_label} score=91 message=Person_ahead")
     if include_fail_safe_stop:
         lines.append("roana_ios_safety event=fail_safe_stop reason=frame_loss")
         lines.append(
@@ -171,6 +172,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("yolo_inference", details["missing"])
         self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("speech_queued", details["missing"])
+        self.assertIn("yolo_speech_match", details["missing"])
         self.assertIn("preview_orientation", details["missing"])
         self.assertIn("capture_orientation", details["missing"])
         self.assertIn("camera_background_restart", details["missing"])
@@ -178,6 +180,33 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("idle_timer_enabled", details["missing"])
         self.assertIn("inference_finished", details["missing"])
         self.assertIn("yolo_vision_orientation", details["missing"])
+
+    def test_v0a_defaults_require_speech_to_match_yolo_detection(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_speech=True,
+                speech_label="chair",
+                include_inference=True,
+            ),
+            "--gate",
+            "v0a",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("yolo_speech_match", details["missing"])
+        self.assertEqual(["person"], details["analysis"]["details"]["yolo_detection_labels"])
+        self.assertEqual(["chair"], details["analysis"]["details"]["speech_labels"])
+        self.assertEqual([], details["analysis"]["details"]["matched_yolo_speech_labels"])
 
     def test_s0_defaults_require_sixty_second_run(self) -> None:
         status, details = self.run_verifier(

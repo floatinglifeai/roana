@@ -69,6 +69,10 @@ Updated: 2026-05-30.
   - Detection timing logs use `roana_ios_yolo`.
   - Detection-to-speech wiring uses `AVSpeechSynthesizer` and logs
     `roana_ios_speech` for the YOLO-only V0a path.
+  - V0a log analysis now requires queued speech to share a label with an
+    observed YOLO detection, so the first model-backed artifact proves a
+    detection-to-speech closed loop rather than independent model and speech
+    callbacks.
 - Code-only iOS-V0b decision-core path:
   - Swift `CorridorPlanner` port with near-obstacle STOP, 15x15 DFS path
     search, safe-cell thresholds, horizontal-clearance tie-break, and
@@ -152,7 +156,8 @@ Updated: 2026-05-30.
     including frame stats, orientation evidence, Core ML model-description
     logs, ordered background-stop/restart evidence, idle-timer disable/enable
     evidence, model/corridor/speech evidence, and inference coordinator
-    scheduled/skipped/finished counts. V0b log gates also require a
+    scheduled/skipped/finished counts. V0a speech gates require a queued speech
+    label that matches a YOLO detection label, and V0b log gates also require a
     machine-checkable fail-safe STOP artifact for frame-loss safety.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
