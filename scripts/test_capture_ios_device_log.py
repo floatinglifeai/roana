@@ -124,6 +124,43 @@ class CaptureIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(details["status"], "failed")
         self.assertIn("log_source", details["missing"])
 
+    def test_exec_timeout_writes_captured_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            command = [
+                sys.executable,
+                str(SCRIPT),
+                "--gate",
+                "s0-denied",
+                "--log-dir",
+                str(Path(tmp) / "logs"),
+                "--timestamp",
+                "20260530T010203Z",
+                "--skip-host-checks",
+                "--require-device",
+                "0",
+                "--allow-capture-exit-code",
+                "124",
+                "--exec-timeout-seconds",
+                "0.5",
+                "--exec",
+                sys.executable,
+                "-c",
+                (
+                    "import sys, time; "
+                    "print('roana_ios_model_mode value=disabled'); "
+                    "print('roana_ios_lifecycle camera_authorization state=denied'); "
+                    "print('roana_ios_lifecycle camera_permission_denied state=denied'); "
+                    "sys.stdout.flush(); "
+                    "time.sleep(5)"
+                ),
+            ]
+            result = subprocess.run(command, check=False, capture_output=True, text=True)
+
+        details = json.loads(result.stdout)
+        self.assertEqual(0, result.returncode)
+        self.assertEqual("passed", details["status"])
+        self.assertEqual("ios-permission-denied-20260530T010203Z.log", Path(str(details["artifact"])).name)
+
 
 if __name__ == "__main__":
     unittest.main()

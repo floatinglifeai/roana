@@ -41,7 +41,17 @@ def read_source(args: argparse.Namespace) -> tuple[int, str, str]:
         command = args.exec_command
         if command and command[0] == "--":
             command = command[1:]
-        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=args.exec_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as error:
+            text = timeout_text(error.stdout) + timeout_text(error.stderr)
+            return 124, text, "" if text else "Capture command timed out without log text."
         text = completed.stdout + completed.stderr
         if not text:
             return completed.returncode, "", "Capture command produced no log text."
@@ -53,6 +63,14 @@ def read_source(args: argparse.Namespace) -> tuple[int, str, str]:
     if not text:
         return 1, "", "Captured log text is empty."
     return 0, text, ""
+
+
+def timeout_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
 
 
 def write_capture_failure(
@@ -112,8 +130,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-capture-exit-code",
         action="append",
         type=int,
-        default=[0],
+        default=[],
         help="Exit code accepted from --exec capture command. Repeat for timeout-style commands.",
+    )
+    parser.add_argument(
+        "--exec-timeout-seconds",
+        type=float,
+        default=None,
+        help="Timeout for --exec capture command. Timed-out commands return capture status 124.",
     )
     parser.add_argument("--skip-host-checks", action="store_true")
     parser.add_argument("--require-device", choices=("0", "1"))
@@ -157,7 +181,8 @@ def main() -> int:
 
     artifact.parent.mkdir(parents=True, exist_ok=True)
     artifact.write_text(text, encoding="utf-8")
-    if capture_status not in set(args.allow_capture_exit_code):
+    allowed_capture_exit_codes = set(args.allow_capture_exit_code or [0])
+    if capture_status not in allowed_capture_exit_codes:
         return write_capture_failure(
             gate=args.gate,
             artifact=artifact,

@@ -14,7 +14,16 @@ from pathlib import Path
 VERIFIER = Path(__file__).with_name("verify-ios-replay-log.py")
 
 
-def replay_log(*, include_replay_markers: bool = True, guidance: bool = False) -> str:
+def replay_log(
+    *,
+    include_replay_markers: bool = True,
+    include_motion_quality: bool = True,
+    motion_quality_line: str = (
+        "roana_ios_motion_quality label=stable reason=motion_unavailable "
+        "trusts_guidance=true source=replay"
+    ),
+    guidance: bool = False,
+) -> str:
     lines: list[str] = []
     if include_replay_markers:
         lines.append("roana_ios_replay status=started video=fixture.mp4 duration_s=2.00 fps=1.00 width=720 height=1280")
@@ -34,6 +43,8 @@ def replay_log(*, include_replay_markers: bool = True, guidance: bool = False) -
             ),
         ],
     )
+    if include_motion_quality:
+        lines.append(motion_quality_line)
     for index in range(3):
         lines.extend(
             [
@@ -104,6 +115,9 @@ class VerifyIosReplayLogTest(unittest.TestCase):
         self.assertEqual([], data["missing"])
         self.assertEqual(0, data["analysis"]["details"]["audio_session_active_count"])
         self.assertEqual("", data["analysis"]["details"]["normal_corridor_feedback"])
+        self.assertEqual(["stable"], data["analysis"]["details"]["motion_quality_labels"])
+        self.assertEqual(["motion_unavailable"], data["analysis"]["details"]["motion_quality_reasons"])
+        self.assertTrue(data["analysis"]["details"]["motion_quality_trusts_guidance"])
 
     def test_guidance_fixture_requires_audio_and_normal_guidance(self) -> None:
         status, data = self.run_verifier(replay_log(guidance=True), "--fixture", "guidance")
@@ -120,6 +134,35 @@ class VerifyIosReplayLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("audio_session_active", data["missing"])
         self.assertIn("corridor_guidance_feedback", data["missing"])
+
+    def test_reports_missing_motion_quality(self) -> None:
+        status, data = self.run_verifier(
+            replay_log(include_motion_quality=False),
+            check=False,
+        )
+
+        self.assertEqual(2, status)
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("motion_quality", data["missing"])
+        self.assertIn("motion_quality_trusts_guidance", data["missing"])
+
+    def test_reports_wrong_replay_motion_quality(self) -> None:
+        status, data = self.run_verifier(
+            replay_log(
+                motion_quality_line=(
+                    "roana_ios_motion_quality label=unstable reason=high_angular_velocity "
+                    "trusts_guidance=false source=live"
+                ),
+            ),
+            check=False,
+        )
+
+        self.assertEqual(2, status)
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("motion_quality_trusts_guidance", data["missing"])
+        self.assertIn("motion_quality_stable", data["missing"])
+        self.assertIn("motion_quality_motion_unavailable", data["missing"])
+        self.assertIn("motion_quality_replay_source", data["missing"])
 
     def test_reports_missing_replay_markers(self) -> None:
         status, data = self.run_verifier(replay_log(include_replay_markers=False), check=False)
