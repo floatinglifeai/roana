@@ -188,8 +188,8 @@ Updated: 2026-05-30.
   - Swift parity verifier reads `parity/corridor-core.json` and passes the
     planner, fusion, depth-grid conversion, state-machine, pipeline, and
     feedback-dispatch cases mirrored from current Kotlin unit tests.
-  - Corridor parity generation wrapper tests pass without requiring a local
-    Android Gradle build or real JDK 17/21.
+  - iOS local verification consumes the checked-in parity fixture only; Android
+    fixture regeneration and JDK/Gradle checks are not part of the iOS V0b gate.
   - `scripts/check-ios-xcodeproj-membership.py` verifies that every production
     Swift file under `ios/Roana/Roana` is present in the app target's Sources
     build phase and that `Assets.xcassets` / `ModelAssets` are present in the
@@ -266,13 +266,10 @@ Updated: 2026-05-30.
     `app/src/test/java/com/roana/app/parity/CorridorParityFixtureGenerator.kt`.
   - Gradle task `:app:generateCorridorParityFixtures` is wired to regenerate
     `parity/corridor-core.json`.
-  - `scripts/generate-corridor-parity-fixtures.py` wraps the Gradle task with
-    deterministic JDK 17/21 discovery, rejects `JAVA_HOME` values that point at
-    `bin/java` instead of a JDK home, and returns a machine-readable blocked
-    result when only incompatible JDKs are present.
-  - Android/Kotlin fixture regeneration remains parked outside the current iOS
-    worktree. Do not install or select a JDK as part of this iOS V0b slice; run
-    Android parity later in an Android/Docker context if needed.
+  - `scripts/generate-corridor-parity-fixtures.py` remains available for later
+    Android/Kotlin reference maintenance, outside the current iOS worktree.
+    Do not install or select a JDK as part of this iOS V0b slice; run Android
+    parity later in an Android/Docker context if needed.
 
 ## Local Code Gate
 
@@ -370,20 +367,19 @@ scripts/check-ios-model-assets.py --require-present
 Use the matching shared Xcode scheme for each device run: `Roana` for S0,
 `Roana-V0a-YOLO` for V0a, and `Roana-V0b-Corridor` for V0b.
 
-When the iPhone is available again, the V0b capture should use the installed
-signed app or a fresh command-line-team build, then launch/capture through the
-canonical wrapper. Keep `DEVELOPMENT_TEAM=XP2NFR9M33` command-line-only:
+When the iPhone is available again, run the one-command V0b physical wrapper.
+Keep the team ID in the environment only:
 
 ```bash
-scripts/capture-ios-device-log.py --gate v0b \
-  --exec -- xcrun devicectl device process launch \
-    --device A85B7E8D-1EDD-573F-9C50-BC76B9FB8E03 \
-    --terminate-existing --console app.roana.ios \
-    --roana-enable-corridor --roana-debug-fail-safe-stop
+ROANA_IOS_DEVELOPMENT_TEAM=XP2NFR9M33 scripts/run-ios-v0b-physical.py
 ```
 
-The wrapper will block with `iphone_device_available` while CoreDevice reports
-the phone as offline/unavailable.
+The wrapper checks model assets and device readiness, builds
+`Roana-V0b-Corridor`, installs the signed app, launches `app.roana.ios` with
+`--roana-enable-corridor --roana-debug-fail-safe-stop`, then captures and
+verifies the V0b log through `scripts/capture-ios-device-log.py`. It blocks
+with `iphone_device_available` while CoreDevice reports the phone as
+offline/unavailable.
 
 ## No-Touch Scope
 
@@ -394,8 +390,8 @@ the phone as offline/unavailable.
   LFS or an explicit model-fetch path is added.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
   JSON fixture now covers planner, fusion, depth-grid conversion, state-machine,
-  pipeline, and feedback-dispatch cases, but automatic Kotlin fixture
-  regeneration still needs a JDK 17/21 host.
+  pipeline, and feedback-dispatch cases, but regenerating that Android-derived
+  fixture remains outside this iOS V0b worktree.
 - Do not claim iPhone performance, preview orientation, signing, installation,
   or camera callback cadence until physical-device evidence exists.
 - Do not resume Android QNN diagnosis while this iOS port slice is active.

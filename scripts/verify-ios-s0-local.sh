@@ -56,14 +56,15 @@ required_files=(
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0a-YOLO.xcscheme"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
   "$ROOT_DIR/scripts/capture-ios-device-log.py"
+  "$ROOT_DIR/scripts/run-ios-v0b-physical.py"
   "$ROOT_DIR/scripts/test_capture_ios_device_log.py"
+  "$ROOT_DIR/scripts/test_run_ios_v0b_physical.py"
   "$ROOT_DIR/scripts/check-ios-xcodeproj-membership.py"
   "$ROOT_DIR/scripts/test_check_ios_xcodeproj_membership.py"
-  "$ROOT_DIR/scripts/generate-corridor-parity-fixtures.py"
   "$ROOT_DIR/scripts/replay-ios-video.sh"
-  "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py"
   "$ROOT_DIR/scripts/test_verify_ios_replay_log.py"
   "$ROOT_DIR/scripts/verify-ios-replay-log.py"
+  "$ROOT_DIR/parity/corridor-core.json"
 )
 
 for path in "${required_files[@]}"; do
@@ -78,9 +79,9 @@ python3 -m json.tool "$IOS_DIR/Roana/Assets.xcassets/Contents.json" >/dev/null
 python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_capture_ios_device_log.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_run_ios_v0b_physical.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_xcodeproj_membership.py" >/dev/null
-python3 -m unittest "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_ios_privacy_boundary.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
@@ -93,6 +94,9 @@ grep -q "audio_session_active" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "ARTIFACT_PREFIX" "$ROOT_DIR/scripts/capture-ios-device-log.py"
 grep -q "ios-skeleton" "$ROOT_DIR/scripts/capture-ios-device-log.py"
 grep -q "verify-ios-device-log.py" "$ROOT_DIR/scripts/capture-ios-device-log.py"
+grep -q "ROANA_IOS_DEVELOPMENT_TEAM" "$ROOT_DIR/scripts/run-ios-v0b-physical.py"
+grep -q "Roana-V0b-Corridor" "$ROOT_DIR/scripts/run-ios-v0b-physical.py"
+grep -q -- "--roana-enable-corridor" "$ROOT_DIR/scripts/run-ios-v0b-physical.py"
 python3 "$ROOT_DIR/scripts/check-ios-model-assets.py" \
   --manifest "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 grep -q '"expectedOutputs"' "$IOS_DIR/Roana/ModelAssets/manifest.json"

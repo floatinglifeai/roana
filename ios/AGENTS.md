@@ -36,10 +36,9 @@ expanding iOS work.
   the canonical `logs/ios-*.log` artifact and run `scripts/verify-ios-device-log.py`
   with the matching gate.
 - For V0b physical proof, build/install with a command-line-only
-  `DEVELOPMENT_TEAM=...` value, launch `app.roana.ios` with
-  `--roana-enable-corridor --roana-debug-fail-safe-stop`, capture logs through
-  `scripts/capture-ios-device-log.py --gate v0b`, and do not commit the team ID
-  or generated device logs unless explicitly requested.
+  `ROANA_IOS_DEVELOPMENT_TEAM=... scripts/run-ios-v0b-physical.py` invocation.
+  Do not commit the team ID or generated device logs unless explicitly
+  requested.
 - Keep shared Xcode schemes aligned with the log gates: `Roana` must stay the
   no-model S0 launch, `Roana-V0a-YOLO` must opt into YOLO only, and
   `Roana-V0b-Corridor` must opt into corridor mode.
