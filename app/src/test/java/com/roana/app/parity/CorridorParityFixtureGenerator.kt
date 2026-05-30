@@ -5,7 +5,9 @@ package com.roana.app.parity
 
 import com.roana.app.CorridorGridFusion
 import com.roana.app.CorridorPlanner
+import com.roana.app.CorridorPipeline
 import com.roana.app.CorridorStateMachine
+import com.roana.app.FeedbackDispatcher
 import com.roana.app.YoloObstacleDetector
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -31,6 +33,12 @@ object CorridorParityFixtureGenerator {
             add(stateMachineConfirmationsCase())
             add(stateMachineFrameLossCase())
             add(fusionNearObstacleCase())
+            add(pipelinePendingCase())
+            add(pipelineFailSafeFeedbackCase())
+            add(feedbackChangedRightCase())
+            add(feedbackPendingNonStopSuppressedCase())
+            add(feedbackInitialEmergencyStopOnceCase())
+            add(feedbackForcedUnchangedStateCase())
         }
 
         return buildString {
@@ -196,6 +204,218 @@ ${states.joinToString(",\n") { state ->
 }""".trimIndent()
     }
 
+    private fun pipelinePendingCase(): String {
+        val pipeline = CorridorPipeline(stateMachine = CorridorStateMachine(confirmationsRequired = 3))
+        val steps = List(3) { pipeline.process(filledGrid(0.30f)) }
+        return """
+{
+  "name": "pipelineKeepsNonStopCommandPendingUntilConfirmed",
+  "type": "pipeline",
+  "confirmationsRequired": 3,
+  "steps": [
+${steps.joinToString(",\n") { pipelineProcessStepJson(it, includeFeedback = false) }}
+  ]
+}""".trimIndent()
+    }
+
+    private fun pipelineFailSafeFeedbackCase(): String {
+        val spoken = mutableListOf<SpokenFeedback>()
+        var nextUtterance = 1
+        val pipeline = CorridorPipeline(
+            stateMachine = CorridorStateMachine(confirmationsRequired = 3),
+            feedbackDispatcher = FeedbackDispatcher(
+                speaker = FeedbackDispatcher.Speaker { message, queueMode, utteranceId ->
+                    spoken += SpokenFeedback(message, queueMode.name, utteranceId)
+                },
+                utteranceIdFactory = { "utterance-${nextUtterance++}" },
+            ),
+        )
+        val steps = buildList {
+            repeat(3) { add(PipelineFixtureStep("process", pipeline.process(filledGrid(0.30f)))) }
+            add(PipelineFixtureStep("failSafeStop", pipeline.failSafeStop("low_confidence"), reason = "low_confidence"))
+        }
+
+        return """
+{
+  "name": "pipelineFailSafeStopInterruptsConfirmedNonStopCommand",
+  "type": "pipeline",
+  "confirmationsRequired": 3,
+  "feedback": true,
+  "steps": [
+${steps.joinToString(",\n") { pipelineStepJson(it, includeFeedback = true) }}
+  ],
+  "expectedSpoken": [
+${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode": "${it.queueMode}", "utteranceId": "${it.utteranceId}" }""" }}
+  ]
+}""".trimIndent()
+    }
+
+    private fun feedbackChangedRightCase(): String =
+        feedbackCase(
+            name = "feedbackChangedRightCommandSpeaksTurnRight",
+            dispatches = listOf(
+                FeedbackDispatch(
+                    state = state(
+                        command = CorridorPlanner.CorridorCommand.RIGHT,
+                        sourceCommand = CorridorPlanner.CorridorCommand.RIGHT,
+                        changed = true,
+                    ),
+                ),
+            ),
+        )
+
+    private fun feedbackPendingNonStopSuppressedCase(): String =
+        feedbackCase(
+            name = "feedbackUnchangedPendingNonStopDoesNotSpeakInitialStop",
+            dispatches = listOf(
+                FeedbackDispatch(
+                    state = CorridorStateMachine.CorridorState(
+                        command = CorridorPlanner.CorridorCommand.STOP,
+                        sourceDecision = decision(CorridorPlanner.CorridorCommand.STRAIGHT, "path_found"),
+                        pendingCommand = CorridorPlanner.CorridorCommand.STRAIGHT,
+                        pendingCount = 1,
+                        changed = false,
+                    ),
+                ),
+            ),
+        )
+
+    private fun feedbackInitialEmergencyStopOnceCase(): String =
+        feedbackCase(
+            name = "feedbackInitialEmergencyStopSpeaksOnce",
+            dispatches = listOf(
+                FeedbackDispatch(
+                    state = state(
+                        command = CorridorPlanner.CorridorCommand.STOP,
+                        sourceCommand = CorridorPlanner.CorridorCommand.STOP,
+                        reason = "near_obstacle",
+                        changed = false,
+                    ),
+                ),
+                FeedbackDispatch(
+                    state = state(
+                        command = CorridorPlanner.CorridorCommand.STOP,
+                        sourceCommand = CorridorPlanner.CorridorCommand.STOP,
+                        reason = "near_obstacle",
+                        changed = false,
+                    ),
+                ),
+            ),
+        )
+
+    private fun feedbackForcedUnchangedStateCase(): String =
+        feedbackCase(
+            name = "feedbackDebugForceSpeaksUnchangedState",
+            dispatches = listOf(
+                FeedbackDispatch(
+                    state = state(
+                        command = CorridorPlanner.CorridorCommand.STRAIGHT,
+                        sourceCommand = CorridorPlanner.CorridorCommand.STRAIGHT,
+                        changed = false,
+                    ),
+                    force = true,
+                ),
+            ),
+        )
+
+    private fun feedbackCase(
+        name: String,
+        dispatches: List<FeedbackDispatch>,
+    ): String {
+        val spoken = mutableListOf<SpokenFeedback>()
+        var nextUtterance = 1
+        val dispatcher = FeedbackDispatcher(
+            speaker = FeedbackDispatcher.Speaker { message, queueMode, utteranceId ->
+                spoken += SpokenFeedback(message, queueMode.name, utteranceId)
+            },
+            utteranceIdFactory = { "utterance-${nextUtterance++}" },
+        )
+        val events = dispatches.map { dispatcher.dispatch(it.state, force = it.force) }
+        return """
+{
+  "name": "$name",
+  "type": "feedback",
+  "feedbackStates": [
+${dispatches.joinToString(",\n") { feedbackStateJson(it) }}
+  ],
+  "expectedEvents": [
+${events.joinToString(",\n") { feedbackEventJson(it) }}
+  ],
+  "expectedSpoken": [
+${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode": "${it.queueMode}", "utteranceId": "${it.utteranceId}" }""" }}
+  ]
+}""".trimIndent()
+    }
+
+    private fun pipelineProcessStepJson(
+        result: CorridorPipeline.CorridorFrameResult,
+        includeFeedback: Boolean,
+    ): String =
+        pipelineStepJson(
+            PipelineFixtureStep("process", result),
+            includeFeedback = includeFeedback,
+        )
+
+    private fun pipelineStepJson(
+        step: PipelineFixtureStep,
+        includeFeedback: Boolean,
+    ): String =
+        buildString {
+            appendLine("    {")
+            appendLine("""      "action": "${step.action}",""")
+            if (step.action == "process") {
+                appendLine("""      "grid": { "kind": "filled", "value": 0.30 },""")
+            } else {
+                appendLine("""      "reason": "${step.reason}",""")
+            }
+            appendLine("""      "expectedDecision": ${decisionJson(step.result.decision)},""")
+            appendLine("""      "expectedState": ${stateJson(step.result.state)}${if (includeFeedback) "," else ""}""")
+            if (includeFeedback) {
+                appendLine("""      "expectedFeedback": ${step.result.feedbackEvent?.let(::feedbackEventJsonInline) ?: "null"}""")
+            }
+            append("    }")
+        }
+
+    private fun feedbackStateJson(dispatch: FeedbackDispatch): String {
+        val state = dispatch.state
+        return """    { "command": "${state.command}", "sourceCommand": "${state.sourceDecision.command}", "reason": "${state.sourceDecision.reason}", "changed": ${state.changed}, "pendingCommand": ${commandJson(state.pendingCommand)}, "pendingCount": ${state.pendingCount}, "force": ${dispatch.force} }"""
+    }
+
+    private fun decisionJson(decision: CorridorPlanner.CorridorDecision): String =
+        """{ "command": "${decision.command}", "reason": "${decision.reason}", "pathCells": ${decision.path.size} }"""
+
+    private fun stateJson(state: CorridorStateMachine.CorridorState): String =
+        """{ "command": "${state.command}", "changed": ${state.changed}, "pendingCommand": ${commandJson(state.pendingCommand)}, "pendingCount": ${state.pendingCount} }"""
+
+    private fun feedbackEventJson(event: FeedbackDispatcher.FeedbackEvent): String =
+        "    ${feedbackEventJsonInline(event)}"
+
+    private fun feedbackEventJsonInline(event: FeedbackDispatcher.FeedbackEvent): String =
+        """{ "command": "${event.command}", "messageKey": "${event.messageKey}", "reason": "${event.reason}", "changed": ${event.changed}, "forced": ${event.forced}, "spoken": ${event.spoken}, "utteranceId": ${event.utteranceId?.let { "\"$it\"" } ?: "null"}, "pendingCommand": ${commandJson(event.pendingCommand)}, "pendingCount": ${event.pendingCount} }"""
+
+    private fun commandJson(command: CorridorPlanner.CorridorCommand?): String =
+        command?.let { "\"$it\"" } ?: "null"
+
+    private fun state(
+        command: CorridorPlanner.CorridorCommand,
+        sourceCommand: CorridorPlanner.CorridorCommand,
+        reason: String = "path_found",
+        changed: Boolean,
+    ): CorridorStateMachine.CorridorState =
+        CorridorStateMachine.CorridorState(
+            command = command,
+            sourceDecision = decision(sourceCommand, reason),
+            pendingCommand = null,
+            pendingCount = 0,
+            changed = changed,
+        )
+
+    private fun decision(
+        command: CorridorPlanner.CorridorCommand,
+        reason: String,
+    ): CorridorPlanner.CorridorDecision =
+        CorridorPlanner.CorridorDecision(command = command, path = emptyList(), reason = reason)
+
     private fun carvedCorridor(colsFromBottom: List<Int>): FloatArray =
         FloatArray(GRID_SIZE * GRID_SIZE) { 0.95f }.also { grid ->
             colsFromBottom.forEachIndexed { offset, col ->
@@ -208,9 +428,29 @@ ${states.joinToString(",\n") { state ->
             }
         }
 
+    private fun filledGrid(value: Float): CorridorPlanner.DepthGrid =
+        CorridorPlanner.DepthGrid.square15(FloatArray(GRID_SIZE * GRID_SIZE) { value })
+
     private fun index(row: Int, col: Int): Int = row * GRID_SIZE + col
 
     private fun List<Int>.toJsonArray(): String = joinToString(prefix = "[", postfix = "]")
+
+    private data class PipelineFixtureStep(
+        val action: String,
+        val result: CorridorPipeline.CorridorFrameResult,
+        val reason: String? = null,
+    )
+
+    private data class FeedbackDispatch(
+        val state: CorridorStateMachine.CorridorState,
+        val force: Boolean = false,
+    )
+
+    private data class SpokenFeedback(
+        val message: String,
+        val queueMode: String,
+        val utteranceId: String,
+    )
 
     private const val GRID_SIZE = 15
 }

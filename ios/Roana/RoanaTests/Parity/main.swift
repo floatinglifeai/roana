@@ -11,11 +11,16 @@ struct Fixture: Decodable {
 struct FixtureCase: Decodable {
     let name: String
     let type: String
+    let confirmationsRequired: Int?
     let grid: GridFixture?
     let expected: ExpectedDecision?
     let decisions: [DecisionFixture]?
     let expectedStates: [ExpectedState]?
     let detections: [DetectionFixture]?
+    let steps: [PipelineStep]?
+    let feedbackStates: [FeedbackState]?
+    let expectedEvents: [ExpectedFeedbackEvent]?
+    let expectedSpoken: [ExpectedSpoken]?
 }
 
 struct GridFixture: Decodable {
@@ -48,6 +53,43 @@ struct ExpectedState: Decodable {
     let changed: Bool
     let pendingCommand: String?
     let pendingCount: Int
+}
+
+struct PipelineStep: Decodable {
+    let action: String
+    let grid: GridFixture?
+    let reason: String?
+    let expectedDecision: ExpectedDecision
+    let expectedState: ExpectedState
+    let expectedFeedback: ExpectedFeedbackEvent?
+}
+
+struct FeedbackState: Decodable {
+    let command: String
+    let sourceCommand: String
+    let reason: String
+    let changed: Bool
+    let pendingCommand: String?
+    let pendingCount: Int
+    let force: Bool
+}
+
+struct ExpectedFeedbackEvent: Decodable {
+    let command: String
+    let messageKey: String
+    let reason: String
+    let changed: Bool
+    let forced: Bool
+    let spoken: Bool
+    let utteranceId: String?
+    let pendingCommand: String?
+    let pendingCount: Int
+}
+
+struct ExpectedSpoken: Decodable, Equatable {
+    let message: String
+    let queueMode: String
+    let utteranceId: String
 }
 
 struct DetectionFixture: Decodable {
@@ -125,6 +167,36 @@ func checkDecision(_ decision: CorridorDecision, expected: ExpectedDecision, cas
     }
 }
 
+func checkState(_ state: CorridorState, expected: ExpectedState, caseName: String) {
+    expect(state.command.rawValue == expected.command, "\(caseName): state command \(state.command.rawValue) != \(expected.command)")
+    expect(state.changed == expected.changed, "\(caseName): changed \(state.changed) != \(expected.changed)")
+    expect(state.pendingCommand?.rawValue == expected.pendingCommand, "\(caseName): pending command mismatch")
+    expect(state.pendingCount == expected.pendingCount, "\(caseName): pending count \(state.pendingCount) != \(expected.pendingCount)")
+}
+
+func checkFeedbackEvent(
+    _ event: CorridorFeedbackDispatcher.Event?,
+    expected: ExpectedFeedbackEvent?,
+    caseName: String,
+) {
+    if expected == nil {
+        expect(event == nil, "\(caseName): expected no feedback event")
+        return
+    }
+    guard let event, let expected else {
+        fail("\(caseName): feedback event presence mismatch")
+    }
+    expect(event.command.rawValue == expected.command, "\(caseName): feedback command mismatch")
+    expect(event.messageKey == expected.messageKey, "\(caseName): feedback message mismatch")
+    expect(event.reason == expected.reason, "\(caseName): feedback reason mismatch")
+    expect(event.changed == expected.changed, "\(caseName): feedback changed mismatch")
+    expect(event.forced == expected.forced, "\(caseName): feedback forced mismatch")
+    expect(event.spoken == expected.spoken, "\(caseName): feedback spoken mismatch")
+    expect(event.utteranceId == expected.utteranceId, "\(caseName): feedback utterance mismatch")
+    expect(event.pendingCommand?.rawValue == expected.pendingCommand, "\(caseName): feedback pending command mismatch")
+    expect(event.pendingCount == expected.pendingCount, "\(caseName): feedback pending count mismatch")
+}
+
 func checkPlannerCase(_ fixtureCase: FixtureCase) {
     guard let gridFixture = fixtureCase.grid, let expected = fixtureCase.expected else {
         fail("\(fixtureCase.name): planner case missing grid or expected")
@@ -169,10 +241,109 @@ func checkStateMachineCase(_ fixtureCase: FixtureCase) {
             ),
         )
         let expected = expectedStates[index]
-        expect(state.command.rawValue == expected.command, "\(fixtureCase.name)[\(index)]: command mismatch")
-        expect(state.changed == expected.changed, "\(fixtureCase.name)[\(index)]: changed mismatch")
-        expect(state.pendingCommand?.rawValue == expected.pendingCommand, "\(fixtureCase.name)[\(index)]: pending command mismatch")
-        expect(state.pendingCount == expected.pendingCount, "\(fixtureCase.name)[\(index)]: pending count mismatch")
+        checkState(state, expected: expected, caseName: "\(fixtureCase.name)[\(index)]")
+    }
+}
+
+func checkPipelineCase(_ fixtureCase: FixtureCase) {
+    guard let steps = fixtureCase.steps else {
+        fail("\(fixtureCase.name): pipeline case missing steps")
+    }
+    var spoken = [ExpectedSpoken]()
+    var nextUtterance = 1
+    let feedbackDispatcher: CorridorFeedbackDispatcher?
+    if fixtureCase.expectedSpoken != nil || steps.contains(where: { $0.expectedFeedback != nil }) {
+        feedbackDispatcher = CorridorFeedbackDispatcher(
+            speaker: { message, queueMode, utteranceId in
+                let mode: String
+                switch queueMode {
+                case .flush:
+                    mode = "FLUSH"
+                }
+                spoken.append(ExpectedSpoken(message: message, queueMode: mode, utteranceId: utteranceId))
+            },
+            utteranceIdFactory: {
+                defer { nextUtterance += 1 }
+                return "utterance-\(nextUtterance)"
+            },
+        )
+    } else {
+        feedbackDispatcher = nil
+    }
+    let pipeline = CorridorPipeline(
+        stateMachine: CorridorStateMachine(
+            confirmationsRequired: fixtureCase.confirmationsRequired ?? 3,
+        ),
+        feedbackDispatcher: feedbackDispatcher,
+    )
+
+    for (index, step) in steps.enumerated() {
+        let result: CorridorFrameResult
+        switch step.action {
+        case "process":
+            guard let grid = step.grid else {
+                fail("\(fixtureCase.name)[\(index)]: process step missing grid")
+            }
+            result = pipeline.process(grid: buildGrid(grid, caseName: fixtureCase.name))
+        case "failSafeStop":
+            result = pipeline.failSafeStop(reason: step.reason ?? "unknown")
+        default:
+            fail("\(fixtureCase.name)[\(index)]: unknown pipeline action \(step.action)")
+        }
+        checkDecision(result.decision, expected: step.expectedDecision, caseName: "\(fixtureCase.name)[\(index)]")
+        checkState(result.state, expected: step.expectedState, caseName: "\(fixtureCase.name)[\(index)]")
+        checkFeedbackEvent(result.feedbackEvent, expected: step.expectedFeedback, caseName: "\(fixtureCase.name)[\(index)]")
+    }
+
+    if let expectedSpoken = fixtureCase.expectedSpoken {
+        expect(spoken == expectedSpoken, "\(fixtureCase.name): spoken feedback mismatch")
+    }
+}
+
+func checkFeedbackCase(_ fixtureCase: FixtureCase) {
+    guard let feedbackStates = fixtureCase.feedbackStates,
+          let expectedEvents = fixtureCase.expectedEvents
+    else {
+        fail("\(fixtureCase.name): feedback case missing states or expected events")
+    }
+    expect(feedbackStates.count == expectedEvents.count, "\(fixtureCase.name): feedback event count mismatch")
+    var spoken = [ExpectedSpoken]()
+    var nextUtterance = 1
+    let dispatcher = CorridorFeedbackDispatcher(
+        speaker: { message, queueMode, utteranceId in
+            let mode: String
+            switch queueMode {
+            case .flush:
+                mode = "FLUSH"
+            }
+            spoken.append(ExpectedSpoken(message: message, queueMode: mode, utteranceId: utteranceId))
+        },
+        utteranceIdFactory: {
+            defer { nextUtterance += 1 }
+            return "utterance-\(nextUtterance)"
+        },
+    )
+
+    for (index, feedbackState) in feedbackStates.enumerated() {
+        let event = dispatcher.dispatch(
+            state: CorridorState(
+                command: command(feedbackState.command),
+                sourceDecision: CorridorDecision(
+                    command: command(feedbackState.sourceCommand),
+                    path: [],
+                    reason: feedbackState.reason,
+                ),
+                pendingCommand: feedbackState.pendingCommand.map(command),
+                pendingCount: feedbackState.pendingCount,
+                changed: feedbackState.changed,
+            ),
+            force: feedbackState.force,
+        )
+        checkFeedbackEvent(event, expected: expectedEvents[index], caseName: "\(fixtureCase.name)[\(index)]")
+    }
+
+    if let expectedSpoken = fixtureCase.expectedSpoken {
+        expect(spoken == expectedSpoken, "\(fixtureCase.name): spoken feedback mismatch")
     }
 }
 
@@ -190,6 +361,10 @@ for fixtureCase in fixture.cases {
         checkFusionCase(fixtureCase)
     case "stateMachine":
         checkStateMachineCase(fixtureCase)
+    case "pipeline":
+        checkPipelineCase(fixtureCase)
+    case "feedback":
+        checkFeedbackCase(fixtureCase)
     default:
         fail("\(fixtureCase.name): unknown type \(fixtureCase.type)")
     }
