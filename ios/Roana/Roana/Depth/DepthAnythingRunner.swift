@@ -33,9 +33,8 @@ final class DepthAnythingRunner {
     private let request: VNCoreMLRequest?
     private let state: State
 
-    init(modelResourceName: String = "DepthAnythingV2Small") {
-        guard let modelURL = Bundle.main.url(forResource: modelResourceName, withExtension: "mlmodelc") ??
-            Bundle.main.url(forResource: modelResourceName, withExtension: "mlpackage") else {
+    init(modelResourceName: String = ModelAssetResourceLocator.depthResourceName) {
+        guard let modelURL = ModelAssetResourceLocator.modelURL(forResource: modelResourceName) else {
             request = nil
             state = .modelMissing
             print("roana_ios_depth status=model_missing resource=\(modelResourceName)")

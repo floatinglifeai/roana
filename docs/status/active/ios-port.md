@@ -71,6 +71,16 @@ Updated: 2026-05-30.
     `[H,W]`, `[H,W,1]`, `[1,H,W]`, `[1,H,W,1]`, and `[1,1,H,W]`.
   - Pure Swift smoke tests cover small-output fallback, optimized large-output
     aggregation, and constant-output normalization.
+- iOS model asset contract:
+  - Manifest exists at `ios/Roana/Roana/ModelAssets/manifest.json`.
+  - The app target copies `ModelAssets` as a bundle resource.
+  - `ModelAssetResourceLocator` looks for both root-bundled and
+    `ModelAssets/`-nested `YOLO11n` and `DepthAnythingV2Small` resources with
+    `.mlmodelc` or `.mlpackage` extensions.
+  - `scripts/check-ios-model-assets.py` validates the manifest and can enforce
+    local asset presence with `--require-present`.
+  - Current local model asset status is intentionally `missing` because large
+    Core ML assets are not committed.
 - Executable local proof:
   - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
     passes with `CorridorCoreSmoke passed`.
@@ -78,6 +88,8 @@ Updated: 2026-05-30.
     planner, fusion, and state-machine cases mirrored from current Kotlin unit
     tests.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
+  - iOS model asset checker tests pass; the default checker reports both
+    expected resources as missing until real local model assets are supplied.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts.
 - Parity status:
@@ -140,6 +152,12 @@ scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-bac
 
 After model assets are available, add `--require-yolo 1 --require-depth 1
 --require-corridor 1 --require-speech 1`.
+
+Before running model-backed iOS V0a/V0b gates, check the local asset contract:
+
+```bash
+scripts/check-ios-model-assets.py --require-present
+```
 
 ## No-Touch Scope
 

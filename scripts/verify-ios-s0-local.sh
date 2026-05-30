@@ -29,6 +29,9 @@ required_files=(
   "$IOS_DIR/Roana/Diagnostics/DeviceDiagnostics.swift"
   "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
   "$IOS_DIR/Roana/Diagnostics/RollingPercentileWindow.swift"
+  "$IOS_DIR/Roana/ModelAssets/manifest.json"
+  "$IOS_DIR/Roana/ModelAssets/README.md"
+  "$IOS_DIR/Roana/Models/ModelAssetResourceLocator.swift"
   "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
@@ -46,7 +49,11 @@ done
 
 /usr/bin/plutil -lint "$INFO_PLIST" >/dev/null
 python3 -m json.tool "$IOS_DIR/Roana/Assets.xcassets/Contents.json" >/dev/null
+python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
+python3 "$ROOT_DIR/scripts/check-ios-model-assets.py" \
+  --manifest "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 - <<'PY' "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
 import sys
 import xml.etree.ElementTree as ET
@@ -79,6 +86,10 @@ grep -q "MLMultiArray" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
 grep -q "expectedInputWidth = 518" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
 grep -q "roana_ios_depth" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "computeUnits = .all" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
+grep -q "ModelAssetResourceLocator" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
+grep -q "ModelAssetResourceLocator" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
+grep -q "ModelAssetResourceLocator.swift in Sources" "$PROJECT"
+grep -q "ModelAssets in Resources" "$PROJECT"
 
 swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift" \
