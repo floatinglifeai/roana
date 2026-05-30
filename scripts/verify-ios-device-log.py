@@ -27,7 +27,25 @@ def run_command(command: list[str]) -> tuple[int, str]:
     return completed.returncode, completed.stdout + completed.stderr
 
 
-def iphone_device_readiness_from_devicectl_json(text: str) -> list[str]:
+def device_matches_identifier(device: dict[str, object], target_identifier: str | None) -> bool:
+    if target_identifier is None:
+        return True
+    hardware = device.get("hardwareProperties", {})
+    connection = device.get("connectionProperties", {})
+    values = {
+        str(device.get("identifier", "")),
+        str(hardware.get("udid", "")) if isinstance(hardware, dict) else "",
+    }
+    if isinstance(connection, dict):
+        values.update(str(value) for value in connection.get("potentialHostnames", []))
+    return target_identifier in values
+
+
+def iphone_device_readiness_from_devicectl_json(
+    text: str,
+    *,
+    target_identifier: str | None = None,
+) -> list[str]:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError:
@@ -40,6 +58,8 @@ def iphone_device_readiness_from_devicectl_json(text: str) -> list[str]:
         hardware = device.get("hardwareProperties", {})
         if hardware.get("platform") != "iOS" or hardware.get("deviceType") != "iPhone":
             continue
+        if not device_matches_identifier(device, target_identifier):
+            continue
 
         iphone_devices.append(device)
         connection = device.get("connectionProperties", {})
@@ -51,13 +71,17 @@ def iphone_device_readiness_from_devicectl_json(text: str) -> list[str]:
             available_devices.append(device)
 
     if not iphone_devices:
+        if target_identifier is not None:
+            return ["iphone_device_target"]
         return ["iphone_device"]
     if not available_devices:
+        if target_identifier is not None:
+            return ["iphone_device_target_available"]
         return ["iphone_device_available"]
     return []
 
 
-def devicectl_device_readiness() -> list[str]:
+def devicectl_device_readiness(*, target_identifier: str | None = None) -> list[str]:
     with tempfile.TemporaryDirectory() as tmp:
         output_path = Path(tmp) / "devices.json"
         status, _ = run_command(
@@ -72,10 +96,18 @@ def devicectl_device_readiness() -> list[str]:
         )
         if status != 0 or not output_path.is_file():
             return [DEVICEXCRUN_MISSING]
-        return iphone_device_readiness_from_devicectl_json(output_path.read_text(encoding="utf-8"))
+        return iphone_device_readiness_from_devicectl_json(
+            output_path.read_text(encoding="utf-8"),
+            target_identifier=target_identifier,
+        )
 
 
-def host_readiness(*, require_device: bool, skip_host_checks: bool) -> list[str]:
+def host_readiness(
+    *,
+    require_device: bool,
+    skip_host_checks: bool,
+    target_identifier: str | None = None,
+) -> list[str]:
     missing: list[str] = []
     if skip_host_checks:
         return missing
@@ -93,7 +125,7 @@ def host_readiness(*, require_device: bool, skip_host_checks: bool) -> list[str]
         if xcrun is None:
             missing.append(DEVICEXCRUN_MISSING)
         else:
-            missing.extend(devicectl_device_readiness())
+            missing.extend(devicectl_device_readiness(target_identifier=target_identifier))
     return missing
 
 

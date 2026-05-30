@@ -28,6 +28,18 @@ cross-platform motion signal for camera-quality checks.
   `roana_ios_motion_quality label=stable reason=motion_unavailable
   trusts_guidance=true source=replay`, and `scripts/verify-ios-replay-log.py`
   requires that evidence by default.
+- Implemented local labeling helper: `scripts/label-ios-replay.py` turns a
+  replay log, or a local video replayed through the same harness, into a small
+  JSON summary with suggested command labels, scene-quality labels, and a
+  `stop` / `guidance` / `mixed` / `review` fixture suggestion. The helper also
+  emits approximate segment labels by assigning corridor decisions and spoken
+  feedback to the most recent replay frame timestamp.
+- Implemented local replay bundle helper: `scripts/run-ios-replay-bundle.py`
+  runs replay, verification, and labeling in one command and writes the replay
+  log, verification JSON, and label JSON to local artifact paths. The bundle
+  helper defaults to `--fixture auto`: it labels first, verifies guidance clips
+  as `guidance`, and verifies `stop` / `mixed` / `review` clips against the
+  conservative STOP fixture.
 
 ## Non-Goals
 
@@ -68,10 +80,41 @@ scripts/verify-ios-replay-log.py --log /tmp/roana-ios-video-replay-guidance-prob
   --fixture guidance --min-run-seconds 20 --max-p95-ms 500
 ```
 
+Create a local label summary from an existing replay log:
+
+```bash
+scripts/label-ios-replay.py --from-log /tmp/roana-ios-video-replay-guidance-probe.log \
+  --summary /tmp/roana-ios-video-replay-guidance-probe.labels.json
+```
+
+Or replay and label a local video in one command:
+
+```bash
+scripts/label-ios-replay.py samples/home_iphone_0530.mp4 --fps 2 --max-seconds 20 \
+  --log /tmp/roana-ios-video-replay-guidance-probe.log \
+  --summary /tmp/roana-ios-video-replay-guidance-probe.labels.json
+```
+
+Create the replay log, verification JSON, and label JSON in one local bundle:
+
+```bash
+scripts/run-ios-replay-bundle.py samples/home_iphone_0530.mp4 \
+  --fps 2 --max-seconds 20 \
+  --min-run-seconds 20 --max-p95-ms 500
+```
+
+By default, bundle artifacts are written under `/tmp` with names like
+`roana-ios-replay-<video>-<timestamp>.log`, `.verify.json`, and `.labels.json`.
+Pass `--fixture guidance` or `--fixture stop` only when you want to force a
+specific gate instead of using the label-derived `auto` choice.
+
 `samples/home_iphone_0530.mp4` is a local development fixture and is ignored by
 git. Keep full videos out of normal git history unless the project adopts Git
 LFS or a separate fixture-fetch path. `samples/README.md` records the current
-local-only policy and the replay label vocabulary.
+local-only policy and the replay label vocabulary. Label summaries are small
+metadata, but still review them before committing because they can encode scene
+content from a private video. Segment timestamps are approximate replay evidence
+timestamps, not hand-reviewed ground truth.
 
 Current V0b replay labels:
 
@@ -101,8 +144,9 @@ fallback explicit in generated logs.
 
 ## Remaining Discussion Questions
 
-- Should selected videos move to Git LFS / fixture-fetch later, or should all
-  user-recorded videos remain local-only?
+- Should selected videos or scrubbed label summaries move to Git LFS /
+  fixture-fetch later, or should all user-recorded replay artifacts remain
+  local-only?
 - Should replay stay only in scripts/tests, or also live behind a debug-only app
   mode?
 - Are command labels enough for V0b fixtures (`STRAIGHT`, `LEFT`, `RIGHT`,
