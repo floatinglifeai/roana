@@ -9,6 +9,7 @@ LOG_SECONDS="${LOG_SECONDS:-30}"
 LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
 MODEL="${MODEL:-all}"
 QNN_VARIANT="${QNN_VARIANT:-default}"
+QNN_TIMING_ITERATIONS="${QNN_TIMING_ITERATIONS:-0}"
 REQUIRE_QNN_SUCCESS="${REQUIRE_QNN_SUCCESS:-1}"
 CAPTURE_FULL_LOGCAT="${CAPTURE_FULL_LOGCAT:-1}"
 INSTALL_FIRST="${INSTALL_FIRST:-1}"
@@ -18,6 +19,7 @@ LOG_PATH="$LOG_DIR/qnn-smoke-$TIMESTAMP.log"
 DEBUG_QNN_YOLO_EXTRA="com.roana.app.extra.DEBUG_QNN_YOLO_SMOKE"
 DEBUG_QNN_DEPTH_EXTRA="com.roana.app.extra.DEBUG_QNN_DEPTH_SMOKE"
 DEBUG_QNN_VARIANT_EXTRA="com.roana.app.extra.DEBUG_QNN_VARIANT"
+DEBUG_QNN_TIMING_ITERATIONS_EXTRA="com.roana.app.extra.DEBUG_QNN_TIMING_ITERATIONS"
 
 json_result() {
   local status="$1"
@@ -29,6 +31,7 @@ json_result() {
   "hypothesis": "QNN delegate compatibility can be diagnosed independently for YOLO and Depth Anything",
   "artifact": "$artifact",
   "variant": "$QNN_VARIANT",
+  "timing_iterations": $QNN_TIMING_ITERATIONS,
   "decision": "$decision"
 }
 JSON
@@ -102,6 +105,7 @@ mkdir -p "$LOG_DIR"
 
 start_args=(-n "$ACTIVITY")
 start_args+=(--es "$DEBUG_QNN_VARIANT_EXTRA" "$QNN_VARIANT")
+start_args+=(--ei "$DEBUG_QNN_TIMING_ITERATIONS_EXTRA" "$QNN_TIMING_ITERATIONS")
 if [ "$require_yolo" = "1" ]; then
   start_args+=(--ez "$DEBUG_QNN_YOLO_EXTRA" true)
 fi
