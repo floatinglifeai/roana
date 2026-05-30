@@ -23,6 +23,8 @@ def fake_log(
     include_depth: bool = False,
     include_corridor: bool = False,
     include_speech: bool = False,
+    include_inference: bool = False,
+    inference_skipped: int = 0,
     include_background_stop: bool = False,
     include_permission: bool = True,
 ) -> str:
@@ -38,10 +40,22 @@ def fake_log(
             f"backlog={backlog} thermal=nominal frame={index}"
         )
     if include_yolo:
+        if include_inference:
+            lines.append("roana_ios_inference status=scheduled frame_id=1")
         lines.append(
             "roana_ios_yolo status=ready elapsed_ms=12.00 label=person "
             "score=0.91 center_x=0.50 center_y=0.80 width=0.20 height=0.30"
         )
+        if include_inference:
+            if inference_skipped:
+                lines.append(
+                    "roana_ios_inference status=skipped "
+                    f"reason=busy skipped={inference_skipped}"
+                )
+            lines.append(
+                "roana_ios_inference status=finished "
+                f"frame_id=1 completed=1 skipped={inference_skipped}"
+            )
     if include_depth:
         lines.append("roana_ios_depth status=ok elapsed_ms=31.00 grid_rows=15 grid_cols=15")
     if include_corridor:
@@ -95,6 +109,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 include_depth=True,
                 include_corridor=True,
                 include_speech=True,
+                include_inference=True,
             ),
             "--require-yolo",
             "1",
@@ -104,6 +119,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-speech",
             "1",
+            "--require-inference",
+            "1",
         )
 
         self.assertEqual("passed", data["status"])
@@ -111,6 +128,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(1, data["details"]["yolo_ok_count"])
         self.assertEqual(1, data["details"]["depth_ok_count"])
         self.assertEqual(1, data["details"]["corridor_count"])
+        self.assertEqual(1, data["details"]["inference_finished_count"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
         data = self.run_analyzer(
@@ -124,6 +142,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "--require-corridor",
             "1",
             "--require-speech",
+            "1",
+            "--require-inference",
             "1",
             "--require-background-stop",
             "1",
@@ -139,6 +159,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "depth_inference",
                 "corridor_decision",
                 "speech_queued",
+                "inference_finished",
                 "corridor_guidance_feedback",
                 "corridor_stop_feedback",
             },
@@ -150,6 +171,24 @@ class AnalyzeIosLogTest(unittest.TestCase):
 
         self.assertEqual("blocked", data["status"])
         self.assertEqual({"backlog<=0", "dropped<=0"}, set(data["missing"]))
+
+    def test_reports_excessive_inference_skips(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_inference=True,
+                inference_skipped=3,
+            ),
+            "--require-inference",
+            "1",
+            "--max-inference-skipped",
+            "2",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("inference_skipped<=2", data["missing"])
+        self.assertEqual(3, data["details"]["max_inference_skipped"])
 
 
 if __name__ == "__main__":
