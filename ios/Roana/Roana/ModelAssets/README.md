@@ -16,3 +16,12 @@ Validate the local asset contract with:
 scripts/check-ios-model-assets.py
 scripts/check-ios-model-assets.py --require-present
 ```
+
+Stage local exports into the expected bundle names with:
+
+```bash
+scripts/install-ios-model-assets.py --model yolo11n --source /path/to/yolo-export.mlpackage --symlink
+scripts/install-ios-model-assets.py --model depth-anything-v2-small --source /path/to/DepthAnything.mlpackage --symlink
+```
+
+Use `--force` to replace an existing staged resource with the same extension.
