@@ -45,6 +45,7 @@ final class DepthAnythingRunner {
             let configuration = MLModelConfiguration()
             configuration.computeUnits = .all
             let model = try MLModel(contentsOf: modelURL, configuration: configuration)
+            ModelDescriptionLogger.log(prefix: "roana_ios_depth", resourceName: modelResourceName, model: model)
             let visionModel = try VNCoreMLModel(for: model)
             let request = VNCoreMLRequest(model: visionModel)
             request.imageCropAndScaleOption = .scaleFill

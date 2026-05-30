@@ -46,6 +46,9 @@ Updated: 2026-05-30.
   - NMS-export consumption shape via `VNRecognizedObjectObservation`.
   - Missing model state is non-crashing and logs `roana_ios_yolo
     status=model_missing`.
+  - Successful model load logs `roana_ios_yolo status=model_description` with
+    Core ML input/output feature names, shapes, and metadata so YOLO export
+    assumptions can be checked from the first iPhone artifact.
   - Detection timing logs use `roana_ios_yolo`.
   - Detection-to-speech wiring uses `AVSpeechSynthesizer` and logs
     `roana_ios_speech`.
@@ -67,6 +70,9 @@ Updated: 2026-05-30.
   - `DepthAnythingRunner` loads a bundled `DepthAnythingV2Small` Core ML
     resource when present, requests all compute units, runs a `VNCoreMLRequest`,
     and logs `roana_ios_depth`.
+  - Successful model load logs `roana_ios_depth status=model_description` with
+    Core ML input/output feature names, shapes, and metadata so the Apple
+    `.mlpackage` contract can be checked from the first iPhone artifact.
   - Camera callbacks now attempt depth inference, feed successful depth grids
     plus YOLO detections into `CorridorPipeline`, and leave missing-model depth
     state as a no-op until assets are available. Non-missing depth failures

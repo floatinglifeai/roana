@@ -85,6 +85,7 @@ final class YoloObstacleDetector {
 
         do {
             let model = try MLModel(contentsOf: modelURL)
+            ModelDescriptionLogger.log(prefix: "roana_ios_yolo", resourceName: modelResourceName, model: model)
             let visionModel = try VNCoreMLModel(for: model)
             let request = VNCoreMLRequest(model: visionModel)
             request.imageCropAndScaleOption = .scaleFill
