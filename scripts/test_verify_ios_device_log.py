@@ -27,6 +27,7 @@ def fake_log(
     include_orientation: bool = False,
     include_background_stop: bool = False,
     include_background_restart: bool = False,
+    include_idle_timer: bool = False,
 ) -> str:
     lines = [
         "roana_ios_lifecycle camera_authorization state=authorized",
@@ -35,6 +36,8 @@ def fake_log(
     if include_orientation:
         lines.append("roana_ios_lifecycle camera_output_orientation angle=90")
         lines.append("roana_ios_orientation source=preview interface=portrait angle=90")
+    if include_idle_timer:
+        lines.append("roana_ios_lifecycle idle_timer_disabled value=true")
     for index in range(frame_count):
         lines.append(
             "roana_ios_frame_stats "
@@ -83,6 +86,8 @@ def fake_log(
     if include_speech:
         lines.append("roana_ios_speech status=queued label=person score=91 message=Person_ahead")
     if include_background_stop:
+        if include_idle_timer:
+            lines.append("roana_ios_lifecycle idle_timer_disabled value=false")
         lines.append("roana_ios_lifecycle camera_background_stop phase=background")
     if include_background_restart:
         lines.append("roana_ios_lifecycle camera_started")
@@ -127,6 +132,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_orientation=True,
                 include_background_stop=True,
                 include_background_restart=True,
+                include_idle_timer=True,
             ),
             "--gate",
             "s0",
@@ -153,6 +159,8 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("preview_orientation", details["missing"])
         self.assertIn("capture_orientation", details["missing"])
         self.assertIn("camera_background_restart", details["missing"])
+        self.assertIn("idle_timer_disabled", details["missing"])
+        self.assertIn("idle_timer_enabled", details["missing"])
         self.assertIn("inference_finished", details["missing"])
 
     def test_v0b_log_passes_with_model_corridor_evidence(self) -> None:
@@ -162,6 +170,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_background_stop=True,
                 include_background_restart=True,
                 include_orientation=True,
+                include_idle_timer=True,
                 include_yolo=True,
                 include_yolo_description=True,
                 include_depth=True,
@@ -186,6 +195,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_background_stop=True,
                 include_background_restart=True,
                 include_orientation=True,
+                include_idle_timer=True,
                 include_yolo=True,
                 include_depth=True,
                 include_corridor=True,
@@ -215,6 +225,8 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("preview_orientation", details["missing"])
         self.assertIn("capture_orientation", details["missing"])
         self.assertIn("camera_background_restart", details["missing"])
+        self.assertIn("idle_timer_disabled", details["missing"])
+        self.assertIn("idle_timer_enabled", details["missing"])
 
     def test_s0_defaults_require_background_restart_evidence(self) -> None:
         status, details = self.run_verifier(
@@ -226,6 +238,23 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(status, 2)
         self.assertEqual(details["status"], "blocked")
         self.assertIn("camera_background_restart", details["missing"])
+
+    def test_s0_defaults_require_idle_timer_evidence(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_orientation=True,
+                include_background_stop=True,
+                include_background_restart=True,
+            ),
+            "--gate",
+            "s0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("idle_timer_disabled", details["missing"])
+        self.assertIn("idle_timer_enabled", details["missing"])
 
     def test_s0_denied_gate_passes_without_camera_start_or_frames(self) -> None:
         status, details = self.run_verifier(
