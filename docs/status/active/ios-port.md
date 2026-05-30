@@ -34,6 +34,10 @@ Updated: 2026-05-30.
   p50/p95 interval, dropped-frame count, backlog indicator, and thermal state.
 - Stable log prefix:
   `roana_ios_frame_stats width=... height=... interval_ms=... p50_ms=... p95_ms=... dropped=... thermal=...`.
+- Single-flight model inference coordinator keeps `AVCaptureVideoDataOutput`
+  callbacks short, runs model work on `app.roana.ios.inference`, and logs
+  `roana_ios_inference status=scheduled|skipped|finished` so slow model frames
+  are dropped instead of accumulating queued inference work.
 - Foreground/background handling stops camera work in background and restarts
   when active.
 - `UIApplication.isIdleTimerDisabled = true` while the camera view is active.
@@ -96,6 +100,7 @@ Updated: 2026-05-30.
   - iOS model asset checker tests pass; the default checker reports both
     expected resources as missing until real local model assets are supplied.
   - Swift privacy boundary verifier passes without full Xcode.
+  - Frame inference coordinator smoke verifier passes without full Xcode.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts.
 - Parity status:

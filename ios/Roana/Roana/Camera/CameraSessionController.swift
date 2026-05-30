@@ -16,6 +16,7 @@ final class CameraSessionController: NSObject, ObservableObject {
 
     private let sessionQueue = DispatchQueue(label: "app.roana.ios.camera.session")
     private let captureQueue = DispatchQueue(label: "app.roana.ios.camera.frames")
+    private let inferenceCoordinator = FrameInferenceCoordinator<CMSampleBuffer>()
     private let diagnostics = FrameDiagnostics()
     private let obstacleDetector = YoloObstacleDetector()
     private let depthRunner = DepthAnythingRunner()
@@ -207,6 +208,16 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
 
         print(stats.logLine)
 
+        inferenceCoordinator.submit(sampleBuffer) { [weak self] sampleBuffer in
+            self?.runInference(sampleBuffer: sampleBuffer)
+        }
+
+        Task { @MainActor in
+            self.updateFrameSummary(stats)
+        }
+    }
+
+    private func runInference(sampleBuffer: CMSampleBuffer) {
         let detectionResult = obstacleDetector.detect(sampleBuffer: sampleBuffer)
         let detections = detectionResult.bestDetection.map { [$0] } ?? []
 
@@ -222,10 +233,6 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
 
         if let detection = detectionResult.bestDetection {
             speechDispatcher.speak(detection: detection)
-        }
-
-        Task { @MainActor in
-            self.updateFrameSummary(stats)
         }
     }
 
