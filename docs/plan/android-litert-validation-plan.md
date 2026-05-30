@@ -6,6 +6,21 @@
 
 **Status:** proposed validation plan / 2026-05-30.
 
+**Implementation review note / 2026-05-30:** `intuitive-flow` reconciled the
+plan-intake gate in place. Accepted execution decisions: keep this repo's
+existing `docs/plan/` path as the canonical plan location for this run; start
+with the preferred debug-only app path, but switch to the plan's isolated sample
+module option if LiteRT conflicts with the proven QNN app classpath; pin
+`com.google.ai.edge.litert:litert` to `2.1.5`; use the API shape
+`Environment.create(BuiltinNpuAcceleratorProvider(context,
+NpuCompatibilityChecker.Qualcomm))`, `CompiledModel.Options(Accelerator.NPU)`,
+`CompiledModel.create(...)`, `createInputBuffers()`, `createOutputBuffers()`,
+and `run(...)`; treat `Accelerator.NPU` alone as a request that LiteRT expands
+internally to an NPU/CPU candidate set, so the verifier must only pass when
+the app logs explicit requested/selected NPU evidence and must fail on
+`selected=unavailable`, `status=missing`, `status=rejected`, or
+`status=unproven`. No production runtime switch is accepted in Phase 1.
+
 ---
 
 ## 1. Objective
