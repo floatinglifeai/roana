@@ -30,6 +30,7 @@ required_files=(
   "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
   "$IOS_DIR/Roana/Diagnostics/RollingPercentileWindow.swift"
   "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
+  "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/main.swift"
@@ -71,6 +72,8 @@ grep -q "near_obstacle" "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift"
 grep -q "frame_loss" "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift"
 grep -q "low_confidence" "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift"
 grep -q "roana_ios_corridor" "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift"
+grep -q "roana_ios_corridor_feedback" "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
+grep -q "feedbackDispatcher" "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift"
 grep -q "MLMultiArray" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
 grep -q "expectedInputWidth = 518" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
 grep -q "roana_ios_depth" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
@@ -81,6 +84,7 @@ swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorGridFusion.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift" \
+  "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift" \
   "$IOS_DIR/RoanaTests/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" >/dev/null
@@ -90,6 +94,7 @@ swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorGridFusion.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift" \
+  "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift" \
   "$IOS_DIR/RoanaTests/Parity/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" "$ROOT_DIR/parity/corridor-core.json" >/dev/null

@@ -89,4 +89,47 @@ let fusedDecision = planner.decide(grid: fused)
 expect(fusedDecision.command == .stop, "high-confidence center detection should force stop")
 expect(fusedDecision.reason == "near_obstacle", "high-confidence center detection should look like near obstacle")
 
+var spokenMessages = [String]()
+var nextUtterance = 1
+let feedbackDispatcher = CorridorFeedbackDispatcher(
+    speaker: { message, _, utteranceId in
+        spokenMessages.append("\(message):\(utteranceId)")
+    },
+    utteranceIdFactory: {
+        defer { nextUtterance += 1 }
+        return "utterance-\(nextUtterance)"
+    },
+)
+let initialStop = feedbackDispatcher.dispatch(
+    state: CorridorState(
+        command: .stop,
+        sourceDecision: CorridorDecision(command: .stop, path: [], reason: "near_obstacle"),
+        pendingCommand: nil,
+        pendingCount: 0,
+        changed: false,
+    ),
+)
+expect(initialStop.spoken, "initial emergency stop should speak")
+expect(initialStop.messageKey == "stop", "initial emergency stop message key")
+let repeatedStop = feedbackDispatcher.dispatch(
+    state: CorridorState(
+        command: .stop,
+        sourceDecision: CorridorDecision(command: .stop, path: [], reason: "near_obstacle"),
+        pendingCommand: nil,
+        pendingCount: 0,
+        changed: false,
+    ),
+)
+expect(!repeatedStop.spoken, "repeated unchanged stop should not speak")
+expect(spokenMessages == ["Stop:utterance-1"], "only first emergency stop should speak")
+
+let pipelineSpoken = CorridorPipeline(
+    stateMachine: CorridorStateMachine(confirmationsRequired: 1),
+    feedbackDispatcher: CorridorFeedbackDispatcher(
+        speaker: { message, _, _ in spokenMessages.append(message) },
+        utteranceIdFactory: { "pipeline-utterance" },
+    ),
+).process(grid: grid())
+expect(pipelineSpoken.feedbackEvent?.messageKey == "go_straight", "pipeline should dispatch go_straight")
+
 print("CorridorCoreSmoke passed")
