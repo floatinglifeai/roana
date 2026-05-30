@@ -41,6 +41,7 @@ required_files=(
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+  "$IOS_DIR/RoanaTests/ModelMode/main.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/Inference/main.swift"
   "$IOS_DIR/RoanaTests/main.swift"
@@ -90,7 +91,9 @@ grep -q "inferenceMode.runsYolo ? YoloObstacleDetector() : nil" "$IOS_DIR/Roana/
 grep -q "inferenceMode.runsDepth ? DepthAnythingRunner() : nil" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "modelInferenceMode.runsYolo" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "modelInferenceMode.runsDepth" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "guard modelInferenceMode.runsDepth" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "ROANA_IOS_MODEL_MODE" "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
+grep -q "resolve(arguments:" "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
 grep -q -- "--roana-enable-yolo" "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
 grep -q -- "--roana-enable-corridor" "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
 grep -q "ModelInferenceMode.swift in Sources" "$PROJECT"
@@ -161,6 +164,13 @@ grep -q "Do not upload video frames" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "Low confidence, missing frames" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "scripts/verify-ios-s0-local.sh" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "scripts/analyze-ios-log.py" "$ROOT_DIR/ios/AGENTS.md"
+
+swiftc \
+  -D DEBUG \
+  "$IOS_DIR/Roana/Models/ModelInferenceMode.swift" \
+  "$IOS_DIR/RoanaTests/ModelMode/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" >/dev/null
 
 swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift" \
