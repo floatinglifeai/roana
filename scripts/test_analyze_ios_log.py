@@ -27,6 +27,7 @@ def fake_log(
     include_speech: bool = False,
     include_inference: bool = False,
     inference_skipped: int = 0,
+    include_orientation: bool = False,
     include_background_stop: bool = False,
     include_permission: bool = True,
 ) -> str:
@@ -34,6 +35,9 @@ def fake_log(
     if include_permission:
         lines.append("roana_ios_lifecycle camera_authorization state=authorized")
     lines.append("roana_ios_lifecycle camera_started")
+    if include_orientation:
+        lines.append("roana_ios_lifecycle camera_output_orientation angle=90")
+        lines.append("roana_ios_orientation source=preview interface=portrait angle=90")
     for index in range(frame_count):
         lines.append(
             "roana_ios_frame_stats "
@@ -119,6 +123,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
         data = self.run_analyzer(
             fake_log(
                 frame_count=120,
+                include_orientation=True,
                 include_yolo=True,
                 include_yolo_description=True,
                 include_depth=True,
@@ -139,6 +144,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-speech",
             "1",
+            "--require-orientation",
+            "1",
             "--require-inference",
             "1",
         )
@@ -150,6 +157,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(1, data["details"]["depth_ok_count"])
         self.assertEqual(1, data["details"]["depth_description_count"])
         self.assertEqual(1, data["details"]["corridor_count"])
+        self.assertEqual(1, data["details"]["preview_orientation_count"])
+        self.assertEqual(1, data["details"]["capture_orientation_count"])
         self.assertEqual(1, data["details"]["inference_finished_count"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
@@ -169,6 +178,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-speech",
             "1",
+            "--require-orientation",
+            "1",
             "--require-inference",
             "1",
             "--require-background-stop",
@@ -187,6 +198,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "depth_model_description",
                 "corridor_decision",
                 "speech_queued",
+                "preview_orientation",
+                "capture_orientation",
                 "inference_finished",
                 "corridor_guidance_feedback",
                 "corridor_stop_feedback",
@@ -241,6 +254,17 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("yolo_model_description", data["missing"])
         self.assertIn("depth_model_description", data["missing"])
+
+    def test_reports_missing_orientation_evidence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=120),
+            "--require-orientation",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("preview_orientation", data["missing"])
+        self.assertIn("capture_orientation", data["missing"])
 
 
 if __name__ == "__main__":

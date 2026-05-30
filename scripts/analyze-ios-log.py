@@ -49,6 +49,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
     corridor_feedback_spoken = []
     speech_queued = []
     lifecycle_lines = []
+    preview_orientation_lines = []
+    capture_orientation_lines = []
     inference_scheduled = []
     inference_skipped = []
     inference_finished = []
@@ -80,6 +82,10 @@ def parse_log(log_path: Path) -> dict[str, object]:
             speech_queued.append(line)
         if "roana_ios_lifecycle" in line:
             lifecycle_lines.append(line)
+        if "roana_ios_orientation source=preview" in line:
+            preview_orientation_lines.append(line)
+        if "roana_ios_lifecycle camera_output_orientation" in line:
+            capture_orientation_lines.append(line)
         if "roana_ios_inference status=scheduled" in line:
             inference_scheduled.append(line)
         if "roana_ios_inference status=skipped" in line:
@@ -138,6 +144,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "depth_ok_count": len(depth_ok),
         "corridor_count": len(corridor_ok),
         "speech_queued_count": len(speech_queued),
+        "preview_orientation_count": len(preview_orientation_lines),
+        "capture_orientation_count": len(capture_orientation_lines),
         "inference_scheduled_count": len(inference_scheduled),
         "inference_skipped_count": len(inference_skipped),
         "inference_finished_count": len(inference_finished),
@@ -164,6 +172,7 @@ def missing_evidence(
     require_depth_description: bool,
     require_corridor: bool,
     require_speech: bool,
+    require_orientation: bool,
     require_background_stop: bool,
     require_permission: bool,
     require_inference: bool,
@@ -196,6 +205,10 @@ def missing_evidence(
         missing.append("corridor_decision")
     if require_speech and details["speech_queued_count"] < 1:
         missing.append("speech_queued")
+    if require_orientation and details["preview_orientation_count"] < 1:
+        missing.append("preview_orientation")
+    if require_orientation and details["capture_orientation_count"] < 1:
+        missing.append("capture_orientation")
     if require_inference and details["inference_finished_count"] < 1:
         missing.append("inference_finished")
     if details["max_inference_skipped"] > max_inference_skipped:
@@ -220,6 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-depth-description", default="0")
     parser.add_argument("--require-corridor", default="0")
     parser.add_argument("--require-speech", default="0")
+    parser.add_argument("--require-orientation", default="0")
     parser.add_argument("--require-inference", default="0")
     parser.add_argument("--require-background-stop", default="0")
     parser.add_argument("--require-permission", default="1")
@@ -240,6 +254,7 @@ def main() -> None:
         require_depth_description=parse_bool(args.require_depth_description),
         require_corridor=parse_bool(args.require_corridor),
         require_speech=parse_bool(args.require_speech),
+        require_orientation=parse_bool(args.require_orientation),
         require_background_stop=parse_bool(args.require_background_stop),
         require_permission=parse_bool(args.require_permission),
         require_inference=parse_bool(args.require_inference),

@@ -24,12 +24,16 @@ def fake_log(
     include_corridor: bool = False,
     include_speech: bool = False,
     include_inference: bool = False,
+    include_orientation: bool = False,
     include_background_stop: bool = False,
 ) -> str:
     lines = [
         "roana_ios_lifecycle camera_authorization state=authorized",
         "roana_ios_lifecycle camera_started",
     ]
+    if include_orientation:
+        lines.append("roana_ios_lifecycle camera_output_orientation angle=90")
+        lines.append("roana_ios_orientation source=preview interface=portrait angle=90")
     for index in range(frame_count):
         lines.append(
             "roana_ios_frame_stats "
@@ -106,7 +110,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
 
     def test_s0_log_passes_without_model_assets(self) -> None:
         status, details = self.run_verifier(
-            fake_log(frame_count=120, include_background_stop=True),
+            fake_log(frame_count=120, include_orientation=True, include_background_stop=True),
             "--gate",
             "s0",
         )
@@ -129,6 +133,8 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("yolo_inference", details["missing"])
         self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("speech_queued", details["missing"])
+        self.assertIn("preview_orientation", details["missing"])
+        self.assertIn("capture_orientation", details["missing"])
         self.assertIn("inference_finished", details["missing"])
 
     def test_v0b_log_passes_with_model_corridor_evidence(self) -> None:
@@ -136,6 +142,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
             fake_log(
                 frame_count=120,
                 include_background_stop=True,
+                include_orientation=True,
                 include_yolo=True,
                 include_yolo_description=True,
                 include_depth=True,
@@ -158,6 +165,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
             fake_log(
                 frame_count=120,
                 include_background_stop=True,
+                include_orientation=True,
                 include_yolo=True,
                 include_depth=True,
                 include_corridor=True,
@@ -174,6 +182,18 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(details["status"], "blocked")
         self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("depth_model_description", details["missing"])
+
+    def test_s0_defaults_require_orientation_evidence(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(frame_count=120, include_background_stop=True),
+            "--gate",
+            "s0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("preview_orientation", details["missing"])
+        self.assertIn("capture_orientation", details["missing"])
 
     def test_missing_log_file_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

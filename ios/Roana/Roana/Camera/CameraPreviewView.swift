@@ -11,6 +11,7 @@ struct CameraPreviewView: UIViewRepresentable {
         let view = PreviewContainerView()
         view.videoPreviewLayer.session = session
         view.videoPreviewLayer.videoGravity = .resizeAspectFill
+        view.logOrientationUpdates = true
         return view
     }
 
@@ -29,6 +30,9 @@ final class PreviewContainerView: UIView {
         layer as! AVCaptureVideoPreviewLayer
     }
 
+    var logOrientationUpdates = false
+    private var lastLoggedOrientation = ""
+
     override func layoutSubviews() {
         super.layoutSubviews()
         updateOrientation()
@@ -42,6 +46,7 @@ final class PreviewContainerView: UIView {
         let angle = rotationAngleForCurrentOrientation()
         if connection.isVideoRotationAngleSupported(angle) {
             connection.videoRotationAngle = angle
+            logOrientation(angle: angle)
         }
     }
 
@@ -57,6 +62,39 @@ final class PreviewContainerView: UIView {
             90
         @unknown default:
             90
+        }
+    }
+
+    private func logOrientation(angle: CGFloat) {
+        guard logOrientationUpdates else {
+            return
+        }
+
+        let interfaceOrientation = window?.windowScene?.interfaceOrientation.logValue ?? "unknown"
+        let key = "\(interfaceOrientation):\(Int(angle))"
+        guard key != lastLoggedOrientation else {
+            return
+        }
+        lastLoggedOrientation = key
+        print("roana_ios_orientation source=preview interface=\(interfaceOrientation) angle=\(Int(angle))")
+    }
+}
+
+private extension UIInterfaceOrientation {
+    var logValue: String {
+        switch self {
+        case .portrait:
+            "portrait"
+        case .portraitUpsideDown:
+            "portrait_upside_down"
+        case .landscapeLeft:
+            "landscape_left"
+        case .landscapeRight:
+            "landscape_right"
+        case .unknown:
+            "unknown"
+        @unknown default:
+            "unknown"
         }
     }
 }

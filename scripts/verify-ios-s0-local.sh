@@ -80,6 +80,8 @@ grep -q "roana_ios_inference" "$IOS_DIR/Roana/Camera/FrameInferenceCoordinator.s
 grep -q "UIApplication.shared.isIdleTimerDisabled = true" "$IOS_DIR/Roana/ContentView.swift"
 grep -q "roana_ios_frame_stats" "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
 grep -q "camera_background_stop" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "camera_output_orientation" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "roana_ios_orientation" "$IOS_DIR/Roana/Camera/CameraPreviewView.swift"
 grep -q "DepthAnythingRunner()" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "corridorPipeline.process" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "VNCoreMLRequest" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
