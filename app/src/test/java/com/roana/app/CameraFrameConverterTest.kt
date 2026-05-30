@@ -178,6 +178,26 @@ class CameraFrameConverterTest {
         assertArrayEquals(byteArrayOf(60, 60, 60, 20, 20, 20), buffer.readBytes())
     }
 
+    @Test
+    fun fillsNearestLumaRgbInputWithoutChromaConversion() {
+        val buffer = ByteBuffer.allocateDirect(6)
+
+        CameraFrameConverter.fillYuv420RgbInputNearest(
+            width = 2,
+            height = 1,
+            rotationDegrees = 0,
+            yPlane = plane(byteArrayOf(10, 200.toByte()), rowStride = 2),
+            uPlane = plane(byteArrayOf(0), rowStride = 1),
+            vPlane = plane(byteArrayOf(255.toByte()), rowStride = 1),
+            targetWidth = 2,
+            targetHeight = 1,
+            output = buffer,
+            lumaOnly = true,
+        )
+
+        assertArrayEquals(byteArrayOf(10, 10, 10, 200.toByte(), 200.toByte(), 200.toByte()), buffer.readBytes())
+    }
+
     private fun plane(
         bytes: ByteArray,
         rowStride: Int,
