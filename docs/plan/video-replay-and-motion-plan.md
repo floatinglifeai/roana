@@ -19,8 +19,11 @@ cross-platform motion signal for camera-quality checks.
   explicit fixture modes. `--fixture stop` checks close-obstacle / STOP clips;
   `--fixture guidance` additionally requires a normal LEFT/STRAIGHT/RIGHT
   corridor utterance and audio-session evidence.
-- Treat IMU/motion as an optional cross-platform input for quality control:
-  detect pointing-down, unstable, or high-motion frames before trusting guidance.
+- Implemented contract: iOS and Android both define a small optional
+  `MotionQuality` classifier for quality control labels. It detects
+  `pointing_down` from pitch and `unstable` from angular velocity, and treats
+  missing motion as `stable` so image-only replay and live camera runs continue
+  to work.
 
 ## Non-Goals
 
@@ -28,6 +31,8 @@ cross-platform motion signal for camera-quality checks.
 - Do not make LiDAR, ARKit, or platform-specific depth sensors required.
 - Do not use motion data as a primary navigation signal before image replay is
   reliable.
+- Do not add real sensor collection or new app permissions until the quality
+  contract is wired into a gated debug/live path.
 
 ## Current Commands
 
@@ -57,13 +62,30 @@ Current V0b replay labels:
 - `stop` fixtures must prove STOP behavior. `guidance` fixtures must prove at
   least one normal LEFT / STRAIGHT / RIGHT corridor utterance.
 
+## Motion Quality Contract
+
+The cross-platform contract is intentionally quality-control-only:
+
+- `MotionQuality.Label.STABLE` / `stable`: guidance can use image/depth output.
+- `MotionQuality.Label.POINTING_DOWN` / `pointing_down`: phone pitch is at or
+  below -55 degrees; guidance should be considered untrusted until the camera is
+  raised.
+- `MotionQuality.Label.UNSTABLE` / `unstable`: absolute angular velocity is at
+  or above 120 degrees per second; guidance should be considered untrusted until
+  motion settles.
+- Missing motion data returns `stable` with reason `motion_unavailable`, so V0b
+  remains image-first and cross-platform.
+
+Current code only defines and tests this shared contract. It does not collect
+iOS Core Motion / Android sensor data, alter corridor decisions, or add
+permissions.
+
 ## Remaining Discussion Questions
 
 - Should selected videos move to Git LFS / fixture-fetch later, or should all
   user-recorded videos remain local-only?
 - Should replay stay only in scripts/tests, or also live behind a debug-only app
   mode?
-- What minimum motion contract should both iOS and Android expose?
 - Are command labels enough for V0b fixtures (`STRAIGHT`, `LEFT`, `RIGHT`,
   `STOP`), or should we also label scene quality such as `pointing_down` and
   `unstable`?
