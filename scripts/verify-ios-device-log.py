@@ -92,6 +92,8 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         args.require_corridor,
         "--require-speech",
         args.require_speech,
+        "--require-orientation",
+        args.require_orientation,
         "--require-inference",
         args.require_inference,
         "--require-permission",
@@ -126,6 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-depth-description", default=None)
     parser.add_argument("--require-corridor", default=None)
     parser.add_argument("--require-speech", default=None)
+    parser.add_argument("--require-orientation", default=None)
     parser.add_argument("--require-inference", default=None)
     return parser
 
@@ -148,6 +151,8 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.require_corridor = "1" if corridor_gate else "0"
     if args.require_speech is None:
         args.require_speech = "1" if model_gate else "0"
+    if args.require_orientation is None:
+        args.require_orientation = "1"
     if args.require_inference is None:
         args.require_inference = "1" if model_gate else "0"
     return args

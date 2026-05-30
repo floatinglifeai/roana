@@ -163,6 +163,7 @@ final class CameraSessionController: NSObject, ObservableObject {
             let angle: CGFloat = 90
             if connection.isVideoRotationAngleSupported(angle) {
                 connection.videoRotationAngle = angle
+                logLifecycle("camera_output_orientation angle=\(Int(angle))")
             }
         }
 
