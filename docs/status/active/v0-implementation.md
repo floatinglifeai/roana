@@ -277,7 +277,12 @@ Updated: 2026-05-30.
     `python3 -m unittest scripts/test_probe_android_acceleration_libs.py
     scripts/test_analyze_v0b_log.py`; `scripts/verify-litert-smoke-device.sh`
     currently returns `blocked` before artifact capture because ADB lists no
-    connected device. Next device run should use:
+    connected device. On 2026-05-30, this was rechecked with the verifier's
+    fallback host ADB at
+    `/Users/dongxu/.local/android-platform-tools/platform-tools/adb`; `adb
+    devices` still returned no attached devices, and the smoke verifier returned
+    `status=blocked` with no `logs/litert-smoke-*.log` artifact. Next device
+    run should use:
     `BUILD_FIRST=0 INSTALL_FIRST=1 MODEL=all LITERT_ACCELERATOR=npu
     LITERT_TIMING_ITERATIONS=1 LOG_SECONDS=20
     scripts/verify-litert-smoke-device.sh`.
