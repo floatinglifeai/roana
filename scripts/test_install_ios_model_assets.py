@@ -177,6 +177,72 @@ class InstallIosModelAssetsTest(unittest.TestCase):
             self.assertEqual(check.returncode, 0)
             self.assertEqual(json.loads(check.stdout)["status"], "ready")
 
+    def test_rejects_large_copy_without_explicit_acknowledgement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "manifest.json"
+            write_manifest(manifest)
+            source = root / "large-yolo.mlpackage"
+            source.mkdir()
+            (source / "weights.bin").write_bytes(b"0" * 2048)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--manifest",
+                    str(manifest),
+                    "--model",
+                    "yolo11n",
+                    "--source",
+                    str(source),
+                    "--max-copy-mb",
+                    "0",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            details = json.loads(result.stdout)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(details["status"], "failed")
+            self.assertIn("--allow-large-copy", details["error"])
+
+    def test_allows_large_copy_with_explicit_acknowledgement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "manifest.json"
+            write_manifest(manifest)
+            source = root / "large-yolo.mlpackage"
+            source.mkdir()
+            (source / "weights.bin").write_bytes(b"0" * 2048)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--manifest",
+                    str(manifest),
+                    "--model",
+                    "yolo11n",
+                    "--source",
+                    str(source),
+                    "--max-copy-mb",
+                    "0",
+                    "--allow-large-copy",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            details = json.loads(result.stdout)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(details["status"], "installed")
+            self.assertEqual(2048, details["copiedBytes"])
+            self.assertTrue((root / "YOLO11n.mlpackage" / "weights.bin").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

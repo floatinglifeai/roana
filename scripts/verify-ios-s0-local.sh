@@ -41,11 +41,13 @@ required_files=(
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+  "$IOS_DIR/Roana/Speech/YoloSpeechFeedbackPolicy.swift"
   "$IOS_DIR/RoanaTests/ModelMode/main.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/Inference/main.swift"
   "$IOS_DIR/RoanaTests/main.swift"
   "$IOS_DIR/RoanaTests/Privacy/main.swift"
+  "$IOS_DIR/RoanaTests/Speech/main.swift"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0a-YOLO.xcscheme"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
@@ -68,6 +70,7 @@ python3 -m unittest "$ROOT_DIR/scripts/test_capture_ios_device_log.py" >/dev/nul
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
+grep -q "allow-large-copy" "$ROOT_DIR/scripts/install-ios-model-assets.py"
 grep -q "matched_yolo_speech_labels" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "yolo_speech_match" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "audio_session_active" "$ROOT_DIR/scripts/analyze-ios-log.py"
@@ -157,6 +160,10 @@ grep -q "SpeechAudioSession.activate()" "$IOS_DIR/Roana/Speech/SpeechFeedbackDis
 grep -q "SpeechAudioSession.activate()" "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
 grep -q "roana_ios_yolo" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -q "roana_ios_speech" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+grep -q "YoloSpeechFeedbackPolicy" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+grep -q "markSpoken(feedback" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+grep -q "repeat_interval" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+grep -q "Person ahead" "$IOS_DIR/Roana/Speech/YoloSpeechFeedbackPolicy.swift"
 grep -q "near_obstacle" "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift"
 grep -q "frame_loss" "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift"
 grep -q "low_confidence" "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift"
@@ -186,6 +193,12 @@ swiftc \
   -D DEBUG \
   "$IOS_DIR/Roana/Models/ModelInferenceMode.swift" \
   "$IOS_DIR/RoanaTests/ModelMode/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" >/dev/null
+
+swiftc \
+  "$IOS_DIR/Roana/Speech/YoloSpeechFeedbackPolicy.swift" \
+  "$IOS_DIR/RoanaTests/Speech/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" >/dev/null
 

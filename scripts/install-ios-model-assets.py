@@ -14,6 +14,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = REPO_ROOT / "ios/Roana/Roana/ModelAssets/manifest.json"
 CHECKER_SCRIPT = Path(__file__).with_name("check-ios-model-assets.py")
+DEFAULT_MAX_COPY_BYTES = 25 * 1024 * 1024
 
 
 def load_checker_module() -> Any:
@@ -77,6 +78,20 @@ def remove_existing(path: Path) -> None:
         shutil.rmtree(path)
 
 
+def directory_size(path: Path) -> int:
+    return sum(child.stat().st_size for child in path.rglob("*") if child.is_file())
+
+
+def validate_copy_size(source: Path, *, max_copy_bytes: int, allow_large_copy: bool) -> int:
+    total_bytes = directory_size(source)
+    if total_bytes > max_copy_bytes and not allow_large_copy:
+        raise ValueError(
+            f"{source} is {total_bytes} bytes, above the {max_copy_bytes} byte copy guard. "
+            "Use --symlink for local testing or pass --allow-large-copy.",
+        )
+    return total_bytes
+
+
 def install_model(
     source: Path,
     *,
@@ -84,8 +99,15 @@ def install_model(
     assets_dir: Path,
     symlink: bool,
     force: bool,
-) -> Path:
+    max_copy_bytes: int,
+    allow_large_copy: bool,
+) -> tuple[Path, int | None]:
     extension = validate_source(source, model)
+    copied_bytes = None if symlink else validate_copy_size(
+        source,
+        max_copy_bytes=max_copy_bytes,
+        allow_large_copy=allow_large_copy,
+    )
     destination = destination_for(assets_dir, model, extension)
     ensure_no_conflict(assets_dir, model, destination, force)
 
@@ -97,7 +119,7 @@ def install_model(
         destination.symlink_to(source.resolve(), target_is_directory=source.is_dir())
     else:
         shutil.copytree(source, destination, symlinks=True)
-    return destination
+    return destination, copied_bytes
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -117,6 +139,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--symlink", action="store_true", help="Install a symlink instead of copying.")
     parser.add_argument("--force", action="store_true", help="Replace the destination if it already exists.")
+    parser.add_argument(
+        "--max-copy-mb",
+        default=DEFAULT_MAX_COPY_BYTES // (1024 * 1024),
+        type=int,
+        help="Maximum copied source size before --allow-large-copy is required.",
+    )
+    parser.add_argument(
+        "--allow-large-copy",
+        action="store_true",
+        help="Allow copying Core ML resources larger than --max-copy-mb.",
+    )
     return parser
 
 
@@ -130,12 +163,14 @@ def main() -> int:
 
     try:
         model = model_by_id_or_resource(manifest, args.model)
-        destination = install_model(
+        destination, copied_bytes = install_model(
             args.source,
             model=model,
             assets_dir=args.assets_dir or args.manifest.parent,
             symlink=args.symlink,
             force=args.force,
+            max_copy_bytes=args.max_copy_mb * 1024 * 1024,
+            allow_large_copy=args.allow_large_copy,
         )
     except Exception as error:
         print(
@@ -158,6 +193,7 @@ def main() -> int:
                 "resourceName": model["resourceName"],
                 "destination": str(destination),
                 "mode": "symlink" if args.symlink else "copy",
+                "copiedBytes": copied_bytes,
             },
             indent=2,
             sort_keys=True,
