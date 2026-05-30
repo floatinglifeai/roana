@@ -38,6 +38,7 @@ required_files=(
   "$IOS_DIR/Roana/Models/ModelDescriptionLogger.swift"
   "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
   "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
+  "$IOS_DIR/Roana/Motion/MotionQuality.swift"
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
@@ -46,6 +47,7 @@ required_files=(
   "$IOS_DIR/RoanaTests/ModelMode/main.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/Inference/main.swift"
+  "$IOS_DIR/RoanaTests/Motion/main.swift"
   "$IOS_DIR/RoanaTests/main.swift"
   "$IOS_DIR/RoanaTests/Privacy/main.swift"
   "$IOS_DIR/RoanaTests/Speech/main.swift"
@@ -132,6 +134,7 @@ grep -q "resolve(arguments:" "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
 grep -q -- "--roana-enable-yolo" "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
 grep -q -- "--roana-enable-corridor" "$IOS_DIR/Roana/Models/ModelInferenceMode.swift"
 grep -q "ModelInferenceMode.swift in Sources" "$PROJECT"
+grep -q "MotionQuality.swift in Sources" "$PROJECT"
 grep -q "failSafeStop(reason: \"frame_loss\")" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "roana_ios_safety event=fail_safe_stop" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "roana_ios_safety debug_fail_safe_stop enabled=true reason=frame_loss" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
@@ -222,6 +225,12 @@ swiftc \
 swiftc \
   "$IOS_DIR/Roana/Models/ModelAssetResourceLocator.swift" \
   "$IOS_DIR/RoanaTests/ModelAssets/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" >/dev/null
+
+swiftc \
+  "$IOS_DIR/Roana/Motion/MotionQuality.swift" \
+  "$IOS_DIR/RoanaTests/Motion/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" >/dev/null
 
