@@ -60,6 +60,10 @@ Updated: 2026-05-30.
   - The V0a/V0b device verifiers require `corridor_feedback status=spoken`
     when the debug depth-plan gate is enabled, so the next phone run can
     machine-check planner/state feedback instead of relying on a manual listen.
+  - `scripts/record-v0b-corridor-test.sh` wraps the V0b verifier for the
+    final known-corridor blindfold run and requires `CORRIDOR_TEST_NOTES`, so
+    the machine artifact carries sighted-spotter context instead of only an
+    environment variable.
   - Depth Anything input preprocessing and one-shot inference are split into
     reusable components. Local tests cover center-crop resizing, RGB float input
     layout, and flattening `[1,518,518,1]` output into the planner depth map.
@@ -268,6 +272,13 @@ when a human can perform it. Agent-owned follow-up work can proceed on the
 origin/main research directions: optional LiteRT metadata/API exploration and
 iOS S0 physical-device verification after full Xcode is installed. Do not add a
 lower-performance CPU fallback profile.
+
+For the corridor proof, run:
+
+```bash
+CORRIDOR_TEST_NOTES="known indoor corridor; blindfolded tester; sighted spotter; no intervention" \
+  scripts/record-v0b-corridor-test.sh
+```
 
 ## No-Touch Scope
 

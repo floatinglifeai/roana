@@ -83,6 +83,9 @@ class AnalyzeV0bLogTest(unittest.TestCase):
         thermal_status_before: str = "Thermal Status: 0",
         thermal_status_after: str = "Thermal Status: 0",
         require_safe_stop: bool = False,
+        require_corridor_test: bool = False,
+        corridor_test_result: str = "",
+        corridor_test_notes: str = "",
     ) -> dict[str, object]:
         command = [
             sys.executable,
@@ -101,6 +104,12 @@ class AnalyzeV0bLogTest(unittest.TestCase):
             str(thermal_minutes),
             "--require-safe-stop-proof",
             "1" if require_safe_stop else "0",
+            "--require-corridor-test",
+            "1" if require_corridor_test else "0",
+            "--corridor-test-result",
+            corridor_test_result,
+            "--corridor-test-notes",
+            corridor_test_notes,
         ]
         if thermal_log:
             command.extend(
@@ -510,6 +519,59 @@ class AnalyzeV0bLogTest(unittest.TestCase):
             self.assertEqual(4, details["thermal_status_after_level"])
             self.assertEqual("critical", details["thermal_status_after_label"])
             self.assertTrue(details["thermal_status_after_severe_or_worse"])
+
+    def test_corridor_test_gate_requires_passed_result_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = Path(temp_dir) / "main.log"
+            log_path.write_text(
+                fake_log(
+                    depths=[80.0, 90.0, 85.0, 95.0, 100.0],
+                    frame_stats_count=5,
+                    gap_count=0,
+                    fp16_htp="true",
+                    safe_stop=True,
+                ),
+                encoding="utf-8",
+            )
+
+            data = self.run_analyzer(
+                log_path,
+                require_safe_stop=True,
+                require_corridor_test=True,
+                corridor_test_result="",
+            )
+
+            self.assertEqual(["corridor_test_passed"], data["missing"])
+            self.assertTrue(data["details"]["corridor_test_required"])
+
+    def test_corridor_test_gate_records_passed_notes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = Path(temp_dir) / "main.log"
+            log_path.write_text(
+                fake_log(
+                    depths=[80.0, 90.0, 85.0, 95.0, 100.0],
+                    frame_stats_count=5,
+                    gap_count=0,
+                    fp16_htp="true",
+                    safe_stop=True,
+                ),
+                encoding="utf-8",
+            )
+
+            data = self.run_analyzer(
+                log_path,
+                require_safe_stop=True,
+                require_corridor_test=True,
+                corridor_test_result="passed",
+                corridor_test_notes="known corridor, spotter present, no intervention",
+            )
+
+            self.assertEqual([], data["missing"])
+            self.assertEqual("passed", data["details"]["corridor_test_result"])
+            self.assertEqual(
+                "known corridor, spotter present, no intervention",
+                data["details"]["corridor_test_notes"],
+            )
 
 
 if __name__ == "__main__":

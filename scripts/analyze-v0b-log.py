@@ -260,6 +260,11 @@ def add_thermal_missing(
         missing.append("thermal_status_after_not_severe")
 
 
+def add_corridor_test_missing(missing: list[str], details: dict[str, object]) -> None:
+    if details["corridor_test_required"] and details["corridor_test_result"] != "passed":
+        missing.append("corridor_test_passed")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", required=True, type=Path)
@@ -385,6 +390,7 @@ def main() -> None:
         require_corridor_feedback=parse_bool(args.require_corridor_feedback),
         require_safe_stop_proof=parse_bool(args.require_safe_stop_proof),
     )
+    add_corridor_test_missing(missing, details)
 
     thermal_missing: list[str] = []
     if thermal_log and args.thermal_minutes_required > 0:
