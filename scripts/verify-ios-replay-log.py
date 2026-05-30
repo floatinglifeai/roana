@@ -73,6 +73,8 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         "0",
         "--require-audio-session",
         args.require_audio_session,
+        "--require-motion-quality",
+        args.require_motion_quality,
         "--require-corridor-guidance",
         args.require_corridor_guidance,
         "--require-model-mode",
@@ -104,6 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-inference-skipped", default=0, type=int)
     parser.add_argument("--require-audio-session", choices=("0", "1"), default=None)
+    parser.add_argument("--require-motion-quality", choices=("0", "1"), default="1")
     parser.add_argument("--require-corridor-guidance", choices=("0", "1"), default=None)
     parser.add_argument("--require-fail-safe-stop", choices=("0", "1"), default="0")
     return parser

@@ -31,11 +31,14 @@ expanding iOS work.
 ## Verification
 
 - Run `scripts/verify-ios-s0-local.sh` after iOS code changes. On this current
-  host it is expected to pass structural checks and exit `2` because full Xcode
-  is not active.
+  host it is expected to pass structural checks and the Xcode build.
 - For physical-run evidence, use `scripts/capture-ios-device-log.py` to create
   the canonical `logs/ios-*.log` artifact and run `scripts/verify-ios-device-log.py`
   with the matching gate.
+- For V0b physical proof, build/install with a command-line-only
+  `ROANA_IOS_DEVELOPMENT_TEAM=... scripts/run-ios-v0b-physical.py` invocation.
+  Do not commit the team ID or generated device logs unless explicitly
+  requested.
 - Keep shared Xcode schemes aligned with the log gates: `Roana` must stay the
   no-model S0 launch, `Roana-V0a-YOLO` must opt into YOLO only, and
   `Roana-V0b-Corridor` must opt into corridor mode.

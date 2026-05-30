@@ -25,6 +25,7 @@ swiftc \
   "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift" \
   "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift" \
   "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift" \
+  "$IOS_DIR/Roana/Motion/MotionQuality.swift" \
   "$IOS_DIR/RoanaTests/VideoReplay/main.swift" \
   -o "$BINARY"
 

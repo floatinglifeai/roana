@@ -24,6 +24,10 @@ cross-platform motion signal for camera-quality checks.
   `pointing_down` from pitch and `unstable` from angular velocity, and treats
   missing motion as `stable` so image-only replay and live camera runs continue
   to work.
+- Implemented replay evidence: offline replay logs
+  `roana_ios_motion_quality label=stable reason=motion_unavailable
+  trusts_guidance=true source=replay`, and `scripts/verify-ios-replay-log.py`
+  requires that evidence by default.
 
 ## Non-Goals
 
@@ -92,7 +96,8 @@ The cross-platform contract is intentionally quality-control-only:
 
 Current code only defines and tests this shared contract. It does not collect
 iOS Core Motion / Android sensor data, alter corridor decisions, or add
-permissions.
+permissions. Replay uses the `motion_unavailable` path to make that image-first
+fallback explicit in generated logs.
 
 ## Remaining Discussion Questions
 

@@ -112,6 +112,12 @@ func replay(_ options: ReplayOptions) async throws {
         "roana_ios_orientation source=preview interface=\(options.orientation.interfaceName) " +
             "angle=\(options.orientation.rotationAngleText) vision=\(options.orientation.visionOrientationName)",
     )
+    let motionQuality = MotionQualityClassifier.classify(nil)
+    print(
+        "roana_ios_motion_quality label=\(motionQuality.label.rawValue) " +
+            "reason=\(motionQuality.reason) trusts_guidance=\(motionQuality.trustsGuidance) " +
+            "source=replay",
+    )
 
     let reader = try AVAssetReader(asset: asset)
     let output = AVAssetReaderTrackOutput(
