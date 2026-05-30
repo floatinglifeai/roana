@@ -186,6 +186,11 @@ Updated: 2026-05-30.
     feedback-dispatch cases mirrored from current Kotlin unit tests.
   - Corridor parity generation wrapper tests pass without requiring a local
     Android Gradle build or real JDK 17/21.
+  - `scripts/check-ios-xcodeproj-membership.py` verifies that every production
+    Swift file under `ios/Roana/Roana` is present in the app target's Sources
+    build phase and that `Assets.xcassets` / `ModelAssets` are present in the
+    Resources phase. The current project reports 24 Swift sources and no
+    missing membership.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
   - Model asset bundle-locator smoke verifier passes without an iPhone or full
     Xcode.
