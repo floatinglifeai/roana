@@ -16,12 +16,19 @@ final class SpeechFeedbackDispatcher {
         }
     }
 
+    func suppress(detection: YoloObstacleDetector.Detection, reason: String) {
+        print(
+            "roana_ios_speech status=suppressed reason=\(sanitizeSpeechLogValue(reason)) " +
+                "label=\(sanitizeSpeechLogValue(detection.label)) score=\(detection.scorePercent)",
+        )
+    }
+
     private func speakOnMain(detection: YoloObstacleDetector.Detection) {
         let now = Date()
         guard shouldSpeak(label: detection.label, now: now) else {
             print(
-                "roana_ios_speech status=suppressed label=\(sanitizeSpeechLogValue(detection.label)) " +
-                    "score=\(detection.scorePercent)",
+                "roana_ios_speech status=suppressed reason=repeat_interval " +
+                    "label=\(sanitizeSpeechLogValue(detection.label)) score=\(detection.scorePercent)",
             )
             return
         }

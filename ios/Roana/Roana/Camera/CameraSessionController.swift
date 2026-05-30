@@ -261,17 +261,24 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
         let detections = detectionResult.bestDetection.map { [$0] } ?? []
 
         let depthResult = depthRunner.infer(sampleBuffer: sampleBuffer, orientation: orientation)
+        var corridorOwnsSpeech = false
         if let grid = depthResult.grid {
+            corridorOwnsSpeech = true
             _ = corridorPipeline.process(
                 grid: grid,
                 detections: detections.map(\.corridorDetection),
             )
         } else if depthResult.state != .modelMissing {
+            corridorOwnsSpeech = true
             _ = corridorPipeline.failSafeStop(reason: "low_confidence")
         }
 
         if let detection = detectionResult.bestDetection {
-            speechDispatcher.speak(detection: detection)
+            if corridorOwnsSpeech {
+                speechDispatcher.suppress(detection: detection, reason: "corridor_feedback_active")
+            } else {
+                speechDispatcher.speak(detection: detection)
+            }
         }
     }
 

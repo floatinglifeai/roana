@@ -98,6 +98,11 @@ def fake_log(
             "command=STOP message=stop reason=low_confidence "
             "changed=true forced=false pending=none pending_count=0"
         )
+        if not include_speech:
+            lines.append(
+                "roana_ios_speech status=suppressed reason=corridor_feedback_active "
+                "label=person score=91"
+            )
     if include_speech:
         lines.append("roana_ios_speech status=queued label=person score=91 message=Person_ahead")
     if include_background_stop:
@@ -209,6 +214,43 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(1, data["details"]["preview_orientation_count"])
         self.assertEqual(1, data["details"]["capture_orientation_count"])
         self.assertEqual(1, data["details"]["inference_finished_count"])
+
+    def test_v0b_corridor_feedback_can_satisfy_speech_without_yolo_speech(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_orientation=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_inference=True,
+            ),
+            "--require-yolo",
+            "1",
+            "--require-yolo-description",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-depth-description",
+            "1",
+            "--require-vision-orientation",
+            "1",
+            "--require-corridor",
+            "1",
+            "--require-speech",
+            "0",
+            "--require-orientation",
+            "1",
+            "--require-inference",
+            "1",
+        )
+
+        self.assertEqual("passed", data["status"])
+        self.assertEqual([], data["missing"])
+        self.assertEqual(0, data["details"]["speech_queued_count"])
+        self.assertEqual(2, data["details"]["corridor_feedback_spoken_count"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
         data = self.run_analyzer(
