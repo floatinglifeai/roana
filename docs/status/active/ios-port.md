@@ -8,7 +8,8 @@ Updated: 2026-05-30.
 - Latest user instruction: do code development first because no iPhone is
   currently connected; defer hardware tests until all or most code parts are
   done.
-- Current slice: iOS-S0 skeleton and camera callback gate.
+- Current slice: code-first iOS S0/V0a/V0b scaffold while hardware proof is
+  deferred.
 - Host readiness observed on this machine:
   - `xcode-select -p` returns `/Library/Developer/CommandLineTools`.
   - `xcodebuild -version` fails because full Xcode is not the active developer
@@ -56,6 +57,15 @@ Updated: 2026-05-30.
 - Executable local proof:
   - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
     passes with `CorridorCoreSmoke passed`.
+  - Swift parity verifier reads `parity/corridor-core.json` and passes the
+    planner, fusion, and state-machine cases mirrored from current Kotlin unit
+    tests.
+- Parity status:
+  - Checked-in JSON fixture exists at `parity/corridor-core.json`.
+  - Automatic Kotlin fixture generation is still pending because local Gradle
+    currently fails before task execution under the installed OpenJDK 25
+    environment (`What went wrong: 25.0.1`). Use JDK 17 or 21 before relying on
+    Gradle-backed Kotlin generation.
 
 ## Local Code Gate
 
@@ -100,13 +110,14 @@ logs/ios-skeleton-<timestamp>.log
 
 ## No-Touch Scope
 
-- Do not start iOS Core ML model integration until iOS-S0 code builds.
+- Do not add real iOS Core ML model assets, benchmark claims, or performance
+  gates until iOS-S0 builds under full Xcode and runs on a physical iPhone.
 - Do not add large Core ML model artifacts directly to git; keep generated
   `.mlmodelc` / `.mlpackage` outputs out of normal source commits unless Git
   LFS or an explicit model-fetch path is added.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
-  golden JSON fixture mechanism from `docs/plan/ios-port-plan.md` is still
-  pending.
+  JSON fixture now covers the initial corridor core cases, but automatic Kotlin
+  fixture generation from source tests is still pending.
 - Do not claim iPhone performance, preview orientation, signing, installation,
   or camera callback cadence until physical-device evidence exists.
 - Do not resume Android QNN diagnosis while this iOS port slice is active.
