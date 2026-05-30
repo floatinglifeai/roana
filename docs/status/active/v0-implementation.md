@@ -193,6 +193,12 @@ Updated: 2026-05-30.
     `depth_fps=5.724`, `gap_count=34`, and no normal guidance feedback because
     repeated frame-loss safe stops keep resetting the 3-frame guidance
     confirmation.
+  - QNN model timing artifact: `logs/qnn-smoke-20260530T002450Z.log`. With
+    warm QNN interpreters and zero inputs, YOLO averages `2.52 ms` and Depth
+    Anything averages `53.47 ms` across 5 iterations. This proves the remaining
+    V0b performance blocker is not steady-state QNN inference; it is live
+    CameraX/analyzer work around the model, especially depth input preparation
+    and serialized scheduling.
 
 ## Stop Condition
 
@@ -206,19 +212,23 @@ library and using explicit app native-library paths for QNN. Both model smoke
 tests pass on QNN HTP, and the live corridor path executes QNN depth frames.
 The full V0b corridor demo is still not proven because the current serial
 CameraX analyzer loop runs live Depth Anything at about 5.7 FPS and produces
-frame gaps, so it remains below the 10 FPS / no-frame-gap V0b gate. Emergency
-STOP behavior for near obstacles, frame loss, and low confidence is covered in
-unit tests and real-device safe-stop proof.
+frame gaps, while standalone QNN model timing shows the Depth model itself can
+run in about 53 ms. The app remains below the 10 FPS / no-frame-gap V0b gate
+because of live preprocessing/scheduling overhead. Emergency STOP behavior for
+near obstacles, frame loss, and low confidence is covered in unit tests and
+real-device safe-stop proof.
 
 ## Next Agent-Owned Step
 
 Use `scripts/verify-v0b-device.sh` as the next machine gate. The next
 agent-owned step is no longer QNN transport diagnosis; it is live pipeline
-performance and scheduling. Focus on reducing serialized CameraX analyzer work
-so live depth can reach at least 10 FPS without frame gaps and so STRAIGHT/LEFT/
-RIGHT guidance can survive the 3-frame confirmation instead of being reset by
-frame-loss STOPs. Do not add a lower-performance CPU fallback profile. After
-the short machine V0b gate passes, run `RUN_THERMAL_GATE=1
+performance and scheduling. Focus first on timing and reducing the live
+CameraX -> Depth input-preparation path, because QNN model-only timing is fast
+enough for the 10 FPS target but live analyzer frames are not. Then reduce
+serialized analyzer work so STRAIGHT/LEFT/RIGHT guidance can survive the
+3-frame confirmation instead of being reset by frame-loss STOPs. Do not add a
+lower-performance CPU fallback profile. After the short machine V0b gate
+passes, run `RUN_THERMAL_GATE=1
 scripts/verify-v0b-device.sh` and then the known-corridor sighted-spotter proof.
 
 ## No-Touch Scope
