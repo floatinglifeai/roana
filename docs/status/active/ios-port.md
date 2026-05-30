@@ -105,8 +105,8 @@ Updated: 2026-05-30.
   - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/Roana/Speech/CorridorFeedbackDispatcher.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
     passes with `CorridorCoreSmoke passed`.
   - Swift parity verifier reads `parity/corridor-core.json` and passes the
-    planner, fusion, state-machine, pipeline, and feedback-dispatch cases
-    mirrored from current Kotlin unit tests.
+    planner, fusion, depth-grid conversion, state-machine, pipeline, and
+    feedback-dispatch cases mirrored from current Kotlin unit tests.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
   - iOS model asset checker tests pass; the default checker reports both
     expected resources as missing until real local model assets are supplied.
@@ -210,9 +210,9 @@ scripts/check-ios-model-assets.py --require-present
   `.mlmodelc` / `.mlpackage` outputs out of normal source commits unless Git
   LFS or an explicit model-fetch path is added.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
-  JSON fixture now covers planner, fusion, state-machine, pipeline, and
-  feedback-dispatch cases, but automatic Kotlin fixture generation from source
-  tests is still pending on a JDK 17/21 host.
+  JSON fixture now covers planner, fusion, depth-grid conversion, state-machine,
+  pipeline, and feedback-dispatch cases, but automatic Kotlin fixture generation
+  from source tests is still pending on a JDK 17/21 host.
 - Do not claim iPhone performance, preview orientation, signing, installation,
   or camera callback cadence until physical-device evidence exists.
 - Do not resume Android QNN diagnosis while this iOS port slice is active.

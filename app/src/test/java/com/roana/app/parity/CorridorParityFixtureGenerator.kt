@@ -7,6 +7,7 @@ import com.roana.app.CorridorGridFusion
 import com.roana.app.CorridorPlanner
 import com.roana.app.CorridorPipeline
 import com.roana.app.CorridorStateMachine
+import com.roana.app.DepthAnythingTensor
 import com.roana.app.FeedbackDispatcher
 import com.roana.app.YoloObstacleDetector
 import java.nio.file.Path
@@ -33,6 +34,9 @@ object CorridorParityFixtureGenerator {
             add(stateMachineConfirmationsCase())
             add(stateMachineFrameLossCase())
             add(fusionNearObstacleCase())
+            add(depthGridCase("depthSmallOutputMatchesPlannerGridFallback", rows = 2, cols = 2, pattern = "small2x2"))
+            add(depthGridCase("depthLargeOutputMatchesOptimizedAggregation", rows = 30, cols = 30, pattern = "ramp"))
+            add(depthGridCase("depthConstantOutputNormalizesToZero", rows = 30, cols = 30, pattern = "constant"))
             add(pipelinePendingCase())
             add(pipelineFailSafeFeedbackCase())
             add(feedbackChangedRightCase())
@@ -203,6 +207,66 @@ ${states.joinToString(",\n") { state ->
   }
 }""".trimIndent()
     }
+
+    private fun depthGridCase(
+        name: String,
+        rows: Int,
+        cols: Int,
+        pattern: String,
+    ): String {
+        val output = depthOutput(rows = rows, cols = cols, pattern = pattern)
+        val grid = DepthAnythingTensor.outputToPlannerGrid(output)
+        val values = grid.toFloatArray()
+        return """
+{
+  "name": "$name",
+  "type": "depthGrid",
+  "depthOutput": {
+    "rows": $rows,
+    "cols": $cols,
+    "pattern": "$pattern"
+  },
+  "expectedDepthGrid": {
+    "rows": ${grid.rows},
+    "cols": ${grid.cols},
+    "sum": ${values.sum()},
+    "min": ${values.minOrNull() ?: 0f},
+    "max": ${values.maxOrNull() ?: 0f},
+    "probes": [
+${depthProbes(values).joinToString(",\n") { """      { "index": ${it.index}, "value": ${it.value} }""" }}
+    ]
+  }
+}""".trimIndent()
+    }
+
+    private fun depthOutput(
+        rows: Int,
+        cols: Int,
+        pattern: String,
+    ): Array<Array<Array<FloatArray>>> =
+        Array(1) {
+            Array(rows) { row ->
+                Array(cols) { col ->
+                    floatArrayOf(depthValue(row = row, col = col, cols = cols, pattern = pattern))
+                }
+            }
+        }
+
+    private fun depthValue(
+        row: Int,
+        col: Int,
+        cols: Int,
+        pattern: String,
+    ): Float =
+        when (pattern) {
+            "small2x2" -> floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)[row * cols + col]
+            "ramp" -> (row * cols + col).toFloat()
+            "constant" -> 4.2f
+            else -> error("Unknown depth pattern $pattern")
+        }
+
+    private fun depthProbes(values: FloatArray): List<DepthProbe> =
+        listOf(0, 14, 112, 224).map { index -> DepthProbe(index, values[index]) }
 
     private fun pipelinePendingCase(): String {
         val pipeline = CorridorPipeline(stateMachine = CorridorStateMachine(confirmationsRequired = 3))
@@ -450,6 +514,11 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
         val message: String,
         val queueMode: String,
         val utteranceId: String,
+    )
+
+    private data class DepthProbe(
+        val index: Int,
+        val value: Float,
     )
 
     private const val GRID_SIZE = 15

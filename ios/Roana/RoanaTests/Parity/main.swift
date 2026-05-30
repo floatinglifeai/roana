@@ -14,9 +14,11 @@ struct FixtureCase: Decodable {
     let confirmationsRequired: Int?
     let grid: GridFixture?
     let expected: ExpectedDecision?
+    let expectedDepthGrid: ExpectedDepthGrid?
     let decisions: [DecisionFixture]?
     let expectedStates: [ExpectedState]?
     let detections: [DetectionFixture]?
+    let depthOutput: DepthOutputFixture?
     let steps: [PipelineStep]?
     let feedbackStates: [FeedbackState]?
     let expectedEvents: [ExpectedFeedbackEvent]?
@@ -100,6 +102,26 @@ struct DetectionFixture: Decodable {
     let height: Float
 }
 
+struct DepthOutputFixture: Decodable {
+    let rows: Int
+    let cols: Int
+    let pattern: String
+}
+
+struct ExpectedDepthGrid: Decodable {
+    let rows: Int
+    let cols: Int
+    let sum: Float
+    let min: Float
+    let max: Float
+    let probes: [DepthProbe]
+}
+
+struct DepthProbe: Decodable {
+    let index: Int
+    let value: Float
+}
+
 func fail(_ message: String) -> Never {
     fputs("CorridorParity failed: \(message)\n", stderr)
     exit(1)
@@ -108,6 +130,12 @@ func fail(_ message: String) -> Never {
 func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
     if !condition() {
         fail(message)
+    }
+}
+
+func expectClose(_ actual: Float, _ expected: Float, _ message: String) {
+    if abs(actual - expected) > 0.0001 {
+        fail("\(message): \(actual) != \(expected)")
     }
 }
 
@@ -224,6 +252,29 @@ func checkFusionCase(_ fixtureCase: FixtureCase) {
     )
     let decision = CorridorPlanner().decide(grid: grid)
     checkDecision(decision, expected: expected, caseName: fixtureCase.name)
+}
+
+func checkDepthGridCase(_ fixtureCase: FixtureCase) {
+    guard let depthOutput = fixtureCase.depthOutput,
+          let expected = fixtureCase.expectedDepthGrid
+    else {
+        fail("\(fixtureCase.name): depthGrid case missing depth output or expected")
+    }
+    let values = depthValues(depthOutput)
+    let grid = DepthAnythingOutputAdapter.plannerGrid(
+        values: values,
+        rows: depthOutput.rows,
+        cols: depthOutput.cols,
+    )
+    let gridValues = grid.toFloatArray()
+    expect(grid.rows == expected.rows, "\(fixtureCase.name): row count mismatch")
+    expect(grid.cols == expected.cols, "\(fixtureCase.name): col count mismatch")
+    expectClose(gridValues.reduce(0, +), expected.sum, "\(fixtureCase.name): sum mismatch")
+    expectClose(gridValues.min() ?? 0, expected.min, "\(fixtureCase.name): min mismatch")
+    expectClose(gridValues.max() ?? 0, expected.max, "\(fixtureCase.name): max mismatch")
+    for probe in expected.probes {
+        expectClose(gridValues[probe.index], probe.value, "\(fixtureCase.name): probe \(probe.index)")
+    }
 }
 
 func checkStateMachineCase(_ fixtureCase: FixtureCase) {
@@ -347,6 +398,23 @@ func checkFeedbackCase(_ fixtureCase: FixtureCase) {
     }
 }
 
+func depthValues(_ fixture: DepthOutputFixture) -> [Float] {
+    (0..<(fixture.rows * fixture.cols)).map { index in
+        let row = index / fixture.cols
+        let col = index % fixture.cols
+        switch fixture.pattern {
+        case "small2x2":
+            return [0.1, 0.2, 0.3, 0.4][index]
+        case "ramp":
+            return Float(row * fixture.cols + col)
+        case "constant":
+            return 4.2
+        default:
+            fail("unknown depth pattern \(fixture.pattern)")
+        }
+    }
+}
+
 let arguments = CommandLine.arguments
 let fixturePath = arguments.dropFirst().first ?? "parity/corridor-core.json"
 let fixtureURL = URL(fileURLWithPath: fixturePath)
@@ -359,6 +427,8 @@ for fixtureCase in fixture.cases {
         checkPlannerCase(fixtureCase)
     case "fusion":
         checkFusionCase(fixtureCase)
+    case "depthGrid":
+        checkDepthGridCase(fixtureCase)
     case "stateMachine":
         checkStateMachineCase(fixtureCase)
     case "pipeline":

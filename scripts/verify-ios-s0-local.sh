@@ -126,6 +126,7 @@ swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorGridFusion.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift" \
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift" \
+  "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift" \
   "$IOS_DIR/RoanaTests/Parity/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" "$ROOT_DIR/parity/corridor-core.json" >/dev/null

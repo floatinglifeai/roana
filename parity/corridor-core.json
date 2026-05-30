@@ -116,6 +116,72 @@
       }
     },
     {
+      "name": "depthSmallOutputMatchesPlannerGridFallback",
+      "type": "depthGrid",
+      "depthOutput": {
+        "rows": 2,
+        "cols": 2,
+        "pattern": "small2x2"
+      },
+      "expectedDepthGrid": {
+        "rows": 15,
+        "cols": 15,
+        "sum": 105.0,
+        "min": 0.0,
+        "max": 1.0,
+        "probes": [
+          { "index": 0, "value": 0.0 },
+          { "index": 14, "value": 0.33333334 },
+          { "index": 112, "value": 0.0 },
+          { "index": 224, "value": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "depthLargeOutputMatchesOptimizedAggregation",
+      "type": "depthGrid",
+      "depthOutput": {
+        "rows": 30,
+        "cols": 30,
+        "pattern": "ramp"
+      },
+      "expectedDepthGrid": {
+        "rows": 15,
+        "cols": 15,
+        "sum": 112.5,
+        "min": 0.01724138,
+        "max": 0.98275864,
+        "probes": [
+          { "index": 0, "value": 0.01724138 },
+          { "index": 14, "value": 0.048387095 },
+          { "index": 112, "value": 0.5 },
+          { "index": 224, "value": 0.98275864 }
+        ]
+      }
+    },
+    {
+      "name": "depthConstantOutputNormalizesToZero",
+      "type": "depthGrid",
+      "depthOutput": {
+        "rows": 30,
+        "cols": 30,
+        "pattern": "constant"
+      },
+      "expectedDepthGrid": {
+        "rows": 15,
+        "cols": 15,
+        "sum": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "probes": [
+          { "index": 0, "value": 0.0 },
+          { "index": 14, "value": 0.0 },
+          { "index": 112, "value": 0.0 },
+          { "index": 224, "value": 0.0 }
+        ]
+      }
+    },
+    {
       "name": "pipelineKeepsNonStopCommandPendingUntilConfirmed",
       "type": "pipeline",
       "confirmationsRequired": 3,
