@@ -27,13 +27,17 @@ def write_manifest(path: Path) -> None:
                         "acceptedExtensions": ["mlmodelc", "mlpackage"],
                         "runtime": "YoloObstacleDetector",
                         "source": "test",
+                        "expectedInput": {"width": 640, "height": 640},
+                        "expectedOutputs": ["VNRecognizedObjectObservation"],
                     },
                     {
-                        "id": "depth",
+                        "id": "depth-anything-v2-small",
                         "resourceName": "DepthAnythingV2Small",
                         "acceptedExtensions": ["mlmodelc", "mlpackage"],
                         "runtime": "DepthAnythingRunner",
                         "source": "test",
+                        "expectedInput": {"width": 518, "height": 518},
+                        "expectedOutputs": ["MLMultiArray"],
                     },
                 ],
             },
@@ -140,7 +144,7 @@ class InstallIosModelAssetsTest(unittest.TestCase):
             yolo.mkdir()
             depth.mkdir()
 
-            for model, source in (("yolo11n", yolo), ("depth", depth)):
+            for model, source in (("yolo11n", yolo), ("depth-anything-v2-small", depth)):
                 subprocess.run(
                     [
                         sys.executable,

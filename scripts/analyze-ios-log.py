@@ -11,6 +11,8 @@ from statistics import mean
 
 
 GUIDANCE_COMMANDS = frozenset({"LEFT", "STRAIGHT", "RIGHT"})
+EXPECTED_YOLO_RESOURCE = "YOLO11n"
+EXPECTED_DEPTH_RESOURCE = "DepthAnythingV2Small"
 THERMAL_SEVERITY = {
     "nominal": 0,
     "fair": 1,
@@ -52,6 +54,12 @@ def parse_log(log_path: Path) -> dict[str, object]:
     yolo_descriptions = []
     depth_ok = []
     depth_descriptions = []
+    yolo_description_resources = set()
+    depth_description_resources = set()
+    yolo_description_inputs = set()
+    yolo_description_outputs = set()
+    depth_description_inputs = set()
+    depth_description_outputs = set()
     corridor_ok = []
     corridor_feedback_spoken = []
     speech_queued = []
@@ -92,6 +100,15 @@ def parse_log(log_path: Path) -> dict[str, object]:
                 thermal_states.append(thermal_state)
         if "roana_ios_yolo status=model_description" in line:
             yolo_descriptions.append(line)
+            resource = fields.get("resource")
+            inputs = fields.get("inputs")
+            outputs = fields.get("outputs")
+            if resource:
+                yolo_description_resources.add(resource)
+            if inputs:
+                yolo_description_inputs.add(inputs)
+            if outputs:
+                yolo_description_outputs.add(outputs)
         if (
             ("roana_ios_yolo status=ready" in line or "roana_ios_yolo status=ok" in line)
             and "vision=" in line
@@ -102,6 +119,15 @@ def parse_log(log_path: Path) -> dict[str, object]:
                 yolo_vision_orientations.add(vision_orientation)
         if "roana_ios_depth status=model_description" in line:
             depth_descriptions.append(line)
+            resource = fields.get("resource")
+            inputs = fields.get("inputs")
+            outputs = fields.get("outputs")
+            if resource:
+                depth_description_resources.add(resource)
+            if inputs:
+                depth_description_inputs.add(inputs)
+            if outputs:
+                depth_description_outputs.add(outputs)
         if "roana_ios_depth status=ok" in line:
             depth_ok.append(line)
             if "vision=" in line:
@@ -209,6 +235,12 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "avg_depth_ms": rounded(mean(depth_elapsed), 2) if depth_elapsed else 0.0,
         "yolo_description_count": len(yolo_descriptions),
         "depth_description_count": len(depth_descriptions),
+        "yolo_description_resources": sorted(yolo_description_resources),
+        "depth_description_resources": sorted(depth_description_resources),
+        "yolo_description_inputs": sorted(yolo_description_inputs),
+        "yolo_description_outputs": sorted(yolo_description_outputs),
+        "depth_description_inputs": sorted(depth_description_inputs),
+        "depth_description_outputs": sorted(depth_description_outputs),
         "yolo_vision_orientation_count": len(yolo_vision_orientation_lines),
         "depth_vision_orientation_count": len(depth_vision_orientation_lines),
         "preview_vision_orientations": sorted(preview_vision_orientations),
@@ -305,10 +337,30 @@ def missing_evidence(
         missing.append("yolo_inference")
     if require_yolo_description and details["yolo_description_count"] < 1:
         missing.append("yolo_model_description")
+    if require_yolo_description and details["yolo_description_count"] >= 1:
+        if EXPECTED_YOLO_RESOURCE not in details["yolo_description_resources"]:
+            missing.append("yolo_model_resource")
+        if not has_model_feature_contract(
+            inputs=details["yolo_description_inputs"],
+            outputs=details["yolo_description_outputs"],
+            required_input="image_",
+            required_output=None,
+        ):
+            missing.append("yolo_model_features")
     if require_depth and details["depth_ok_count"] < 1:
         missing.append("depth_inference")
     if require_depth_description and details["depth_description_count"] < 1:
         missing.append("depth_model_description")
+    if require_depth_description and details["depth_description_count"] >= 1:
+        if EXPECTED_DEPTH_RESOURCE not in details["depth_description_resources"]:
+            missing.append("depth_model_resource")
+        if not has_model_feature_contract(
+            inputs=details["depth_description_inputs"],
+            outputs=details["depth_description_outputs"],
+            required_input="image_",
+            required_output="multiarray_",
+        ):
+            missing.append("depth_model_features")
     if require_vision_orientation and require_yolo and details["yolo_vision_orientation_count"] < 1:
         missing.append("yolo_vision_orientation")
     if require_vision_orientation and require_depth and details["depth_vision_orientation_count"] < 1:
@@ -342,6 +394,24 @@ def missing_evidence(
     if require_corridor and not details["stop_corridor_feedback"]:
         missing.append("corridor_stop_feedback")
     return missing
+
+
+def has_model_feature_contract(
+    *,
+    inputs: object,
+    outputs: object,
+    required_input: str | None,
+    required_output: str | None,
+) -> bool:
+    input_values = [str(value) for value in inputs if str(value) not in {"", "unknown"}]
+    output_values = [str(value) for value in outputs if str(value) not in {"", "unknown"}]
+    if not input_values or not output_values:
+        return False
+    if required_input and not any(required_input in value for value in input_values):
+        return False
+    if required_output and not any(required_output in value for value in output_values):
+        return False
+    return True
 
 
 def build_parser() -> argparse.ArgumentParser:

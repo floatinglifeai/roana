@@ -100,12 +100,16 @@ Updated: 2026-05-30.
     aggregation, and constant-output normalization.
 - iOS model asset contract:
   - Manifest exists at `ios/Roana/Roana/ModelAssets/manifest.json`.
+  - The manifest records expected model contracts: YOLO11n image input
+    `640x640` with Vision object-observation output, and Depth Anything image
+    input `518x518` with `MLMultiArray` output.
   - The app target copies `ModelAssets` as a bundle resource.
   - `ModelAssetResourceLocator` looks for both root-bundled and
     `ModelAssets/`-nested `YOLO11n` and `DepthAnythingV2Small` resources with
     `.mlmodelc` or `.mlpackage` extensions.
-  - `scripts/check-ios-model-assets.py` validates the manifest and can enforce
-    local asset presence with `--require-present`.
+  - `scripts/check-ios-model-assets.py` validates manifest schema, expected
+    model contracts, and can enforce local asset presence with
+    `--require-present`.
   - `scripts/install-ios-model-assets.py` stages local `.mlpackage` or
     `.mlmodelc` directories into the expected bundle names by copy or symlink.
   - Current local model asset status is intentionally `missing` because large
@@ -144,7 +148,8 @@ Updated: 2026-05-30.
     `run_s` frame evidence. V0a/V0b defaults require YOLO model-description
     evidence, and V0b defaults require Depth Anything model-description
     evidence, so the first model-backed device artifact proves the exported
-    Core ML feature contract instead of only proving inference callbacks.
+    Core ML resource and feature contract instead of only proving inference
+    callbacks.
     V0a/V0b defaults require Vision orientation evidence from the model logs.
     V0b defaults also require p95 frame cadence at or below 100 ms and thermal
     state no worse than `fair`, matching the corridor-demo ≥10 FPS /

@@ -62,6 +62,9 @@ python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/n
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
 python3 "$ROOT_DIR/scripts/check-ios-model-assets.py" \
   --manifest "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
+grep -q '"expectedOutputs"' "$IOS_DIR/Roana/ModelAssets/manifest.json"
+grep -q '"VNRecognizedObjectObservation"' "$IOS_DIR/Roana/ModelAssets/manifest.json"
+grep -q '"MLMultiArray"' "$IOS_DIR/Roana/ModelAssets/manifest.json"
 python3 - <<'PY' "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
 import sys
 import xml.etree.ElementTree as ET
@@ -113,6 +116,7 @@ grep -q "roana_ios_corridor_feedback" "$IOS_DIR/Roana/Speech/CorridorFeedbackDis
 grep -q "feedbackDispatcher" "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift"
 grep -q "MLMultiArray" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
 grep -q "expectedInputWidth = 518" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
+grep -q "expectedInputHeight = 518" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
 grep -q "roana_ios_depth" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "computeUnits = .all" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "ModelAssetResourceLocator" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
