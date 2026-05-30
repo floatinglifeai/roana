@@ -38,6 +38,7 @@ required_files=(
   "$IOS_DIR/Roana/Models/ModelDescriptionLogger.swift"
   "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
+  "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/Inference/main.swift"
@@ -62,6 +63,7 @@ python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/n
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
 grep -q "matched_yolo_speech_labels" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "yolo_speech_match" "$ROOT_DIR/scripts/analyze-ios-log.py"
+grep -q "audio_session_active" "$ROOT_DIR/scripts/analyze-ios-log.py"
 python3 "$ROOT_DIR/scripts/check-ios-model-assets.py" \
   --manifest "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 grep -q '"expectedOutputs"' "$IOS_DIR/Roana/ModelAssets/manifest.json"
@@ -113,6 +115,15 @@ grep -q "orientation.cgImageOrientation" "$IOS_DIR/Roana/Depth/DepthAnythingRunn
 grep -Fq 'vision=\(orientation.visionOrientationName)' "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -Fq 'vision=\(orientation.visionOrientationName)' "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "AVSpeechSynthesizer" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+grep -q "AVAudioSession.sharedInstance" "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
+grep -q "#if os(iOS)" "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
+grep -q "category=portable_smoke" "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
+grep -q "mode: .spokenAudio" "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
+grep -q "options: \\[.duckOthers\\]" "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
+grep -q "SpeechAudioSession.swift in Sources" "$PROJECT"
+grep -q "roana_ios_audio_session" "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
+grep -q "SpeechAudioSession.activate()" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+grep -q "SpeechAudioSession.activate()" "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift"
 grep -q "roana_ios_yolo" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -q "roana_ios_speech" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
 grep -q "near_obstacle" "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift"
@@ -145,6 +156,7 @@ swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorGridFusion.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift" \
+  "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift" \
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift" \
   "$IOS_DIR/RoanaTests/main.swift" \
   -o "$SMOKE_BINARY"
@@ -155,6 +167,7 @@ swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorGridFusion.swift" \
   "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift" \
+  "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift" \
   "$IOS_DIR/Roana/Speech/CorridorFeedbackDispatcher.swift" \
   "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift" \
   "$IOS_DIR/RoanaTests/Parity/main.swift" \

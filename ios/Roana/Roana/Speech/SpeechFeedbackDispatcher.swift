@@ -34,6 +34,14 @@ final class SpeechFeedbackDispatcher {
         }
 
         let message = message(for: detection)
+        guard SpeechAudioSession.activate() else {
+            print(
+                "roana_ios_speech status=suppressed reason=audio_session_failed " +
+                    "label=\(sanitizeSpeechLogValue(detection.label)) score=\(detection.scorePercent)",
+            )
+            return
+        }
+
         let utterance = AVSpeechUtterance(string: message)
         utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier) ??
             AVSpeechSynthesisVoice(language: "en-US")

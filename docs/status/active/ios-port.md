@@ -69,6 +69,10 @@ Updated: 2026-05-30.
   - Detection timing logs use `roana_ios_yolo`.
   - Detection-to-speech wiring uses `AVSpeechSynthesizer` and logs
     `roana_ios_speech` for the YOLO-only V0a path.
+  - Speech output now activates an `AVAudioSession` with playback /
+    spoken-audio / duck-others settings before queuing utterances and logs
+    `roana_ios_audio_session`, giving future device artifacts proof that speech
+    was prepared for audible output.
   - V0a log analysis now requires queued speech to share a label with an
     observed YOLO detection, so the first model-backed artifact proves a
     detection-to-speech closed loop rather than independent model and speech
@@ -85,6 +89,8 @@ Updated: 2026-05-30.
   - Swift `CorridorFeedbackDispatcher` ports Android's changed-state and
     initial-emergency-STOP speech rules, logs `roana_ios_corridor_feedback`,
     and is wired into the camera corridor pipeline.
+  - Corridor feedback uses the same speech audio-session activation path before
+    queuing command utterances.
   - When depth/corridor feedback is active, generic YOLO object speech is
     suppressed with `roana_ios_speech status=suppressed` and
     `reason=corridor_feedback_active`; corridor feedback owns spoken guidance
@@ -157,7 +163,8 @@ Updated: 2026-05-30.
     logs, ordered background-stop/restart evidence, idle-timer disable/enable
     evidence, model/corridor/speech evidence, and inference coordinator
     scheduled/skipped/finished counts. V0a speech gates require a queued speech
-    label that matches a YOLO detection label, and V0b log gates also require a
+    label that matches a YOLO detection label. V0a/V0b speech gates require
+    audio-session activation evidence, and V0b log gates also require a
     machine-checkable fail-safe STOP artifact for frame-loss safety.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run

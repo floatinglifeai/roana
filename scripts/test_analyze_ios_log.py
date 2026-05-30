@@ -90,6 +90,7 @@ def fake_log(
             "roana_ios_corridor decision=STRAIGHT state=STRAIGHT "
             "reason=path_found path_cells=15 pending=none pending_count=0"
         )
+        lines.append("roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers")
         lines.append(
             "roana_ios_corridor_feedback status=spoken id=guidance-1 "
             "command=STRAIGHT message=go_straight reason=path_found "
@@ -106,6 +107,7 @@ def fake_log(
                 "label=person score=91"
             )
     if include_speech:
+        lines.append("roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers")
         lines.append(f"roana_ios_speech status=queued label={speech_label} score=91 message=Person_ahead")
     if include_fail_safe_stop:
         lines.append("roana_ios_safety event=fail_safe_stop reason=frame_loss")
@@ -228,6 +230,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(["person"], data["details"]["yolo_detection_labels"])
         self.assertEqual(["person"], data["details"]["speech_labels"])
         self.assertEqual(["person"], data["details"]["matched_yolo_speech_labels"])
+        self.assertEqual(2, data["details"]["audio_session_active_count"])
+        self.assertEqual(0, data["details"]["audio_session_failed_count"])
         self.assertEqual(1, data["details"]["safety_fail_safe_stop_count"])
         self.assertEqual(["frame_loss"], data["details"]["safety_fail_safe_stop_reasons"])
 
@@ -323,6 +327,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "corridor_decision",
                 "speech_queued",
                 "yolo_speech_match",
+                "audio_session_active",
                 "preview_orientation",
                 "capture_orientation",
                 "camera_vision_orientation",
@@ -410,6 +415,45 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(["person"], data["details"]["yolo_detection_labels"])
         self.assertEqual(["chair"], data["details"]["speech_labels"])
         self.assertEqual([], data["details"]["matched_yolo_speech_labels"])
+
+    def test_reports_missing_audio_session_for_speech(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_speech=True,
+            ).replace(
+                "roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers\n",
+                "",
+            ),
+            "--require-yolo",
+            "1",
+            "--require-speech",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("audio_session_active", data["missing"])
+
+    def test_reports_audio_session_failure(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_speech=True,
+            ).replace(
+                "roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers",
+                "roana_ios_audio_session status=failed error=test",
+            ),
+            "--require-yolo",
+            "1",
+            "--require-speech",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("audio_session_active", data["missing"])
+        self.assertIn("audio_session_no_failure", data["missing"])
 
     def test_reports_missing_fail_safe_stop_evidence(self) -> None:
         data = self.run_analyzer(

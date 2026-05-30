@@ -78,6 +78,7 @@ def fake_log(
             "roana_ios_corridor decision=STRAIGHT state=STRAIGHT "
             "reason=path_found path_cells=15 pending=none pending_count=0"
         )
+        lines.append("roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers")
         lines.append(
             "roana_ios_corridor_feedback status=spoken id=guidance-1 "
             "command=STRAIGHT message=go_straight reason=path_found "
@@ -94,6 +95,7 @@ def fake_log(
                 "label=person score=91"
             )
     if include_speech:
+        lines.append("roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers")
         lines.append(f"roana_ios_speech status=queued label={speech_label} score=91 message=Person_ahead")
     if include_fail_safe_stop:
         lines.append("roana_ios_safety event=fail_safe_stop reason=frame_loss")
@@ -173,6 +175,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("speech_queued", details["missing"])
         self.assertIn("yolo_speech_match", details["missing"])
+        self.assertIn("audio_session_active", details["missing"])
         self.assertIn("preview_orientation", details["missing"])
         self.assertIn("capture_orientation", details["missing"])
         self.assertIn("camera_background_restart", details["missing"])
@@ -207,6 +210,32 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(["person"], details["analysis"]["details"]["yolo_detection_labels"])
         self.assertEqual(["chair"], details["analysis"]["details"]["speech_labels"])
         self.assertEqual([], details["analysis"]["details"]["matched_yolo_speech_labels"])
+
+    def test_v0a_defaults_require_audio_session_evidence(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_speech=True,
+                include_inference=True,
+            ).replace(
+                "roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers\n",
+                "",
+            ),
+            "--gate",
+            "v0a",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("audio_session_active", details["missing"])
 
     def test_s0_defaults_require_sixty_second_run(self) -> None:
         status, details = self.run_verifier(

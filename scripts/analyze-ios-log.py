@@ -65,6 +65,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
     speech_queued = []
     speech_labels = set()
     yolo_detection_labels = set()
+    audio_session_active = []
+    audio_session_failed = []
     safety_fail_safe_stop = []
     safety_fail_safe_stop_reasons = set()
     yolo_vision_orientation_lines = []
@@ -151,6 +153,10 @@ def parse_log(log_path: Path) -> dict[str, object]:
             label = fields.get("label")
             if label:
                 speech_labels.add(label)
+        if "roana_ios_audio_session status=active" in line:
+            audio_session_active.append(line)
+        if "roana_ios_audio_session status=failed" in line:
+            audio_session_failed.append(line)
         if "roana_ios_safety event=fail_safe_stop" in line:
             safety_fail_safe_stop.append(line)
             reason = fields.get("reason")
@@ -271,6 +277,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "speech_labels": sorted(speech_labels),
         "yolo_detection_labels": sorted(yolo_detection_labels),
         "matched_yolo_speech_labels": matched_speech_labels,
+        "audio_session_active_count": len(audio_session_active),
+        "audio_session_failed_count": len(audio_session_failed),
         "safety_fail_safe_stop_count": len(safety_fail_safe_stop),
         "safety_fail_safe_stop_reasons": sorted(safety_fail_safe_stop_reasons),
         "preview_orientation_count": len(preview_orientation_lines),
@@ -406,6 +414,10 @@ def missing_evidence(
         missing.append("speech_queued")
     if require_speech and require_yolo and not details["matched_yolo_speech_labels"]:
         missing.append("yolo_speech_match")
+    if (require_speech or require_corridor) and details["audio_session_active_count"] < 1:
+        missing.append("audio_session_active")
+    if (require_speech or require_corridor) and details["audio_session_failed_count"] > 0:
+        missing.append("audio_session_no_failure")
     if require_orientation and details["preview_orientation_count"] < 1:
         missing.append("preview_orientation")
     if require_orientation and details["capture_orientation_count"] < 1:

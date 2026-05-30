@@ -39,6 +39,14 @@ final class CorridorFeedbackDispatcher {
         self.init(
             speaker: { message, _, utteranceId in
                 DispatchQueue.main.async {
+                    guard SpeechAudioSession.activate() else {
+                        print(
+                            "roana_ios_corridor_feedback_audio status=suppressed " +
+                                "reason=audio_session_failed id=\(utteranceId)",
+                        )
+                        return
+                    }
+
                     let utterance = AVSpeechUtterance(string: message)
                     utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier) ??
                         AVSpeechSynthesisVoice(language: "en-US")
