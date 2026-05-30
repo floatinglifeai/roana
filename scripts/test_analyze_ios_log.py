@@ -27,6 +27,8 @@ def fake_log(
     include_speech: bool = False,
     include_inference: bool = False,
     inference_skipped: int = 0,
+    p95_ms: float = 34.0,
+    thermal_state: str = "nominal",
     include_orientation: bool = False,
     include_background_stop: bool = False,
     include_background_restart: bool = False,
@@ -46,8 +48,8 @@ def fake_log(
         lines.append(
             "roana_ios_frame_stats "
             f"width=1280 height=720 pixel_format=420YpCbCr8BiPlanarFullRange "
-            f"interval_ms=33.30 p50_ms=33.30 p95_ms=34.00 dropped={dropped} "
-            f"backlog={backlog} thermal=nominal frame={index}"
+            f"interval_ms=33.30 p50_ms=33.30 p95_ms={p95_ms:.2f} dropped={dropped} "
+            f"backlog={backlog} thermal={thermal_state} frame={index}"
         )
     if include_yolo:
         if include_inference:
@@ -248,6 +250,28 @@ class AnalyzeIosLogTest(unittest.TestCase):
 
         self.assertEqual("blocked", data["status"])
         self.assertEqual({"backlog<=0", "dropped<=0"}, set(data["missing"]))
+
+    def test_reports_slow_frame_cadence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=120, p95_ms=125.0),
+            "--max-p95-ms",
+            "100",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("p95_ms<=100", data["missing"])
+        self.assertEqual(125.0, data["details"]["max_p95_ms"])
+
+    def test_reports_thermal_throttle(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=120, thermal_state="serious"),
+            "--max-thermal-state",
+            "fair",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("thermal<=fair", data["missing"])
+        self.assertEqual("serious", data["details"]["max_thermal_state"])
 
     def test_reports_excessive_inference_skips(self) -> None:
         data = self.run_analyzer(

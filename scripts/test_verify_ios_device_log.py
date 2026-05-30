@@ -24,6 +24,8 @@ def fake_log(
     include_corridor: bool = False,
     include_speech: bool = False,
     include_inference: bool = False,
+    p95_ms: float = 34.0,
+    thermal_state: str = "nominal",
     include_orientation: bool = False,
     include_background_stop: bool = False,
     include_background_restart: bool = False,
@@ -42,8 +44,8 @@ def fake_log(
         lines.append(
             "roana_ios_frame_stats "
             "width=1280 height=720 pixel_format=420YpCbCr8BiPlanarFullRange "
-            f"interval_ms=33.30 p50_ms=33.30 p95_ms=34.00 dropped=0 backlog=0 "
-            f"thermal=nominal frame={index}"
+            f"interval_ms=33.30 p50_ms=33.30 p95_ms={p95_ms:.2f} dropped=0 backlog=0 "
+            f"thermal={thermal_state} frame={index}"
         )
     if include_yolo:
         if include_inference:
@@ -212,6 +214,60 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(details["status"], "blocked")
         self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("depth_model_description", details["missing"])
+
+    def test_v0b_defaults_require_ten_fps_cadence(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                p95_ms=125.0,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_speech=True,
+                include_inference=True,
+            ),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("p95_ms<=100", details["missing"])
+
+    def test_v0b_defaults_reject_thermal_throttle(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                thermal_state="serious",
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_speech=True,
+                include_inference=True,
+            ),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("thermal<=fair", details["missing"])
 
     def test_s0_defaults_require_orientation_evidence(self) -> None:
         status, details = self.run_verifier(
