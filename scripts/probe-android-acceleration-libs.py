@@ -102,9 +102,13 @@ def text_or_empty(element: ET.Element | None) -> str:
     return element.text.strip() if element is not None and element.text else ""
 
 
-def probe_artifact(artifact: dict[str, str], timeout_seconds: int) -> dict[str, object]:
+def probe_artifact(
+    artifact: dict[str, str],
+    timeout_seconds: int,
+    fetcher=fetch_text,
+) -> dict[str, object]:
     try:
-        metadata = parse_metadata(fetch_text(artifact["metadata_url"], timeout_seconds))
+        metadata = parse_metadata(fetcher(artifact["metadata_url"], timeout_seconds))
         status = "available" if metadata.latest else "unavailable"
         return {
             **artifact,
@@ -138,23 +142,32 @@ def decision(results: list[dict[str, object]]) -> str:
     return "All tracked candidate artifacts are resolvable. Keep the passing QNN HTP delegate as the production path; next optional spike is LiteRT metadata/API exploration, with ORT QNN reserved as a diagnostic cross-check and ExecuTorch deferred."
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--timeout-seconds", type=int, default=20)
-    parser.add_argument("--output", type=Path)
-    args = parser.parse_args()
-
+def build_report(
+    *,
+    artifacts: tuple[dict[str, str], ...] = DEFAULT_ARTIFACTS,
+    timeout_seconds: int = 20,
+    fetcher=fetch_text,
+) -> dict[str, object]:
     results = [
-        probe_artifact(artifact, timeout_seconds=args.timeout_seconds)
-        for artifact in DEFAULT_ARTIFACTS
+        probe_artifact(artifact, timeout_seconds=timeout_seconds, fetcher=fetcher)
+        for artifact in artifacts
     ]
-    report = {
+    return {
         "status": "passed" if all(result["status"] == "available" for result in results) else "failed",
         "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "hypothesis": "Android acceleration-library candidates are discoverable before any runtime migration work starts",
         "decision": decision(results),
         "artifacts": results,
     }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--timeout-seconds", type=int, default=20)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+
+    report = build_report(timeout_seconds=args.timeout_seconds)
 
     payload = json.dumps(report, indent=2, sort_keys=True)
     print(payload)
