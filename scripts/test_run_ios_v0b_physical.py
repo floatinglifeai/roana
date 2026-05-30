@@ -51,6 +51,7 @@ class RunIosV0bPhysicalTest(unittest.TestCase):
 
         details = json.loads(result.stdout)
         self.assertNotIn("log_file", details["missing"])
+        self.assertNotIn("iphone_device_available", details["missing"])
 
     def test_blocked_dry_run_with_team_reports_planned_commands(self) -> None:
         env = os.environ.copy()

@@ -389,8 +389,9 @@ ROANA_IOS_DEVELOPMENT_TEAM=XP2NFR9M33 scripts/run-ios-v0b-physical.py
 The wrapper checks model assets and device readiness, builds
 `Roana-V0b-Corridor`, installs the signed app, launches `app.roana.ios` with
 `--roana-enable-corridor --roana-debug-fail-safe-stop`, then captures and
-verifies the V0b log through `scripts/capture-ios-device-log.py`. It blocks
-with `iphone_device_available` while CoreDevice reports the phone as
+verifies the V0b log through `scripts/capture-ios-device-log.py`. It checks the
+specific `--device` target, not just any connected iPhone, and blocks with
+`iphone_device_target_available` while CoreDevice reports that target as
 offline/unavailable. Add `--dry-run` to preview the exact build/install/capture
 commands even while the phone is unavailable; keep the team ID environment-only.
 

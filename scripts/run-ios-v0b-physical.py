@@ -156,6 +156,7 @@ def main() -> int:
     device_missing = verify_ios_device_log.host_readiness(
         require_device=True,
         skip_host_checks=False,
+        target_identifier=args.device,
     )
     missing.extend(device_missing)
 
