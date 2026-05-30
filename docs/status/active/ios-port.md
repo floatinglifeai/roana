@@ -49,7 +49,9 @@ Updated: 2026-05-30.
   default S0 camera runs remain a true no-model skeleton, V0a runs enable YOLO
   only, and V0b runs enable YOLO plus Depth Anything/corridor feedback. The
   physical log verifier now checks `roana_ios_model_mode` by gate so artifacts
-  prove which path was actually exercised.
+  prove which path was actually exercised. Frame-loss safety is routed through
+  corridor STOP feedback only in corridor mode; S0/V0a still log dropped frames
+  without emitting corridor guidance.
 - Foreground/background handling stops camera work in background and restarts
   when active; the physical log verifier now requires ordered background-stop
   then camera-restart evidence for granted-camera S0/V0 artifacts.

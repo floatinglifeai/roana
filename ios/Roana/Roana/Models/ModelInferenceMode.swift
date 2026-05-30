@@ -12,15 +12,21 @@ enum ModelInferenceMode: String {
         #if DEBUG
             let arguments = Set(ProcessInfo.processInfo.arguments)
             let environment = ProcessInfo.processInfo.environment
-            if arguments.contains("--roana-enable-corridor") ||
-                environment["ROANA_IOS_MODEL_MODE"] == "corridor" {
-                return .corridor
-            }
-            if arguments.contains("--roana-enable-yolo") ||
-                environment["ROANA_IOS_MODEL_MODE"] == "yolo" {
-                return .yolo
-            }
+            return resolve(arguments: arguments, environment: environment)
+        #else
+        return .disabled
         #endif
+    }
+
+    static func resolve(arguments: Set<String>, environment: [String: String]) -> ModelInferenceMode {
+        if arguments.contains("--roana-enable-corridor") ||
+            environment["ROANA_IOS_MODEL_MODE"] == "corridor" {
+            return .corridor
+        }
+        if arguments.contains("--roana-enable-yolo") ||
+            environment["ROANA_IOS_MODEL_MODE"] == "yolo" {
+            return .yolo
+        }
         return .disabled
     }
 

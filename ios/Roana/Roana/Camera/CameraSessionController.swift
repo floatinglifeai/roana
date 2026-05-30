@@ -34,7 +34,7 @@ final class CameraSessionController: NSObject, ObservableObject {
     override init() {
         let inferenceMode = ModelInferenceMode.current()
         modelInferenceMode = inferenceMode
-        debugFailSafeStopEnabled = DebugFailSafeStop.isEnabled()
+        debugFailSafeStopEnabled = inferenceMode.runsDepth && DebugFailSafeStop.isEnabled()
         obstacleDetector = inferenceMode.runsYolo ? YoloObstacleDetector() : nil
         depthRunner = inferenceMode.runsDepth ? DepthAnythingRunner() : nil
         super.init()
@@ -277,7 +277,6 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
         if !scheduled {
             failSafeStop(reason: "frame_loss")
         }
-
     }
 
     private func runInference(sampleBuffer: CMSampleBuffer) {
@@ -314,6 +313,10 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
     }
 
     private func failSafeStop(reason: String) {
+        guard modelInferenceMode.runsDepth else {
+            return
+        }
+
         print("roana_ios_safety event=fail_safe_stop reason=\(sanitize(reason))")
         captureQueue.async { [weak self] in
             _ = self?.corridorPipeline.failSafeStop(reason: reason)
