@@ -24,6 +24,7 @@ def fake_log(
     include_depth: bool = False,
     include_depth_description: bool = False,
     include_corridor: bool = False,
+    corridor_guidance: bool = True,
     include_speech: bool = False,
     speech_label: str = "person",
     include_fail_safe_stop: bool = False,
@@ -89,18 +90,21 @@ def fake_log(
         )
     if include_corridor:
         lines.append(
-            "roana_ios_corridor decision=STRAIGHT state=STRAIGHT "
-            "reason=path_found path_cells=15 pending=none pending_count=0"
+            f"roana_ios_corridor decision={'STRAIGHT' if corridor_guidance else 'STOP'} "
+            f"state={'STRAIGHT' if corridor_guidance else 'STOP'} "
+            f"reason={'path_found' if corridor_guidance else 'near_obstacle'} "
+            f"path_cells={15 if corridor_guidance else 0} pending=none pending_count=0"
         )
         lines.append("roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers")
-        lines.append(
-            "roana_ios_corridor_feedback status=spoken id=guidance-1 "
-            "command=STRAIGHT message=go_straight reason=path_found "
-            "changed=true forced=false pending=none pending_count=0"
-        )
+        if corridor_guidance:
+            lines.append(
+                "roana_ios_corridor_feedback status=spoken id=guidance-1 "
+                "command=STRAIGHT message=go_straight reason=path_found "
+                "changed=true forced=false pending=none pending_count=0"
+            )
         lines.append(
             "roana_ios_corridor_feedback status=spoken id=stop-1 "
-            "command=STOP message=stop reason=low_confidence "
+            f"command=STOP message=stop reason={'low_confidence' if corridor_guidance else 'near_obstacle'} "
             "changed=true forced=false pending=none pending_count=0"
         )
         if not include_speech:
@@ -285,6 +289,60 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(2, data["details"]["corridor_feedback_spoken_count"])
         self.assertEqual(["corridor"], data["details"]["model_modes"])
         self.assertEqual(["frame_loss"], data["details"]["safety_fail_safe_stop_reasons"])
+
+    def test_replay_stop_fixture_can_disable_live_audio_and_guidance_requirements(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=3,
+                include_permission=False,
+                include_orientation=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                corridor_guidance=False,
+                model_mode="corridor",
+                run_seconds=2.0,
+            ).replace(
+                "roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers\n",
+                "",
+            ),
+            "--min-frame-stats",
+            "3",
+            "--min-run-seconds",
+            "2",
+            "--require-camera-start",
+            "0",
+            "--require-permission",
+            "0",
+            "--require-yolo",
+            "1",
+            "--require-yolo-description",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-depth-description",
+            "1",
+            "--require-vision-orientation",
+            "1",
+            "--require-corridor",
+            "1",
+            "--require-orientation",
+            "1",
+            "--require-audio-session",
+            "0",
+            "--require-corridor-guidance",
+            "0",
+            "--require-model-mode",
+            "corridor",
+        )
+
+        self.assertEqual("passed", data["status"])
+        self.assertEqual([], data["missing"])
+        self.assertEqual(0, data["details"]["audio_session_active_count"])
+        self.assertEqual("", data["details"]["normal_corridor_feedback"])
+        self.assertIn("command=STOP", data["details"]["stop_corridor_feedback"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
         data = self.run_analyzer(

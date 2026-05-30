@@ -84,4 +84,30 @@ expect(
     "missing model should return nil",
 )
 
+let environmentRootURL = makeBundle()
+createDirectory("YOLO11n.mlmodelc", in: environmentRootURL)
+let environmentYoloURL = ModelAssetResourceLocator.modelURL(
+    forResource: ModelAssetResourceLocator.yoloResourceName,
+    in: nestedBundle,
+    modelAssetsDirectory: environmentRootURL.path,
+)
+expect(environmentYoloURL?.lastPathComponent == "YOLO11n.mlmodelc", "directory override should prefer direct YOLO")
+expect(
+    environmentYoloURL?.deletingLastPathComponent().lastPathComponent == environmentRootURL.lastPathComponent,
+    "directory override should not require bundle lookup",
+)
+
+let nestedEnvironmentRootURL = makeBundle()
+createDirectory("ModelAssets/DepthAnythingV2Small.mlpackage", in: nestedEnvironmentRootURL)
+let environmentDepthURL = ModelAssetResourceLocator.modelURL(
+    forResource: ModelAssetResourceLocator.depthResourceName,
+    in: nestedBundle,
+    modelAssetsDirectory: nestedEnvironmentRootURL.path,
+)
+expect(environmentDepthURL?.lastPathComponent == "DepthAnythingV2Small.mlpackage", "directory override should find nested depth")
+expect(
+    environmentDepthURL?.deletingLastPathComponent().lastPathComponent == "ModelAssets",
+    "directory override should support ModelAssets nesting",
+)
+
 print("ModelAssetLocatorSmoke passed")
