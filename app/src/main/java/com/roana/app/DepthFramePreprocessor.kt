@@ -14,6 +14,9 @@ class DepthFramePreprocessor(
     }
 
     val inputByteCount: Int = targetWidth * targetHeight * RGB_CHANNELS * FLOAT_SIZE
+    private val yuvInputScratch = FloatArray(targetWidth * targetHeight * RGB_CHANNELS)
+    private val yuvSourceXs = IntArray(targetWidth)
+    private val yuvSourceYs = IntArray(targetHeight)
 
     fun newInputBuffer(): ByteBuffer =
         ByteBuffer.allocateDirect(inputByteCount).order(ByteOrder.nativeOrder())
@@ -25,6 +28,17 @@ class DepthFramePreprocessor(
         fillInputBuffer(frame.asSampler(), output)
 
     fun fillInputBuffer(sampler: RgbSampler, output: ByteBuffer): ByteBuffer {
+        if (sampler is CameraFrameConverter.YuvFrame) {
+            return sampler.fillDepthInputNearest(
+                targetWidth = targetWidth,
+                targetHeight = targetHeight,
+                output = output,
+                scratch = yuvInputScratch,
+                sourceXs = yuvSourceXs,
+                sourceYs = yuvSourceYs,
+            )
+        }
+
         require(output.capacity() == inputByteCount) {
             "Expected $inputByteCount-byte depth input buffer, got ${output.capacity()}"
         }

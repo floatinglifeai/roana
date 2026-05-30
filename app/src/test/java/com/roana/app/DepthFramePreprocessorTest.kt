@@ -1,5 +1,7 @@
 package com.roana.app
 
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -111,6 +113,17 @@ class DepthFramePreprocessorTest {
     }
 
     @Test
+    fun flattensDirectDepthAnythingOutputBuffer() {
+        val output = outputBuffer(0.1f, 0.2f, 0.3f, 0.4f)
+
+        val depthMap = DepthAnythingTensor.flattenOutput(output, rows = 2, cols = 2)
+
+        assertEquals(2, depthMap.rows)
+        assertEquals(2, depthMap.cols)
+        assertArrayEquals(floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f), depthMap.values, FLOAT_TOLERANCE)
+    }
+
+    @Test
     fun convertsDepthAnythingOutputDirectlyToPlannerGrid() {
         val output = arrayOf(
             arrayOf(
@@ -125,6 +138,25 @@ class DepthFramePreprocessorTest {
         assertEquals(15, grid.cols)
         assertArrayEquals(
             DepthAnythingTensor.flattenOutput(output).toPlannerGrid().toFloatArray(),
+            grid.toFloatArray(),
+            FLOAT_TOLERANCE,
+        )
+    }
+
+    @Test
+    fun directDepthOutputBufferToPlannerGridMatchesArrayOutput() {
+        val output = outputBuffer(0.1f, 0.2f, 0.3f, 0.4f)
+        val arrayOutput = arrayOf(
+            arrayOf(
+                arrayOf(floatArrayOf(0.1f), floatArrayOf(0.2f)),
+                arrayOf(floatArrayOf(0.3f), floatArrayOf(0.4f)),
+            ),
+        )
+
+        val grid = DepthAnythingTensor.outputToPlannerGrid(output, rows = 2, cols = 2)
+
+        assertArrayEquals(
+            DepthAnythingTensor.outputToPlannerGrid(arrayOutput).toFloatArray(),
             grid.toFloatArray(),
             FLOAT_TOLERANCE,
         )
@@ -149,8 +181,32 @@ class DepthFramePreprocessorTest {
         )
     }
 
+    @Test
+    fun optimizedDirectDepthOutputBufferToPlannerGridMatchesFlattenedGridForLargeOutput() {
+        val values = FloatArray(30 * 30) { it.toFloat() }
+        val output = outputBuffer(*values)
+
+        val grid = DepthAnythingTensor.outputToPlannerGrid(output, rows = 30, cols = 30)
+
+        assertArrayEquals(
+            DepthAnythingTensor.DepthMap(rows = 30, cols = 30, values = values)
+                .toPlannerGrid()
+                .toFloatArray(),
+            grid.toFloatArray(),
+            FLOAT_TOLERANCE,
+        )
+    }
+
     private fun rgb(red: Int, green: Int, blue: Int): Int =
         (red shl 16) or (green shl 8) or blue
+
+    private fun outputBuffer(vararg values: Float): ByteBuffer {
+        val buffer = ByteBuffer.allocateDirect(values.size * java.lang.Float.BYTES)
+            .order(ByteOrder.nativeOrder())
+        values.forEach(buffer::putFloat)
+        buffer.rewind()
+        return buffer
+    }
 
     private companion object {
         private const val FLOAT_TOLERANCE = 0.0001f

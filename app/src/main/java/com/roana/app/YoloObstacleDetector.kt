@@ -33,6 +33,7 @@ class YoloObstacleDetector(
     private val inputBuffer = ByteBuffer
         .allocateDirect(inputWidth * inputHeight * RGB_CHANNELS)
         .order(ByteOrder.nativeOrder())
+    private val inputScratch = ByteArray(inputWidth * inputHeight * RGB_CHANNELS)
     private val outputTensors = (0 until interpreter.getOutputTensorCount()).map { index ->
         val tensor = interpreter.getOutputTensor(index)
         val shape = tensor.shape()
@@ -69,22 +70,35 @@ class YoloObstacleDetector(
 
     fun detect(image: ImageProxy): YoloResult {
         val startedNs = System.nanoTime()
-        CameraFrameConverter.fillRgbInput(
+        val inputStartedNs = System.nanoTime()
+        CameraFrameConverter.fillRgbInputNearest(
             image = image,
             targetWidth = inputWidth,
             targetHeight = inputHeight,
             output = inputBuffer,
+            scratch = inputScratch,
         )
+        val inputMs = elapsedMs(inputStartedNs)
 
         outputTensors.forEach { it.buffer.rewind() }
+        val inferenceStartedNs = System.nanoTime()
         interpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputMap)
+        val modelMs = elapsedMs(inferenceStartedNs)
         outputTensors.forEach { it.buffer.rewind() }
 
+        val decodeStartedNs = System.nanoTime()
         val bestDetection = bestDetection()
-        val inferenceMs = (System.nanoTime() - startedNs).toDouble() / NS_PER_MS
+        val decodeMs = elapsedMs(decodeStartedNs)
+        val inferenceMs = elapsedMs(startedNs)
         return YoloResult(
             inferenceMs = inferenceMs,
             bestDetection = bestDetection,
+            timing = YoloTiming(
+                inputMs = inputMs,
+                modelMs = modelMs,
+                decodeMs = decodeMs,
+                totalMs = inferenceMs,
+            ),
         )
     }
 
@@ -239,9 +253,20 @@ class YoloObstacleDetector(
     private fun dequantize(value: Byte, quantization: Quantization): Float =
         quantization.scale * (value.toInt() - quantization.zeroPoint)
 
+    private fun elapsedMs(startedNs: Long): Double =
+        (System.nanoTime() - startedNs).toDouble() / NS_PER_MS
+
     data class YoloResult(
         val inferenceMs: Double,
         val bestDetection: YoloDetection?,
+        val timing: YoloTiming? = null,
+    )
+
+    data class YoloTiming(
+        val inputMs: Double,
+        val modelMs: Double,
+        val decodeMs: Double,
+        val totalMs: Double,
     )
 
     data class YoloDetection(

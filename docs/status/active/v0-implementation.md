@@ -199,6 +199,25 @@ Updated: 2026-05-30.
     V0b performance blocker is not steady-state QNN inference; it is live
     CameraX/analyzer work around the model, especially depth input preparation
     and serialized scheduling.
+  - Live analyzer timing artifact: `logs/v0a-device-20260530T003629Z.log`.
+    Stage timing showed the original live bottleneck was outside QNN model
+    execution: Depth input preparation averaged `896.83 ms`, YOLO input
+    preparation averaged `1145.85 ms`, while QNN model execution remained much
+    lower.
+  - Live V0b performance fix artifact:
+    `logs/v0a-device-20260530T011426Z.log`. The short V0b device gate now
+    passes on the Snapdragon 8 Gen 2 phone with QNN HTP active:
+    `depth_elapsed_ms=53.37`, `depth_fps=18.737`,
+    `depth_input_elapsed_ms=16.74`, `depth_grid_elapsed_ms=7.23`,
+    `corridor_total_elapsed_ms=78.33`, `yolo_total_elapsed_ms=113.25`,
+    `live_corridor_count=356`, `gap_count=0`, normal STRAIGHT guidance
+    feedback spoken, and the low-confidence safe-stop proof spoken. The fix
+    keeps the no-CPU-fallback direction: it reduces live CameraX preprocessing
+    and scheduling overhead by using direct-buffer output for Depth Anything,
+    heap scratch plus bulk copies for live YUV input/output conversion, a
+    depth-specific luma fast path, YOLO/depth frame isolation, and a frame-loss
+    policy that distinguishes startup/light CameraX jitter from severe runtime
+    frame loss.
 
 ## Stop Condition
 
@@ -210,30 +229,26 @@ machine. QNN HTP transport is now operational on the current target-class
 Snapdragon 8 Gen 2 phone after declaring the public vendor FastRPC native
 library and using explicit app native-library paths for QNN. Both model smoke
 tests pass on QNN HTP, and the live corridor path executes QNN depth frames.
-The full V0b corridor demo is still not proven because the current serial
-CameraX analyzer loop runs live Depth Anything at about 5.7 FPS and produces
-frame gaps, while standalone QNN model timing shows the Depth model itself can
-run in about 53 ms. The app remains below the 10 FPS / no-frame-gap V0b gate
-because of live preprocessing/scheduling overhead. Emergency STOP behavior for
-near obstacles, frame loss, and low confidence is covered in unit tests and
-real-device safe-stop proof.
+The short V0b machine gate now passes on the target Snapdragon 8 Gen 2 phone:
+live Depth Anything runs above the 10 FPS target on QNN HTP, frame-loss count is
+zero under the refined runtime safety policy, normal corridor guidance is
+spoken, and low-confidence safe STOP is proven on device. Emergency STOP
+behavior for near obstacles, severe runtime frame loss, and low confidence is
+covered in unit tests and real-device safe-stop proof. The 30-minute thermal
+gate and known-corridor sighted-spotter proof remain the next V0b proofs before
+calling the full corridor demo complete.
 
 ## Next Agent-Owned Step
 
-Use `scripts/verify-v0b-device.sh` as the next machine gate. The next
-agent-owned step is no longer QNN transport diagnosis; it is live pipeline
-performance and scheduling. Focus first on timing and reducing the live
-CameraX -> Depth input-preparation path, because QNN model-only timing is fast
-enough for the 10 FPS target but live analyzer frames are not. Then reduce
-serialized analyzer work so STRAIGHT/LEFT/RIGHT guidance can survive the
-3-frame confirmation instead of being reset by frame-loss STOPs. Do not add a
-lower-performance CPU fallback profile. After the short machine V0b gate
-passes, run `RUN_THERMAL_GATE=1
-scripts/verify-v0b-device.sh` and then the known-corridor sighted-spotter proof.
+Use `scripts/verify-v0b-device.sh` as the short machine gate and
+`RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the next Android proof.
+The next agent-owned Android step is the 30-minute thermal run on the target
+phone, followed by the known-corridor sighted-spotter proof when a human can
+perform it. Do not add a lower-performance CPU fallback profile.
 
 ## No-Touch Scope
 
 - Do not start BLE, outdoor navigation, cloud/VLM, or custom training work in
   V0.
-- Do not add fallback-performance tuning for the Snapdragon 8 Gen 2 failure
-  until the QNN delegate rejection is diagnosed.
+- Do not add fallback-performance tuning for the Snapdragon 8 Gen 2 path; QNN
+  HTP transport and the short live V0b gate are now proven on the target phone.

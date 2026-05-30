@@ -38,6 +38,25 @@ object CameraFrameConverter {
         )
     }
 
+    fun fillRgbInputNearest(
+        image: ImageProxy,
+        targetWidth: Int,
+        targetHeight: Int,
+        output: ByteBuffer,
+        scratch: ByteArray? = null,
+    ): ByteBuffer {
+        require(image.format == ImageFormat.YUV_420_888) {
+            "Expected YUV_420_888 image, got ${image.format}"
+        }
+        return fillRgbInputNearest(
+            sampler = image.toYuvFrame(),
+            targetWidth = targetWidth,
+            targetHeight = targetHeight,
+            output = output,
+            scratch = scratch,
+        )
+    }
+
     fun fillYuv420RgbInput(
         width: Int,
         height: Int,
@@ -61,6 +80,33 @@ object CameraFrameConverter {
             targetWidth = targetWidth,
             targetHeight = targetHeight,
             output = output,
+        )
+
+    fun fillYuv420RgbInputNearest(
+        width: Int,
+        height: Int,
+        rotationDegrees: Int,
+        yPlane: YuvPlane,
+        uPlane: YuvPlane,
+        vPlane: YuvPlane,
+        targetWidth: Int,
+        targetHeight: Int,
+        output: ByteBuffer,
+        scratch: ByteArray? = null,
+    ): ByteBuffer =
+        fillRgbInputNearest(
+            sampler = YuvFrame(
+                sourceWidth = width,
+                sourceHeight = height,
+                rotationDegrees = rotationDegrees,
+                yPlane = yPlane,
+                uPlane = uPlane,
+                vPlane = vPlane,
+            ),
+            targetWidth = targetWidth,
+            targetHeight = targetHeight,
+            output = output,
+            scratch = scratch,
         )
 
     fun yuv420ToRgbFrame(
@@ -105,6 +151,20 @@ object CameraFrameConverter {
         output.rewind()
         return output
     }
+
+    private fun fillRgbInputNearest(
+        sampler: YuvFrame,
+        targetWidth: Int,
+        targetHeight: Int,
+        output: ByteBuffer,
+        scratch: ByteArray?,
+    ): ByteBuffer =
+        sampler.fillRgbInputNearest(
+            targetWidth = targetWidth,
+            targetHeight = targetHeight,
+            output = output,
+            scratch = scratch,
+        )
 
     private fun yuv420ToRgbFrame(sampler: YuvFrame): DepthFramePreprocessor.RgbFrame {
         val pixels = IntArray(sampler.width * sampler.height)
@@ -161,18 +221,168 @@ object CameraFrameConverter {
         }
 
         fun rgbIntAt(x: Int, y: Int): Int {
-            val source = sourceCoordinates(
-                targetX = x,
-                targetY = y,
-                sourceWidth = sourceWidth,
-                sourceHeight = sourceHeight,
-                rotationDegrees = rotationDegrees,
-            )
+            val sourceX: Int
+            val sourceY: Int
+            when (rotationDegrees) {
+                0 -> {
+                    sourceX = x
+                    sourceY = y
+                }
+                90 -> {
+                    sourceX = y
+                    sourceY = sourceHeight - 1 - x
+                }
+                180 -> {
+                    sourceX = sourceWidth - 1 - x
+                    sourceY = sourceHeight - 1 - y
+                }
+                270 -> {
+                    sourceX = sourceWidth - 1 - y
+                    sourceY = x
+                }
+                else -> error("Unsupported YUV rotation $rotationDegrees")
+            }
             return yuvToRgbInt(
-                y = yPlane.valueAt(source.x, source.y),
-                u = uPlane.valueAt(source.x / 2, source.y / 2),
-                v = vPlane.valueAt(source.x / 2, source.y / 2),
+                y = yPlane.valueAt(sourceX, sourceY),
+                u = uPlane.valueAt(sourceX / 2, sourceY / 2),
+                v = vPlane.valueAt(sourceX / 2, sourceY / 2),
             )
+        }
+
+        fun fillDepthInputNearest(
+            targetWidth: Int,
+            targetHeight: Int,
+            output: ByteBuffer,
+            scratch: FloatArray,
+            sourceXs: IntArray,
+            sourceYs: IntArray,
+        ): ByteBuffer {
+            require(targetWidth > 0 && targetHeight > 0) { "Target dimensions must be positive" }
+            val expectedBytes = targetWidth * targetHeight * RGB_CHANNELS * FLOAT_SIZE
+            require(output.capacity() == expectedBytes) {
+                "Expected $expectedBytes-byte depth input buffer, got ${output.capacity()}"
+            }
+            require(scratch.size == targetWidth * targetHeight * RGB_CHANNELS) {
+                "Expected ${targetWidth * targetHeight * RGB_CHANNELS}-float depth scratch, got ${scratch.size}"
+            }
+            require(sourceXs.size == targetWidth) {
+                "Expected $targetWidth cached depth x coordinates, got ${sourceXs.size}"
+            }
+            require(sourceYs.size == targetHeight) {
+                "Expected $targetHeight cached depth y coordinates, got ${sourceYs.size}"
+            }
+
+            val cropSize = minOf(width, height)
+            val xOffset = (width - cropSize) / 2
+            val yOffset = (height - cropSize) / 2
+            for (targetX in 0 until targetWidth) {
+                sourceXs[targetX] = nearestSource(targetX, cropSize, targetWidth, xOffset)
+            }
+            for (targetY in 0 until targetHeight) {
+                sourceYs[targetY] = nearestSource(targetY, cropSize, targetHeight, yOffset)
+            }
+
+            var outputIndex = 0
+            for (targetY in 0 until targetHeight) {
+                val sourceY = sourceYs[targetY]
+                for (targetX in 0 until targetWidth) {
+                    val luma = lumaFloatAt(sourceXs[targetX], sourceY)
+                    scratch[outputIndex] = luma
+                    scratch[outputIndex + 1] = luma
+                    scratch[outputIndex + 2] = luma
+                    outputIndex += RGB_CHANNELS
+                }
+            }
+            output.clear()
+            output.asFloatBuffer().put(scratch)
+            output.rewind()
+            return output
+        }
+
+        fun fillRgbInputNearest(
+            targetWidth: Int,
+            targetHeight: Int,
+            output: ByteBuffer,
+            scratch: ByteArray? = null,
+        ): ByteBuffer {
+            require(targetWidth > 0 && targetHeight > 0) { "Target dimensions must be positive" }
+            val expectedBytes = targetWidth * targetHeight * RGB_CHANNELS
+            require(output.capacity() == expectedBytes) {
+                "Expected $expectedBytes-byte RGB input buffer, got ${output.capacity()}"
+            }
+            if (scratch != null) {
+                require(scratch.size == expectedBytes) {
+                    "Expected $expectedBytes-byte RGB input scratch, got ${scratch.size}"
+                }
+            }
+
+            output.clear()
+            var outputIndex = 0
+            for (targetY in 0 until targetHeight) {
+                val sourceY = nearestSource(targetY, height, targetHeight, offset = 0)
+                for (targetX in 0 until targetWidth) {
+                    val sourceX = nearestSource(targetX, width, targetWidth, offset = 0)
+                    if (scratch != null) {
+                        writeRgbBytesAt(sourceX, sourceY, scratch, outputIndex)
+                        outputIndex += RGB_CHANNELS
+                    } else {
+                        putRgbByteAt(sourceX, sourceY, output)
+                    }
+                }
+            }
+            if (scratch != null) {
+                output.put(scratch)
+            }
+            output.rewind()
+            return output
+        }
+
+        private fun nearestSource(
+            target: Int,
+            sourceSize: Int,
+            targetSize: Int,
+            offset: Int,
+        ): Int =
+            (offset + ((target * sourceSize) + (sourceSize / 2)) / targetSize)
+                .coerceIn(offset, offset + sourceSize - 1)
+
+        private fun lumaFloatAt(x: Int, y: Int): Float {
+            val sourceX: Int
+            val sourceY: Int
+            when (rotationDegrees) {
+                0 -> {
+                    sourceX = x
+                    sourceY = y
+                }
+                90 -> {
+                    sourceX = y
+                    sourceY = sourceHeight - 1 - x
+                }
+                180 -> {
+                    sourceX = sourceWidth - 1 - x
+                    sourceY = sourceHeight - 1 - y
+                }
+                270 -> {
+                    sourceX = sourceWidth - 1 - y
+                    sourceY = x
+                }
+                else -> error("Unsupported YUV rotation $rotationDegrees")
+            }
+            return yPlane.valueAt(sourceX, sourceY) / BYTE_MAX.toFloat()
+        }
+
+        private fun putRgbByteAt(x: Int, y: Int, output: ByteBuffer) {
+            val rgb = rgbIntAt(x, y)
+            output.put(channel(rgb, RED_SHIFT).toByte())
+            output.put(channel(rgb, GREEN_SHIFT).toByte())
+            output.put(channel(rgb, BLUE_SHIFT).toByte())
+        }
+
+        private fun writeRgbBytesAt(x: Int, y: Int, output: ByteArray, offset: Int) {
+            val rgb = rgbIntAt(x, y)
+            output[offset] = channel(rgb, RED_SHIFT).toByte()
+            output[offset + 1] = channel(rgb, GREEN_SHIFT).toByte()
+            output[offset + 2] = channel(rgb, BLUE_SHIFT).toByte()
         }
     }
 
@@ -220,9 +430,9 @@ object CameraFrameConverter {
     private fun yuvToRgbInt(y: Int, u: Int, v: Int): Int {
         val uOffset = u - 128
         val vOffset = v - 128
-        val red = (y + 1.402f * vOffset).roundToByte()
-        val green = (y - 0.344136f * uOffset - 0.714136f * vOffset).roundToByte()
-        val blue = (y + 1.772f * uOffset).roundToByte()
+        val red = (y + (1_436 * vOffset / 1_024)).coerceIn(0, BYTE_MASK)
+        val green = (y - ((352 * uOffset + 731 * vOffset) / 1_024)).coerceIn(0, BYTE_MASK)
+        val blue = (y + (1_815 * uOffset / 1_024)).coerceIn(0, BYTE_MASK)
         return (red shl RED_SHIFT) or (green shl GREEN_SHIFT) or blue
     }
 
@@ -236,21 +446,6 @@ object CameraFrameConverter {
             pixelStride = pixelStride,
         )
 
-    private fun sourceCoordinates(
-        targetX: Int,
-        targetY: Int,
-        sourceWidth: Int,
-        sourceHeight: Int,
-        rotationDegrees: Int,
-    ): PixelCoordinate =
-        when (rotationDegrees) {
-            0 -> PixelCoordinate(x = targetX, y = targetY)
-            90 -> PixelCoordinate(x = targetY, y = sourceHeight - 1 - targetX)
-            180 -> PixelCoordinate(x = sourceWidth - 1 - targetX, y = sourceHeight - 1 - targetY)
-            270 -> PixelCoordinate(x = sourceWidth - 1 - targetY, y = targetX)
-            else -> error("Unsupported YUV rotation $rotationDegrees")
-        }
-
     data class YuvPlane(
         private val buffer: ByteBuffer,
         private val rowStride: Int,
@@ -262,12 +457,8 @@ object CameraFrameConverter {
             buffer.get(baseOffset + y * rowStride + x * pixelStride).toInt() and BYTE_MASK
     }
 
-    private data class PixelCoordinate(
-        val x: Int,
-        val y: Int,
-    )
-
     private const val RGB_CHANNELS = 3
+    private const val FLOAT_SIZE = 4
     private const val RED_SHIFT = 16
     private const val GREEN_SHIFT = 8
     private const val BLUE_SHIFT = 0
