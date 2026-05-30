@@ -242,4 +242,8 @@ if [ "$REQUIRE_CORRIDOR_TEST" = "1" ] && [ "$CORRIDOR_TEST_RESULT" != "passed" ]
   exit 2
 fi
 
-json_result "passed" "$log_path" "V0b device, thermal, and known-corridor sighted-spotter gates passed." "$details"
+if [ "$REQUIRE_CORRIDOR_TEST" = "1" ]; then
+  json_result "passed" "$log_path" "V0b device, thermal, and known-corridor sighted-spotter gates passed." "$details"
+else
+  json_result "passed" "$log_path" "V0b device and thermal machine gates passed; known-corridor sighted-spotter gate was not required for this run." "$details"
+fi
