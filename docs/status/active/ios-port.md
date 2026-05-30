@@ -167,9 +167,13 @@ Updated: 2026-05-30.
     hard platform, privacy, safety, verification, and out-of-scope constraints
     for future iOS work.
   - Swift verifier exists at `ios/Roana/RoanaTests/Privacy/main.swift`.
-  - The verifier enforces the iOS V0 camera-only `Info.plist` boundary and scans
-    production Swift source for network, frame-storage, identity, cloud/VLM, and
-    street-crossing guidance tokens.
+  - The verifier enforces the iOS V0 camera-only `Info.plist` boundary, scans
+    production Swift source for network, frame-storage, forbidden framework,
+    identity, cloud/VLM, and street-crossing guidance tokens, and reports the
+    exact source file/line for violations.
+  - `scripts/test_ios_privacy_boundary.py` compiles the verifier and exercises
+    camera-only pass, forbidden source, forbidden framework import, and
+    forbidden `Info.plist` negative fixtures.
 - Executable local proof:
   - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/Roana/Speech/CorridorFeedbackDispatcher.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
     passes with `CorridorCoreSmoke passed`.
@@ -180,7 +184,8 @@ Updated: 2026-05-30.
   - iOS model asset checker tests pass; the default checker reports both
     expected resources as missing until real local model assets are supplied.
   - iOS model asset installer tests pass without requiring real model binaries.
-  - Swift privacy boundary verifier passes without full Xcode.
+  - Swift privacy boundary verifier and negative-fixture tests pass without
+    full Xcode.
   - Frame inference coordinator smoke verifier passes without full Xcode.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts,
