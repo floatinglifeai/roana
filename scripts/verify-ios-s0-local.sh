@@ -13,6 +13,7 @@ cleanup() {
 trap cleanup EXIT
 
 required_files=(
+  "$ROOT_DIR/ios/AGENTS.md"
   "$PROJECT"
   "$INFO_PLIST"
   "$IOS_DIR/Roana/RoanaApp.swift"
@@ -98,6 +99,10 @@ grep -q "ModelAssetResourceLocator" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.sw
 grep -q "ModelAssetResourceLocator" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -q "ModelAssetResourceLocator.swift in Sources" "$PROJECT"
 grep -q "ModelAssets in Resources" "$PROJECT"
+grep -q "Do not upload video frames" "$ROOT_DIR/ios/AGENTS.md"
+grep -q "Low confidence, missing frames" "$ROOT_DIR/ios/AGENTS.md"
+grep -q "scripts/verify-ios-s0-local.sh" "$ROOT_DIR/ios/AGENTS.md"
+grep -q "scripts/analyze-ios-log.py" "$ROOT_DIR/ios/AGENTS.md"
 
 swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift" \
