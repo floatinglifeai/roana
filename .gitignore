@@ -49,6 +49,10 @@ proguard/
 *.log
 logs/*.json
 
+# Local video fixtures
+samples/*
+!samples/README.md
+
 # OS junk
 .DS_Store
 Thumbs.db

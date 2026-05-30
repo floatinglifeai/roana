@@ -10,10 +10,15 @@ cross-platform motion signal for camera-quality checks.
 
 ## Candidate Scope
 
-- Add a dev-only video replay path that reads recorded video frames and feeds the
-  same YOLO, Depth Anything, and corridor pipeline used by live camera runs.
-- Emit the existing `roana_ios_*`-style evidence logs so replay results can be
-  compared with physical-device logs.
+- Implemented: `scripts/replay-ios-video.sh` compiles a dev-only Swift replay
+  tool that reads recorded video frames and feeds the same YOLO, Depth Anything,
+  and corridor pipeline used by live camera runs.
+- Implemented: replay emits existing `roana_ios_*`-style evidence logs so
+  replay results can be compared with physical-device logs.
+- Implemented: `scripts/verify-ios-replay-log.py` wraps replay-log analysis with
+  explicit fixture modes. `--fixture stop` checks close-obstacle / STOP clips;
+  `--fixture guidance` additionally requires a normal LEFT/STRAIGHT/RIGHT
+  corridor utterance and audio-session evidence.
 - Treat IMU/motion as an optional cross-platform input for quality control:
   detect pointing-down, unstable, or high-motion frames before trusting guidance.
 
@@ -24,10 +29,41 @@ cross-platform motion signal for camera-quality checks.
 - Do not use motion data as a primary navigation signal before image replay is
   reliable.
 
-## Discussion Questions
+## Current Commands
 
-- What video fixture format and storage policy should we use?
-- Should replay live only in scripts/tests, or also behind a debug-only app mode?
+Run a short replay smoke against a local video:
+
+```bash
+scripts/replay-ios-video.sh samples/home_iphone_0530.mp4 --fps 1 --max-seconds 2 \
+  | tee /tmp/roana-ios-video-replay-smoke.log
+```
+
+Verify the resulting STOP fixture log:
+
+```bash
+scripts/verify-ios-replay-log.py --log /tmp/roana-ios-video-replay-smoke.log \
+  --fixture stop --min-run-seconds 2 --max-p95-ms 1000
+```
+
+`samples/home_iphone_0530.mp4` is a local development fixture and is ignored by
+git. Keep full videos out of normal git history unless the project adopts Git
+LFS or a separate fixture-fetch path. `samples/README.md` records the current
+local-only policy and the replay label vocabulary.
+
+Current V0b replay labels:
+
+- Command labels: `STOP`, `STRAIGHT`, `LEFT`, `RIGHT`.
+- Scene-quality labels: `pointing_down`, `unstable`, `too_close`, `occluded`.
+- `stop` fixtures must prove STOP behavior. `guidance` fixtures must prove at
+  least one normal LEFT / STRAIGHT / RIGHT corridor utterance.
+
+## Remaining Discussion Questions
+
+- Should selected videos move to Git LFS / fixture-fetch later, or should all
+  user-recorded videos remain local-only?
+- Should replay stay only in scripts/tests, or also live behind a debug-only app
+  mode?
 - What minimum motion contract should both iOS and Android expose?
-- Which replay labels are enough for V0b: `STRAIGHT`, `LEFT`, `RIGHT`, `STOP`,
-  or also scene-quality labels like `pointing_down` and `unstable`?
+- Are command labels enough for V0b fixtures (`STRAIGHT`, `LEFT`, `RIGHT`,
+  `STOP`), or should we also label scene quality such as `pointing_down` and
+  `unstable`?

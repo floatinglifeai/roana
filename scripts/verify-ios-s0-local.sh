@@ -49,6 +49,7 @@ required_files=(
   "$IOS_DIR/RoanaTests/main.swift"
   "$IOS_DIR/RoanaTests/Privacy/main.swift"
   "$IOS_DIR/RoanaTests/Speech/main.swift"
+  "$IOS_DIR/RoanaTests/VideoReplay/main.swift"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0a-YOLO.xcscheme"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
@@ -57,7 +58,10 @@ required_files=(
   "$ROOT_DIR/scripts/check-ios-xcodeproj-membership.py"
   "$ROOT_DIR/scripts/test_check_ios_xcodeproj_membership.py"
   "$ROOT_DIR/scripts/generate-corridor-parity-fixtures.py"
+  "$ROOT_DIR/scripts/replay-ios-video.sh"
   "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py"
+  "$ROOT_DIR/scripts/test_verify_ios_replay_log.py"
+  "$ROOT_DIR/scripts/verify-ios-replay-log.py"
 )
 
 for path in "${required_files[@]}"; do
@@ -78,6 +82,7 @@ python3 -m unittest "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_ios_privacy_boundary.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_replay_log.py" >/dev/null
 python3 "$ROOT_DIR/scripts/check-ios-xcodeproj-membership.py" >/dev/null
 grep -q "allow-large-copy" "$ROOT_DIR/scripts/install-ios-model-assets.py"
 grep -q "matched_yolo_speech_labels" "$ROOT_DIR/scripts/analyze-ios-log.py"
@@ -190,12 +195,18 @@ grep -q "roana_ios_depth" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "computeUnits = .all" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "ModelAssetResourceLocator" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "ModelAssetResourceLocator" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
+grep -q "ROANA_IOS_MODEL_ASSETS_DIR" "$IOS_DIR/Roana/Models/ModelAssetResourceLocator.swift"
 grep -q "ModelDescriptionLogger.log(prefix: \"roana_ios_depth\"" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 grep -q "ModelDescriptionLogger.log(prefix: \"roana_ios_yolo\"" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -q "status=model_description" "$IOS_DIR/Roana/Models/ModelDescriptionLogger.swift"
 grep -q "ModelAssetResourceLocator.swift in Sources" "$PROJECT"
 grep -q "ModelDescriptionLogger.swift in Sources" "$PROJECT"
 grep -q "ModelAssets in Resources" "$PROJECT"
+grep -q "AVAssetReader" "$IOS_DIR/RoanaTests/VideoReplay/main.swift"
+grep -q "roana_ios_replay" "$IOS_DIR/RoanaTests/VideoReplay/main.swift"
+grep -q "ROANA_IOS_MODEL_ASSETS_DIR" "$ROOT_DIR/scripts/replay-ios-video.sh"
+grep -q "require-corridor-guidance" "$ROOT_DIR/scripts/verify-ios-replay-log.py"
+"$ROOT_DIR/scripts/replay-ios-video.sh" --help >/dev/null
 grep -q "Do not upload video frames" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "Low confidence, missing frames" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "scripts/verify-ios-s0-local.sh" "$ROOT_DIR/ios/AGENTS.md"

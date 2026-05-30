@@ -336,8 +336,10 @@ def missing_evidence(
     require_permission: bool,
     require_permission_denied: bool,
     require_camera_start: bool,
+    require_audio_session: bool,
     require_inference: bool,
     require_fail_safe_stop: bool,
+    require_corridor_guidance: bool,
     require_model_mode: str,
     max_inference_skipped: int,
 ) -> list[str]:
@@ -428,9 +430,13 @@ def missing_evidence(
         missing.append("speech_queued")
     if require_speech and require_yolo and not details["matched_yolo_speech_labels"]:
         missing.append("yolo_speech_match")
-    if (require_speech or require_corridor) and details["audio_session_active_count"] < 1:
+    if (
+        require_audio_session
+        and (require_speech or require_corridor)
+        and details["audio_session_active_count"] < 1
+    ):
         missing.append("audio_session_active")
-    if (require_speech or require_corridor) and details["audio_session_failed_count"] > 0:
+    if require_audio_session and (require_speech or require_corridor) and details["audio_session_failed_count"] > 0:
         missing.append("audio_session_no_failure")
     if require_orientation and details["preview_orientation_count"] < 1:
         missing.append("preview_orientation")
@@ -442,7 +448,7 @@ def missing_evidence(
         missing.append("fail_safe_stop")
     if details["max_inference_skipped"] > max_inference_skipped:
         missing.append(f"inference_skipped<={max_inference_skipped}")
-    if require_corridor and not details["normal_corridor_feedback"]:
+    if require_corridor and require_corridor_guidance and not details["normal_corridor_feedback"]:
         missing.append("corridor_guidance_feedback")
     if require_corridor and not details["stop_corridor_feedback"]:
         missing.append("corridor_stop_feedback")
@@ -507,7 +513,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-permission", default="1")
     parser.add_argument("--require-permission-denied", default="0")
     parser.add_argument("--require-camera-start", default="1")
+    parser.add_argument("--require-audio-session", default="1")
     parser.add_argument("--require-model-mode", choices=("none", "disabled", "yolo", "corridor"), default="none")
+    parser.add_argument("--require-corridor-guidance", default="1")
     return parser
 
 
@@ -536,8 +544,10 @@ def main() -> None:
         require_permission=parse_bool(args.require_permission),
         require_permission_denied=parse_bool(args.require_permission_denied),
         require_camera_start=parse_bool(args.require_camera_start),
+        require_audio_session=parse_bool(args.require_audio_session),
         require_inference=parse_bool(args.require_inference),
         require_fail_safe_stop=parse_bool(args.require_fail_safe_stop),
+        require_corridor_guidance=parse_bool(args.require_corridor_guidance),
         require_model_mode=args.require_model_mode,
         max_inference_skipped=args.max_inference_skipped,
     )
