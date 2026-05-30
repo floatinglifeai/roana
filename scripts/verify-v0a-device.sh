@@ -173,11 +173,8 @@ if [ "$REQUIRE_BACKEND" = "1" ]; then
   grep -q "qnn_probe" "$LOG_PATH" || missing+=("qnn_probe")
   grep -q "qnn_capabilities" "$LOG_PATH" || missing+=("qnn_capabilities")
   grep -q "inference_backend selected=" "$LOG_PATH" || missing+=("inference_backend")
-  if ! grep -q "inference_backend selected=qnn_htp" "$LOG_PATH" &&
-    ! grep -q "reason=qnn_interpreter_failed" "$LOG_PATH" &&
-    ! grep -q "reason=qnn_create_failed" "$LOG_PATH"; then
-    missing+=("backend_success_or_fallback")
-  fi
+  grep -q "inference_backend selected=qnn_htp" "$LOG_PATH" || missing+=("qnn_htp_backend")
+  ! grep -q "inference_backend selected=unavailable" "$LOG_PATH" || missing+=("no_unavailable_backend")
 fi
 if [ "$REQUIRE_DEPTH_SMOKE" = "1" ]; then
   grep -q "qnn_probe precision=fp16" "$LOG_PATH" || missing+=("depth_qnn_probe")

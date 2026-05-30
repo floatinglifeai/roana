@@ -10,7 +10,7 @@ import org.tensorflow.lite.Interpreter
 
 class DepthAnythingRunner(
     context: Context,
-    private var backend: InferenceBackend =
+    private val backend: InferenceBackend =
         InferenceBackend.create(
             context = context,
             precision = InferenceBackend.Precision.FP16,
@@ -22,7 +22,7 @@ class DepthAnythingRunner(
             channel.map(FileChannel.MapMode.READ_ONLY, descriptor.startOffset, descriptor.declaredLength)
         }
     }
-    private val interpreter = createInterpreterWithFallback()
+    private val interpreter = createInterpreter()
     private val inputTensor = interpreter.getInputTensor(0)
     private val outputTensor = interpreter.getOutputTensor(0)
     private val inputBuffer = preprocessor.newInputBuffer()
@@ -127,26 +127,20 @@ class DepthAnythingRunner(
         backend.close()
     }
 
-    private fun createInterpreterWithFallback(): Interpreter =
+    private fun createInterpreter(): Interpreter =
         try {
             Interpreter(
                 modelBuffer,
                 backend.applyTo(Interpreter.Options().setNumThreads(2)),
             )
         } catch (error: Exception) {
-            if (!backend.usesDelegate) {
-                throw error
-            }
-
-            Log.w(TAG, "depth_backend selected=cpu_xnnpack reason=qnn_interpreter_failed", error)
+            Log.e(
+                TAG,
+                "inference_backend selected=unavailable precision=fp16 reason=qnn_interpreter_failed",
+                error,
+            )
             backend.close()
-            backend = InferenceBackend.cpu(
-                reason = "${error.javaClass.simpleName}:${error.message.orEmpty()}",
-            )
-            Interpreter(
-                modelBuffer,
-                backend.applyTo(Interpreter.Options().setNumThreads(2)),
-            )
+            throw error
         }
 
     data class DepthResult(

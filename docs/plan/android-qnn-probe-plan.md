@@ -34,6 +34,13 @@ Current decision: keep the passing QNN HTP delegate path as the production
 Android path while tracking other Android speedup libraries as non-disruptive
 spikes.
 
+Cleanup evidence from 2026-05-30: production Android inference now has no
+CPU/XNNPACK runtime fallback. `InferenceBackend` requires a QNN delegate,
+YOLO/Depth interpreter creation failures log `selected=unavailable` and fail,
+and `scripts/verify-v0a-device.sh` rejects unavailable backend logs. The only
+remaining XNNPACK interpreter is the QNN smoke's metadata-only tensor summary,
+guarded by `InferenceBackendPolicyTest`.
+
 ---
 
 ## 2. Decision
@@ -42,8 +49,9 @@ Do **not** implement every acceleration option now, and do not replace the
 passing QNN HTP delegate path without a measured reason.
 
 Run lightweight metadata/probe gates first, then decide whether to invest in a
-heavier runtime spike. FPS tuning and CPU fallback optimization stay out of
-scope unless a target device fails the current QNN HTP path.
+heavier runtime spike. CPU fallback is no longer a production runtime path; if
+a target device fails the current QNN HTP path, treat it as a backend support
+gap to diagnose or route to another accelerated runtime spike.
 
 ---
 
@@ -56,7 +64,7 @@ scope unless a target device fails the current QNN HTP path.
 | 3 | ONNX Runtime QNN cross-check | Diagnostic only | Good for proving whether a future QNN regression is below TFLite; not the product runtime choice. |
 | 4 | Qualcomm AI Hub context binary | Later | Useful flagship fast path if first-run compile or per-SoC squeezing becomes important. |
 | 5 | ExecuTorch QNN | Defer | Real backend exists, but migration to `.pte` and PyTorch mobile flow is too heavy while QNN HTP already passes. |
-| 7 | CPU fallback performance profile | Not now | User explicitly wants the actual QNN issue found first; fallback tuning can hide the real failure. |
+| 7 | CPU fallback runtime | Removed | Silent CPU fallback hides real QNN/NPU failures and cannot satisfy V0b performance gates. |
 
 ## 4. Phase 0: Alternative Library Metadata Probe
 
@@ -149,8 +157,7 @@ Acceptance:
 - each option is ruled out with a log artifact that still shows the same native
   transport failure.
 
-Do not tune thread counts, CPU fallback behavior, or model preprocessing in this
-phase.
+Do not tune thread counts or model preprocessing in this phase.
 
 ---
 
