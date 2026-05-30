@@ -146,12 +146,15 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
             "result": {
                 "devices": [
                     {
+                        "identifier": "COREDEVICE123",
                         "hardwareProperties": {
                             "platform": "iOS",
                             "deviceType": "iPhone",
+                            "udid": "UDID123",
                         },
                         "connectionProperties": {
                             "tunnelState": "unavailable",
+                            "potentialHostnames": ["phone.local"],
                         },
                         "deviceProperties": {
                             "ddiServicesAvailable": False,
@@ -165,17 +168,93 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
 
         self.assertEqual(["iphone_device_available"], missing)
 
+    def test_devicectl_json_rejects_missing_target_iphone(self) -> None:
+        payload = {
+            "result": {
+                "devices": [
+                    {
+                        "identifier": "OTHER",
+                        "hardwareProperties": {
+                            "platform": "iOS",
+                            "deviceType": "iPhone",
+                            "udid": "OTHERUDID",
+                        },
+                        "connectionProperties": {
+                            "tunnelState": "connected",
+                        },
+                        "deviceProperties": {
+                            "ddiServicesAvailable": True,
+                        },
+                    },
+                ],
+            },
+        }
+
+        missing = verify_ios_device_log.iphone_device_readiness_from_devicectl_json(
+            json.dumps(payload),
+            target_identifier="COREDEVICE123",
+        )
+
+        self.assertEqual(["iphone_device_target"], missing)
+
+    def test_devicectl_json_rejects_unavailable_target_iphone(self) -> None:
+        payload = {
+            "result": {
+                "devices": [
+                    {
+                        "identifier": "COREDEVICE123",
+                        "hardwareProperties": {
+                            "platform": "iOS",
+                            "deviceType": "iPhone",
+                            "udid": "UDID123",
+                        },
+                        "connectionProperties": {
+                            "tunnelState": "unavailable",
+                            "potentialHostnames": ["phone.local"],
+                        },
+                        "deviceProperties": {
+                            "ddiServicesAvailable": False,
+                        },
+                    },
+                    {
+                        "identifier": "OTHER",
+                        "hardwareProperties": {
+                            "platform": "iOS",
+                            "deviceType": "iPhone",
+                            "udid": "OTHERUDID",
+                        },
+                        "connectionProperties": {
+                            "tunnelState": "connected",
+                        },
+                        "deviceProperties": {
+                            "ddiServicesAvailable": True,
+                        },
+                    },
+                ],
+            },
+        }
+
+        missing = verify_ios_device_log.iphone_device_readiness_from_devicectl_json(
+            json.dumps(payload),
+            target_identifier="UDID123",
+        )
+
+        self.assertEqual(["iphone_device_target_available"], missing)
+
     def test_devicectl_json_accepts_available_iphone_tunnel(self) -> None:
         payload = {
             "result": {
                 "devices": [
                     {
+                        "identifier": "COREDEVICE123",
                         "hardwareProperties": {
                             "platform": "iOS",
                             "deviceType": "iPhone",
+                            "udid": "UDID123",
                         },
                         "connectionProperties": {
                             "tunnelState": "connected",
+                            "potentialHostnames": ["phone.local"],
                         },
                         "deviceProperties": {
                             "ddiServicesAvailable": False,
@@ -188,6 +267,13 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         missing = verify_ios_device_log.iphone_device_readiness_from_devicectl_json(json.dumps(payload))
 
         self.assertEqual([], missing)
+
+        target_missing = verify_ios_device_log.iphone_device_readiness_from_devicectl_json(
+            json.dumps(payload),
+            target_identifier="phone.local",
+        )
+
+        self.assertEqual([], target_missing)
 
     def run_verifier(self, log_text: str, *extra_args: str) -> tuple[int, dict[str, object]]:
         with tempfile.TemporaryDirectory() as tmp:

@@ -113,6 +113,21 @@ def capture_command(*, device: str, log_dir: Path, capture_seconds: float) -> li
     ]
 
 
+def physical_commands(
+    *,
+    team_id: str,
+    device: str,
+    log_dir: Path,
+    derived_data_path: Path,
+    capture_seconds: float,
+) -> list[list[str]]:
+    return [
+        build_command(team_id=team_id, device=device, derived_data_path=derived_data_path),
+        install_command(device=device, app_path=app_path(derived_data_path=derived_data_path)),
+        capture_command(device=device, log_dir=log_dir, capture_seconds=capture_seconds),
+    ]
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="A85B7E8D-1EDD-573F-9C50-BC76B9FB8E03")
@@ -141,22 +156,34 @@ def main() -> int:
     device_missing = verify_ios_device_log.host_readiness(
         require_device=True,
         skip_host_checks=False,
+        target_identifier=args.device,
     )
     missing.extend(device_missing)
 
     if missing:
+        details: dict[str, object] = {"assetCheck": asset_output, "deviceMissing": device_missing}
+        if args.dry_run:
+            details["commands"] = physical_commands(
+                team_id=team_id,
+                device=args.device,
+                log_dir=args.log_dir,
+                derived_data_path=args.derived_data_path,
+                capture_seconds=args.capture_seconds,
+            )
         return json_result(
             status="blocked",
             missing=sorted(set(missing)),
             message="iOS V0b physical run prerequisites are not ready.",
-            details={"assetCheck": asset_output, "deviceMissing": device_missing},
+            details=details,
         )
 
-    commands = [
-        build_command(team_id=team_id, device=args.device, derived_data_path=args.derived_data_path),
-        install_command(device=args.device, app_path=app_path(derived_data_path=args.derived_data_path)),
-        capture_command(device=args.device, log_dir=args.log_dir, capture_seconds=args.capture_seconds),
-    ]
+    commands = physical_commands(
+        team_id=team_id,
+        device=args.device,
+        log_dir=args.log_dir,
+        derived_data_path=args.derived_data_path,
+        capture_seconds=args.capture_seconds,
+    )
     if args.dry_run:
         return json_result(
             status="passed",

@@ -38,7 +38,8 @@ expanding iOS work.
 - For V0b physical proof, build/install with a command-line-only
   `ROANA_IOS_DEVELOPMENT_TEAM=... scripts/run-ios-v0b-physical.py` invocation.
   Do not commit the team ID or generated device logs unless explicitly
-  requested.
+  requested. Use `--dry-run` for preflight command preview while the device is
+  unavailable.
 - Keep shared Xcode schemes aligned with the log gates: `Roana` must stay the
   no-model S0 launch, `Roana-V0a-YOLO` must opt into YOLO only, and
   `Roana-V0b-Corridor` must opt into corridor mode.

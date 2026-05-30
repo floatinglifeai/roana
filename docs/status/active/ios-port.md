@@ -260,6 +260,18 @@ Updated: 2026-05-30.
     reason=motion_unavailable trusts_guidance=true source=replay`, and replay
     verification requires that evidence so image-only fixtures prove that
     missing motion data does not block guidance.
+  - `scripts/label-ios-replay.py` can create a local JSON label summary from an
+    existing replay log or by running replay against a local video. It suggests
+    command labels (`STOP`, `STRAIGHT`, `LEFT`, `RIGHT`), scene-quality labels
+    such as `too_close` / `occluded` / `pointing_down` / `unstable`, and a
+    fixture type, and emits approximate segment labels from replay frame
+    timestamps, without adding production recording or committing videos.
+  - `scripts/run-ios-replay-bundle.py` wraps the local replay workflow into one
+    command that writes replay log, verification JSON, and label JSON artifacts
+    under `/tmp` by default, so long user-recorded videos can be processed
+    locally without adding app-side recording or photo-library access. Its
+    default `--fixture auto` verifies guidance-only clips as `guidance` and
+    verifies stop/mixed/review clips against the conservative STOP fixture.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -377,9 +389,11 @@ ROANA_IOS_DEVELOPMENT_TEAM=XP2NFR9M33 scripts/run-ios-v0b-physical.py
 The wrapper checks model assets and device readiness, builds
 `Roana-V0b-Corridor`, installs the signed app, launches `app.roana.ios` with
 `--roana-enable-corridor --roana-debug-fail-safe-stop`, then captures and
-verifies the V0b log through `scripts/capture-ios-device-log.py`. It blocks
-with `iphone_device_available` while CoreDevice reports the phone as
-offline/unavailable.
+verifies the V0b log through `scripts/capture-ios-device-log.py`. It checks the
+specific `--device` target, not just any connected iPhone, and blocks with
+`iphone_device_target_available` while CoreDevice reports that target as
+offline/unavailable. Add `--dry-run` to preview the exact build/install/capture
+commands even while the phone is unavailable; keep the team ID environment-only.
 
 ## No-Touch Scope
 
@@ -388,6 +402,9 @@ offline/unavailable.
 - Do not add large Core ML model artifacts directly to git; keep generated
   `.mlmodelc` / `.mlpackage` outputs out of normal source commits unless Git
   LFS or an explicit model-fetch path is added.
+- Do not commit user-recorded replay videos or private scene-derived metadata
+  unless they have been reviewed and the project adopts an explicit fixture
+  sharing policy.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
   JSON fixture now covers planner, fusion, depth-grid conversion, state-machine,
   pipeline, and feedback-dispatch cases, but regenerating that Android-derived

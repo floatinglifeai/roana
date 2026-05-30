@@ -11,6 +11,14 @@ Current policy:
   scrubbed and useful for automated verification.
 - Use `scripts/replay-ios-video.sh` to generate logs from a local video, then
   verify the log with `scripts/verify-ios-replay-log.py`.
+- Use `scripts/label-ios-replay.py --from-log <replay.log>` to create a small
+  clip-level label summary from replay evidence. It also includes approximate
+  segment labels based on replay frame timestamps. The summary is metadata only;
+  videos remain local-only by default.
+- Use `scripts/run-ios-replay-bundle.py <video>` when you want one command to
+  create the replay log, verification JSON, and label JSON under `/tmp`.
+  The default `--fixture auto` verifies guidance-only clips as `guidance` and
+  verifies stop/mixed/review clips against the conservative STOP fixture.
 
 V0b replay labels:
 
