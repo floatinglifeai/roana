@@ -20,7 +20,9 @@ def fake_log(
     backlog: int = 0,
     dropped: int = 0,
     include_yolo: bool = False,
+    include_yolo_description: bool = False,
     include_depth: bool = False,
+    include_depth_description: bool = False,
     include_corridor: bool = False,
     include_speech: bool = False,
     include_inference: bool = False,
@@ -55,9 +57,21 @@ def fake_log(
             lines.append(
                 "roana_ios_inference status=finished "
                 f"frame_id=1 completed=1 skipped={inference_skipped}"
-            )
+        )
+    if include_yolo_description:
+        lines.append(
+            "roana_ios_yolo status=model_description resource=YOLO11n "
+            "author=unknown version=unknown inputs=image:image_640x640 "
+            "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32"
+        )
     if include_depth:
         lines.append("roana_ios_depth status=ok elapsed_ms=31.00 grid_rows=15 grid_cols=15")
+    if include_depth_description:
+        lines.append(
+            "roana_ios_depth status=model_description resource=DepthAnythingV2Small "
+            "author=unknown version=unknown inputs=image:image_518x518 "
+            "outputs=depth:multiarray_1x1x518x518_float32"
+        )
     if include_corridor:
         lines.append(
             "roana_ios_corridor decision=STRAIGHT state=STRAIGHT "
@@ -106,14 +120,20 @@ class AnalyzeIosLogTest(unittest.TestCase):
             fake_log(
                 frame_count=120,
                 include_yolo=True,
+                include_yolo_description=True,
                 include_depth=True,
+                include_depth_description=True,
                 include_corridor=True,
                 include_speech=True,
                 include_inference=True,
             ),
             "--require-yolo",
             "1",
+            "--require-yolo-description",
+            "1",
             "--require-depth",
+            "1",
+            "--require-depth-description",
             "1",
             "--require-corridor",
             "1",
@@ -126,7 +146,9 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("passed", data["status"])
         self.assertEqual([], data["missing"])
         self.assertEqual(1, data["details"]["yolo_ok_count"])
+        self.assertEqual(1, data["details"]["yolo_description_count"])
         self.assertEqual(1, data["details"]["depth_ok_count"])
+        self.assertEqual(1, data["details"]["depth_description_count"])
         self.assertEqual(1, data["details"]["corridor_count"])
         self.assertEqual(1, data["details"]["inference_finished_count"])
 
@@ -137,7 +159,11 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "5",
             "--require-yolo",
             "1",
+            "--require-yolo-description",
+            "1",
             "--require-depth",
+            "1",
+            "--require-depth-description",
             "1",
             "--require-corridor",
             "1",
@@ -156,7 +182,9 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "camera_permission_state",
                 "camera_background_stop",
                 "yolo_inference",
+                "yolo_model_description",
                 "depth_inference",
+                "depth_model_description",
                 "corridor_decision",
                 "speech_queued",
                 "inference_finished",
@@ -189,6 +217,30 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("inference_skipped<=2", data["missing"])
         self.assertEqual(3, data["details"]["max_inference_skipped"])
+
+    def test_reports_missing_model_description_evidence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_depth=True,
+                include_inference=True,
+            ),
+            "--require-yolo",
+            "1",
+            "--require-yolo-description",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-depth-description",
+            "1",
+            "--require-inference",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("yolo_model_description", data["missing"])
+        self.assertIn("depth_model_description", data["missing"])
 
 
 if __name__ == "__main__":

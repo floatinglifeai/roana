@@ -82,8 +82,12 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         args.require_background_stop,
         "--require-yolo",
         args.require_yolo,
+        "--require-yolo-description",
+        args.require_yolo_description,
         "--require-depth",
         args.require_depth,
+        "--require-depth-description",
+        args.require_depth_description,
         "--require-corridor",
         args.require_corridor,
         "--require-speech",
@@ -117,7 +121,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-host-checks", action="store_true")
     parser.add_argument("--require-model-assets", default=None)
     parser.add_argument("--require-yolo", default=None)
+    parser.add_argument("--require-yolo-description", default=None)
     parser.add_argument("--require-depth", default=None)
+    parser.add_argument("--require-depth-description", default=None)
     parser.add_argument("--require-corridor", default=None)
     parser.add_argument("--require-speech", default=None)
     parser.add_argument("--require-inference", default=None)
@@ -132,8 +138,12 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.require_model_assets = "1" if model_gate else "0"
     if args.require_yolo is None:
         args.require_yolo = "1" if model_gate else "0"
+    if args.require_yolo_description is None:
+        args.require_yolo_description = "1" if model_gate else "0"
     if args.require_depth is None:
         args.require_depth = "1" if corridor_gate else "0"
+    if args.require_depth_description is None:
+        args.require_depth_description = "1" if corridor_gate else "0"
     if args.require_corridor is None:
         args.require_corridor = "1" if corridor_gate else "0"
     if args.require_speech is None:

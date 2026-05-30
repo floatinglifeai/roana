@@ -18,7 +18,9 @@ def fake_log(
     *,
     frame_count: int,
     include_yolo: bool = False,
+    include_yolo_description: bool = False,
     include_depth: bool = False,
+    include_depth_description: bool = False,
     include_corridor: bool = False,
     include_speech: bool = False,
     include_inference: bool = False,
@@ -44,8 +46,20 @@ def fake_log(
         )
         if include_inference:
             lines.append("roana_ios_inference status=finished frame_id=1 completed=1 skipped=0")
+    if include_yolo_description:
+        lines.append(
+            "roana_ios_yolo status=model_description resource=YOLO11n "
+            "author=unknown version=unknown inputs=image:image_640x640 "
+            "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32"
+        )
     if include_depth:
         lines.append("roana_ios_depth status=ok elapsed_ms=31.00 grid_rows=15 grid_cols=15")
+    if include_depth_description:
+        lines.append(
+            "roana_ios_depth status=model_description resource=DepthAnythingV2Small "
+            "author=unknown version=unknown inputs=image:image_518x518 "
+            "outputs=depth:multiarray_1x1x518x518_float32"
+        )
     if include_corridor:
         lines.append(
             "roana_ios_corridor decision=STRAIGHT state=STRAIGHT "
@@ -113,10 +127,33 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(status, 2)
         self.assertEqual(details["status"], "blocked")
         self.assertIn("yolo_inference", details["missing"])
+        self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("speech_queued", details["missing"])
         self.assertIn("inference_finished", details["missing"])
 
     def test_v0b_log_passes_with_model_corridor_evidence(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_speech=True,
+                include_inference=True,
+            ),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(details["status"], "passed")
+
+    def test_v0b_defaults_require_model_descriptions(self) -> None:
         status, details = self.run_verifier(
             fake_log(
                 frame_count=120,
@@ -133,8 +170,10 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
             "0",
         )
 
-        self.assertEqual(status, 0)
-        self.assertEqual(details["status"], "passed")
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("yolo_model_description", details["missing"])
+        self.assertIn("depth_model_description", details["missing"])
 
     def test_missing_log_file_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
