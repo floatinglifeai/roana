@@ -4,7 +4,8 @@
 > acceleration layer without replacing the current proven TFLite + Qualcomm QNN
 > delegate production path prematurely.
 
-**Status:** proposed validation plan / 2026-05-30.
+**Status:** Phase 1 executed / stopped on unproven backend proof /
+2026-05-30.
 
 **Implementation review note / 2026-05-30:** `intuitive-flow` reconciled the
 plan-intake gate in place. Accepted execution decisions: keep this repo's
@@ -20,6 +21,16 @@ internally to an NPU/CPU candidate set, so the verifier must only pass when
 the app logs explicit requested/selected NPU evidence and must fail on
 `selected=unavailable`, `status=missing`, `status=rejected`, or
 `status=unproven`. No production runtime switch is accepted in Phase 1.
+
+**Execution result / 2026-05-30:** Phase 1 produced
+`logs/litert-smoke-20260530T122948Z.log` on Xiaomi `2211133C` / `fuxi` /
+SM8550 / Android 16 / HyperOS OS3.0 with LiteRT `2.1.5`. YOLO and Depth
+Anything both loaded and completed one timing iteration with NPU requested, but
+both logged `litert_backend status=unproven` because `CompiledModel` does not
+expose actual backend selection. The verifier failed by design with
+`LiteRT backend proof unproven for model(s): yolo depth.` This triggers Stop
+Condition 4, so Phase 2 QNN comparison and live V0b LiteRT trial are not
+started.
 
 ---
 

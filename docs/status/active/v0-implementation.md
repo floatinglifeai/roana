@@ -286,6 +286,21 @@ Updated: 2026-05-30.
     `BUILD_FIRST=0 INSTALL_FIRST=1 MODEL=all LITERT_ACCELERATOR=npu
     LITERT_TIMING_ITERATIONS=1 LOG_SECONDS=20
     scripts/verify-litert-smoke-device.sh`.
+  - LiteRT validation Phase 1 device result:
+    `logs/litert-smoke-20260530T122948Z.log` from Xiaomi `2211133C` / `fuxi` /
+    SM8550 / Android 16 / HyperOS OS3.0 using LiteRT `2.1.5`.
+    `scripts/verify-litert-smoke-device.sh` installed the isolated smoke APK
+    and returned `failed` by design with decision
+    `LiteRT backend proof unproven for model(s): yolo depth.` YOLO logged
+    `litert_backend requested=npu`, `status=loaded ... backend=unproven`, and
+    one timing pass at `avg_ms=65.21`; Depth Anything logged the same unproven
+    backend status and one timing pass at `avg_ms=1858.92`. Both runs also
+    reported `No dispatch library found` under the smoke APK native library
+    directory. Decision: stop the LiteRT validation at plan Stop Condition 4,
+    keep the production Android runtime on the proven TFLite + QNN HTP path,
+    and do not proceed to Phase 2 QNN comparison or a live V0b LiteRT trial
+    without a future LiteRT API/runtime path that can prove actual NPU backend
+    selection.
 
 ## Stop Condition
 
@@ -308,14 +323,16 @@ proof before calling the full corridor demo complete.
 
 ## Next Agent-Owned Step
 
-Use `scripts/verify-litert-smoke-device.sh` on the Snapdragon 8 Gen 2 phone to
-capture the first LiteRT validation artifact. Keep the production Android
-runtime on the proven QNN path; use `scripts/verify-v0b-device.sh` as the short
-machine gate and `RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the
-sustained Android regression gate. The next V0b proof is the known-corridor
-sighted-spotter run when a human can perform it. iOS S0 physical-device
-verification remains blocked until full Xcode is installed. Do not add a
-lower-performance CPU fallback path.
+Keep the production Android runtime on the proven QNN path; use
+`scripts/verify-v0b-device.sh` as the short machine gate and
+`RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the sustained Android
+regression gate. The LiteRT validation has a Phase 1 artifact and is stopped on
+unproven backend proof, so do not start the Phase 2 comparison or a live V0b
+LiteRT trial unless LiteRT can provide actual NPU backend proof in a future
+API/runtime path. The next V0b proof is the known-corridor sighted-spotter run
+when a human can perform it. iOS S0 physical-device verification remains
+blocked until full Xcode is installed. Do not add a lower-performance CPU
+fallback path.
 
 For the corridor proof, run:
 
