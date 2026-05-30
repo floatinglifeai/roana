@@ -5,15 +5,15 @@
 > worth trying now, and which should wait until the QNN transport failure is
 > better understood.
 
-**Status:** accepted for diagnosis / 2026-05-30.
+**Status:** QNN transport solved; alternative backend probes tracked /
+2026-05-30.
 
 ---
 
 ## 1. Current Finding
 
-The current Xiaomi target-class phone is not just slow. It reports QNN HTP
-capability, but native QNN logs fail before either model can prove operator
-compatibility:
+The current Xiaomi target-class phone originally looked slow because QNN HTP
+transport failed before either model could prove operator compatibility:
 
 - Device: Xiaomi `2211133C`, `SM8550`, board `kalama`, Android 16 / HyperOS
   `OS3.0.307.0.WMCCNXM`.
@@ -24,19 +24,26 @@ compatibility:
   - `Failed to load skel`;
   - `Transport layer setup failed: 14001`.
 
-Working assumption: this is a QNN DSP transport / skeleton setup issue, not yet
-a YOLO11n or Depth Anything model compatibility issue.
+That root cause is now resolved for the existing TFLite/QNN delegate path:
+declaring the optional vendor FastRPC library (`libcdsprpc.so`) made the
+transport visible to the app linker namespace. The current target phone now
+passes QNN smoke, the short V0b machine gate, and the 30-minute thermal gate on
+QNN HTP.
+
+Current decision: keep the passing QNN HTP delegate path as the production
+Android path while tracking other Android speedup libraries as non-disruptive
+spikes.
 
 ---
 
 ## 2. Decision
 
-Do **not** implement every acceleration option now.
+Do **not** implement every acceleration option now, and do not replace the
+passing QNN HTP delegate path without a measured reason.
 
-Run a short true-device probe first, then decide whether to invest in the
-heavier alternatives. The first goal is to make QNN transport creation succeed
-for any small path. FPS tuning and CPU fallback optimization stay out of scope
-until the transport/skeleton root cause is known.
+Run lightweight metadata/probe gates first, then decide whether to invest in a
+heavier runtime spike. FPS tuning and CPU fallback optimization stay out of
+scope unless a target device fails the current QNN HTP path.
 
 ---
 
@@ -44,17 +51,40 @@ until the transport/skeleton root cause is known.
 
 | Rank | Option | Try now? | Why |
 |---|---:|---|---|
-| 1 | QNN package/layout probe | Yes | Lowest cost and most directly targets `Failed to load skel` / transport setup. |
-| 2 | Minimal QNN delegate option spike | Yes, after probe | Worth trying only after we know installed paths, libraries, and ABI layout. |
-| 3 | LiteRT Next `CompiledModel` spike | Next if current QNN path remains blocked | Highest strategic value, but heavier than a probe. May bypass current delegate packaging/skel issues. |
-| 4 | Qualcomm AI Hub context binary | Later | Useful flagship fast path, but adds precompiled asset variables before transport is understood. |
-| 5 | ONNX Runtime QNN cross-check | Diagnostic only | Good for proving whether QNN transport fails outside TFLite; not the product runtime choice. |
-| 6 | ExecuTorch QNN | Defer | Real backend exists, but migration to `.pte` and PyTorch mobile flow is too heavy for this blocker. |
+| 1 | Current TFLite + QNN delegate | Keep | Proven on SM8550 with QNN smoke, short V0b, and 30-minute thermal gates. |
+| 2 | LiteRT `CompiledModel` / LiteRT Next metadata probe | Track now | Strategic portable layer for Qualcomm + MediaTek; start with artifact/API availability, not a runtime switch. |
+| 3 | ONNX Runtime QNN cross-check | Diagnostic only | Good for proving whether a future QNN regression is below TFLite; not the product runtime choice. |
+| 4 | Qualcomm AI Hub context binary | Later | Useful flagship fast path if first-run compile or per-SoC squeezing becomes important. |
+| 5 | ExecuTorch QNN | Defer | Real backend exists, but migration to `.pte` and PyTorch mobile flow is too heavy while QNN HTP already passes. |
 | 7 | CPU fallback performance profile | Not now | User explicitly wants the actual QNN issue found first; fallback tuning can hide the real failure. |
+
+## 4. Phase 0: Alternative Library Metadata Probe
+
+Run:
+
+```bash
+python3 scripts/probe-android-acceleration-libs.py \
+  --output logs/android-acceleration-libs-$(date -u +%Y%m%dT%H%M%SZ).json
+```
+
+The probe currently checks official Maven metadata for:
+
+- `com.google.ai.edge.litert:litert`;
+- `com.microsoft.onnxruntime:onnxruntime-android`;
+- `com.microsoft.onnxruntime:onnxruntime-android-qnn`;
+- `org.pytorch:executorch-android`.
+
+Acceptance:
+
+- The script returns JSON with `status=passed`.
+- Candidate latest versions are visible in the artifact.
+- The decision remains non-invasive: keep the passing QNN HTP runtime and only
+  start a LiteRT spike if we need broader device coverage or a measured reason
+  to migrate.
 
 ---
 
-## 4. Phase 1: True-Device QNN Probe
+## 5. Phase 1: True-Device QNN Probe
 
 Add or extend a script that runs quickly on the connected Android phone and
 produces a single log artifact.
@@ -100,7 +130,7 @@ Acceptance:
 
 ---
 
-## 5. Phase 2: Minimal QNN Delegate Option Spike
+## 6. Phase 2: Minimal QNN Delegate Option Spike
 
 Only start this phase after Phase 1 confirms that packaged artifacts and runtime
 paths are plausible or identifies a specific missing path to override.
@@ -124,13 +154,15 @@ phase.
 
 ---
 
-## 6. Phase 3: LiteRT Next Spike
+## 7. Phase 3: LiteRT Next Spike
 
 Start this phase if:
 
-- Phase 1/2 show the existing TFLite QNN delegate path is blocked by packaging
-  or transport setup; or
-- the delegate options are unavailable or insufficient on this device.
+- a new target device fails the existing TFLite/QNN delegate path; or
+- we need portable MediaTek/Qualcomm coverage beyond the current proven
+  Snapdragon path; or
+- LiteRT metadata/API probe shows a stable version worth pinning and the current
+  V0b proof is protected by regression gates.
 
 Goal:
 
@@ -149,7 +181,7 @@ Decision:
 
 ---
 
-## 7. Phase 4: Diagnostic Cross-Checks
+## 8. Phase 4: Diagnostic Cross-Checks
 
 Only use these after the cheaper probes fail to decide the cause.
 
@@ -172,7 +204,7 @@ Defer until after V0b unless LiteRT/QNN proves fundamentally unsuitable.
 
 ---
 
-## 8. Stop Gates
+## 9. Stop Gates
 
 Stop and report after any of these:
 
