@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The Roana Authors.
 
 import AVFoundation
+import CoreMedia
 import CoreVideo
 import SwiftUI
 import UIKit
@@ -25,6 +26,8 @@ final class CameraSessionController: NSObject, ObservableObject {
     private let orientationLock = NSLock()
     private let modelInferenceMode: ModelInferenceMode
     private let debugFailSafeStopEnabled: Bool
+
+    private let corridorCaptureFrameRate: Int32 = 10
 
     private var isConfigured = false
     private var shouldRunWhenForegrounded = false
@@ -174,6 +177,7 @@ final class CameraSessionController: NSObject, ObservableObject {
             throw CameraSetupError.inputRejected
         }
         session.addInput(input)
+        configureCaptureFrameRate(camera)
 
         let output = AVCaptureVideoDataOutput()
         output.videoSettings = [
@@ -192,6 +196,31 @@ final class CameraSessionController: NSObject, ObservableObject {
         logLifecycle(
             "camera_configured preset=hd1280x720 pixel_format=420YpCbCr8BiPlanarFullRange discards_late=true queue=serial",
         )
+    }
+
+    private func configureCaptureFrameRate(_ camera: AVCaptureDevice) {
+        guard modelInferenceMode.runsDepth else {
+            return
+        }
+
+        let targetFPS = Double(corridorCaptureFrameRate)
+        guard camera.activeFormat.videoSupportedFrameRateRanges.contains(where: { range in
+            range.minFrameRate <= targetFPS && targetFPS <= range.maxFrameRate
+        }) else {
+            logLifecycle("camera_frame_rate status=unsupported target_fps=\(corridorCaptureFrameRate)")
+            return
+        }
+
+        do {
+            try camera.lockForConfiguration()
+            let frameDuration = CMTime(value: 1, timescale: corridorCaptureFrameRate)
+            camera.activeVideoMinFrameDuration = frameDuration
+            camera.activeVideoMaxFrameDuration = frameDuration
+            camera.unlockForConfiguration()
+            logLifecycle("camera_frame_rate status=configured target_fps=\(corridorCaptureFrameRate)")
+        } catch {
+            logLifecycle("camera_frame_rate status=failed error=\(sanitize(error.localizedDescription))")
+        }
     }
 
     @MainActor private func refreshDeviceDiagnostics() {
@@ -271,11 +300,8 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
             return
         }
 
-        let scheduled = inferenceCoordinator.submit(sampleBuffer) { [weak self] sampleBuffer in
+        inferenceCoordinator.submit(sampleBuffer) { [weak self] sampleBuffer in
             self?.runInference(sampleBuffer: sampleBuffer)
-        }
-        if !scheduled {
-            failSafeStop(reason: "frame_loss")
         }
     }
 

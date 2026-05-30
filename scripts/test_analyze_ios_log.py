@@ -84,8 +84,8 @@ def fake_log(
     if include_depth_description:
         lines.append(
             "roana_ios_depth status=model_description resource=DepthAnythingV2Small "
-            "author=unknown version=unknown inputs=image:image_518x518 "
-            "outputs=depth:multiarray_1x1x518x518_float32"
+            "author=unknown version=unknown inputs=image:image_518x392 "
+            "outputs=depth:image_518x392"
         )
     if include_corridor:
         lines.append(
@@ -220,8 +220,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             ["coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32"],
             data["details"]["yolo_description_outputs"],
         )
-        self.assertEqual(["image:image_518x518"], data["details"]["depth_description_inputs"])
-        self.assertEqual(["depth:multiarray_1x1x518x518_float32"], data["details"]["depth_description_outputs"])
+        self.assertEqual(["image:image_518x392"], data["details"]["depth_description_inputs"])
+        self.assertEqual(["depth:image_518x392"], data["details"]["depth_description_outputs"])
         self.assertEqual(1, data["details"]["yolo_vision_orientation_count"])
         self.assertEqual(1, data["details"]["depth_vision_orientation_count"])
         self.assertEqual(["right"], data["details"]["preview_vision_orientations"])
@@ -564,8 +564,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32",
                 "outputs=unknown",
             )
-            .replace("inputs=image:image_518x518", "inputs=unknown")
-            .replace("outputs=depth:multiarray_1x1x518x518_float32", "outputs=unknown"),
+            .replace("inputs=image:image_518x392", "inputs=unknown")
+            .replace("outputs=depth:image_518x392", "outputs=unknown"),
             "--require-yolo",
             "1",
             "--require-yolo-description",
@@ -590,7 +590,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 include_depth_description=True,
             )
             .replace("inputs=image:image_640x640", "inputs=image:image_320x320")
-            .replace("inputs=image:image_518x518", "inputs=image:image_384x384"),
+            .replace("inputs=image:image_518x392", "inputs=image:image_384x384"),
             "--require-yolo",
             "1",
             "--require-yolo-description",

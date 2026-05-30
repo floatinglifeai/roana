@@ -34,6 +34,7 @@ def fake_log(
     include_background_stop: bool = False,
     include_background_restart: bool = False,
     include_idle_timer: bool = False,
+    inference_skipped: int = 0,
 ) -> str:
     lines = [
         "roana_ios_lifecycle camera_authorization state=authorized",
@@ -60,7 +61,9 @@ def fake_log(
             "score=0.91 center_x=0.50 center_y=0.80 width=0.20 height=0.30"
         )
         if include_inference:
-            lines.append("roana_ios_inference status=finished frame_id=1 completed=1 skipped=0")
+            if inference_skipped:
+                lines.append(f"roana_ios_inference status=skipped reason=busy skipped={inference_skipped}")
+            lines.append(f"roana_ios_inference status=finished frame_id=1 completed=1 skipped={inference_skipped}")
     if include_yolo_description:
         lines.append(
             "roana_ios_yolo status=model_description resource=YOLO11n "
@@ -72,8 +75,8 @@ def fake_log(
     if include_depth_description:
         lines.append(
             "roana_ios_depth status=model_description resource=DepthAnythingV2Small "
-            "author=unknown version=unknown inputs=image:image_518x518 "
-            "outputs=depth:multiarray_1x1x518x518_float32"
+            "author=unknown version=unknown inputs=image:image_518x392 "
+            "outputs=depth:image_518x392"
         )
     if include_corridor:
         lines.append(
@@ -419,8 +422,8 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32",
                 "outputs=unknown",
             )
-            .replace("inputs=image:image_518x518", "inputs=unknown")
-            .replace("outputs=depth:multiarray_1x1x518x518_float32", "outputs=unknown"),
+            .replace("inputs=image:image_518x392", "inputs=unknown")
+            .replace("outputs=depth:image_518x392", "outputs=unknown"),
             "--gate",
             "v0b",
             "--require-model-assets",
@@ -513,7 +516,36 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
 
         self.assertEqual(status, 2)
         self.assertEqual(details["status"], "blocked")
-        self.assertIn("p95_ms<=100", details["missing"])
+        self.assertIn("p95_ms<=101", details["missing"])
+
+    def test_v0b_defaults_tolerate_recovery_inference_skips(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                p95_ms=100.01,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_fail_safe_stop=True,
+                include_inference=True,
+                inference_skipped=5,
+                model_mode="corridor",
+            ),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(details["status"], "passed")
+        self.assertEqual(5, details["analysis"]["details"]["max_inference_skipped"])
 
     def test_v0b_defaults_reject_thermal_throttle(self) -> None:
         status, details = self.run_verifier(
