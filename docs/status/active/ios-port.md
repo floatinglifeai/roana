@@ -5,11 +5,12 @@ Updated: 2026-05-30.
 ## Current State
 
 - Active objective: implement `docs/plan/ios-port-plan.md` via `intuitive-flow`.
-- Latest user instruction: do code development first because no iPhone is
-  currently connected; defer hardware tests until all or most code parts are
-  done.
-- Current slice: code-first iOS S0/V0a/V0b scaffold while hardware proof is
-  deferred.
+- Latest user instruction: continue parked iOS V0b work one item at a time via
+  `intuitive-flow`, keeping this iOS worktree iOS-only and not pursuing
+  Android/JDK verification here.
+- Current slice: iOS V0b proof. Code, model assets, and local replay are ready;
+  the physical iPhone app install succeeded, but launch/log capture is waiting
+  for the device to return from CoreDevice offline/unavailable state.
 - Current code-only model execution mode: S0 defaults to
   `roana_ios_model_mode value=disabled` and does not schedule YOLO/depth
   inference. Debug builds opt into V0a YOLO with `--roana-enable-yolo` or
@@ -19,10 +20,13 @@ Updated: 2026-05-30.
   scheme, `Roana-V0a-YOLO` enables YOLO only, and `Roana-V0b-Corridor` enables
   corridor mode plus the debug frame-loss proof hook.
 - Host readiness observed on this machine:
-  - `xcode-select -p` returns `/Library/Developer/CommandLineTools`.
-  - `xcodebuild -version` fails because full Xcode is not the active developer
-    directory.
-  - `xcrun simctl` and `xcrun devicectl` are unavailable for the same reason.
+  - `xcode-select -p` returns `/Applications/Xcode.app/Contents/Developer`.
+  - `xcodebuild -version` reports Xcode 26.5.
+  - `xcrun devicectl` is available.
+  - iPhone `MiaoDX003` (`00008150-000E35310E82401C`,
+    CoreDevice `A85B7E8D-1EDD-573F-9C50-BC76B9FB8E03`) is known and paired, but
+    latest observed state is `unavailable` / `xctrace` offline after a
+    successful app install.
 
 ## Implemented Code
 
@@ -235,6 +239,17 @@ Updated: 2026-05-30.
     artifacts under `logs/ios-*.log` from stdin, an existing file, or an
     explicit capture command, then immediately runs `verify-ios-device-log.py`
     for the selected S0/V0a/V0b gate.
+  - Local model assets are present and `scripts/check-ios-model-assets.py
+    --require-present` reports `status=ready` for `YOLO11n.mlmodelc` and
+    `DepthAnythingV2Small.mlmodelc`.
+  - Local offline replay proof passes against the user-recorded, git-ignored
+    `samples/home_iphone_0530.mp4` fixture:
+    `scripts/replay-ios-video.sh samples/home_iphone_0530.mp4 --fps 1
+    --max-seconds 2 | tee /tmp/roana-ios-video-replay-smoke.log`, followed by
+    `scripts/verify-ios-replay-log.py --log
+    /tmp/roana-ios-video-replay-smoke.log --fixture stop --min-run-seconds 2
+    --max-p95-ms 1000`. The verifier reports `status=passed` with YOLO,
+    Depth Anything, Vision orientation, corridor feedback, and STOP evidence.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -245,11 +260,9 @@ Updated: 2026-05-30.
     deterministic JDK 17/21 discovery, rejects `JAVA_HOME` values that point at
     `bin/java` instead of a JDK home, and returns a machine-readable blocked
     result when only incompatible JDKs are present.
-  - Current host dry-run result is still blocked: `JAVA_HOME` points at
-    `/opt/homebrew/opt/openjdk/bin/java`, and the only discovered JDK home is
-    OpenJDK 25.0.1. Install/select JDK 17 or 21, then run
-    `scripts/generate-corridor-parity-fixtures.py --verify-unchanged` before
-    relying on Gradle-backed Kotlin generation.
+  - Android/Kotlin fixture regeneration remains parked outside the current iOS
+    worktree. Do not install or select a JDK as part of this iOS V0b slice; run
+    Android parity later in an Android/Docker context if needed.
 
 ## Local Code Gate
 
@@ -259,25 +272,16 @@ Run:
 scripts/verify-ios-s0-local.sh
 ```
 
-Expected result on this machine until full Xcode is selected: structural checks
-and the portable Swift corridor smoke pass, then the script exits `2` with
-build deferred. Latest observed output:
-
-```text
-xcodebuild requires full Xcode; iOS local structural checks passed, build deferred
-```
-
-Expected result on a full-Xcode host: structural checks pass and
-`xcodebuild -project ios/Roana/Roana.xcodeproj -scheme Roana -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build`
-passes.
+Expected result on this machine: structural checks pass and
+`xcodebuild -project ios/Roana/Roana.xcodeproj -scheme Roana -destination
+'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` passes.
 
 ## Deferred Hardware Proof
 
-The following iOS-S0 acceptance items remain intentionally unproven until an
-iPhone and full Xcode are available:
+The following physical-device acceptance items remain unproven until the iPhone
+is available again for launch/log capture:
 
-- Xcode project opens and builds in Xcode.
-- App signs, installs, and launches on a physical iPhone.
+- App launches on the physical iPhone after install.
 - Permission prompt appears on first launch.
 - Denied permission produces a clear non-crashing app state.
 - Granted permission starts preview.
@@ -285,6 +289,19 @@ iPhone and full Xcode are available:
 - A 60-second physical-device run produces repeated `roana_ios_frame_stats`.
 - No backlog accumulates before model inference exists.
 - Entering background stops camera work; returning foreground restarts cleanly.
+- V0b corridor physical run produces YOLO, Depth Anything, Vision orientation,
+  corridor feedback, fail-safe STOP, p95 <= 100 ms, and thermal <= fair evidence.
+
+Latest physical-device progress:
+
+- Signed V0b app build succeeded with command-line-only
+  `DEVELOPMENT_TEAM=XP2NFR9M33`; the team ID is not committed to the project.
+- `xcrun devicectl device install app --device
+  A85B7E8D-1EDD-573F-9C50-BC76B9FB8E03 .../Roana.app` installed
+  `app.roana.ios` successfully.
+- Launch with `--roana-enable-corridor --roana-debug-fail-safe-stop` did not
+  reach the app because CoreDevice reported the iPhone unavailable/offline.
+  The failed launch log is local-only and is not a V0b proof artifact.
 
 Acceptance artifact target:
 
