@@ -47,6 +47,8 @@ required_files=(
   "$IOS_DIR/RoanaTests/main.swift"
   "$IOS_DIR/RoanaTests/Privacy/main.swift"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
+  "$ROOT_DIR/scripts/capture-ios-device-log.py"
+  "$ROOT_DIR/scripts/test_capture_ios_device_log.py"
 )
 
 for path in "${required_files[@]}"; do
@@ -60,12 +62,16 @@ done
 python3 -m json.tool "$IOS_DIR/Roana/Assets.xcassets/Contents.json" >/dev/null
 python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_capture_ios_device_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
 grep -q "matched_yolo_speech_labels" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "yolo_speech_match" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "audio_session_active" "$ROOT_DIR/scripts/analyze-ios-log.py"
+grep -q "ARTIFACT_PREFIX" "$ROOT_DIR/scripts/capture-ios-device-log.py"
+grep -q "ios-skeleton" "$ROOT_DIR/scripts/capture-ios-device-log.py"
+grep -q "verify-ios-device-log.py" "$ROOT_DIR/scripts/capture-ios-device-log.py"
 python3 "$ROOT_DIR/scripts/check-ios-model-assets.py" \
   --manifest "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 grep -q '"expectedOutputs"' "$IOS_DIR/Roana/ModelAssets/manifest.json"

@@ -197,6 +197,10 @@ Updated: 2026-05-30.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
     permission artifact without requiring camera start, frame stats, or
     orientation logs.
+  - `scripts/capture-ios-device-log.py` standardizes future physical-run log
+    artifacts under `logs/ios-*.log` from stdin, an existing file, or an
+    explicit capture command, then immediately runs `verify-ios-device-log.py`
+    for the selected S0/V0a/V0b gate.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -263,11 +267,24 @@ Or use the physical-run wrapper:
 scripts/verify-ios-device-log.py --gate s0 --log logs/ios-skeleton-<timestamp>.log
 ```
 
+To create the canonical artifact and verify it in one step after collecting
+raw app logs:
+
+```bash
+scripts/capture-ios-device-log.py --gate s0 < raw-ios-device.log
+```
+
 For the denied-permission S0 artifact, capture the launch after denying camera
 permission and run:
 
 ```bash
 scripts/verify-ios-device-log.py --gate s0-denied --log logs/ios-permission-denied-<timestamp>.log
+```
+
+Or capture and verify the denied artifact in one step:
+
+```bash
+scripts/capture-ios-device-log.py --gate s0-denied < raw-ios-permission-denied.log
 ```
 
 After model assets are available, use `scripts/verify-ios-device-log.py --gate
