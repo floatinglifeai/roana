@@ -54,6 +54,8 @@ required_files=(
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
   "$ROOT_DIR/scripts/capture-ios-device-log.py"
   "$ROOT_DIR/scripts/test_capture_ios_device_log.py"
+  "$ROOT_DIR/scripts/generate-corridor-parity-fixtures.py"
+  "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py"
 )
 
 for path in "${required_files[@]}"; do
@@ -69,6 +71,7 @@ python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_capture_ios_device_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_ios_privacy_boundary.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null

@@ -184,6 +184,8 @@ Updated: 2026-05-30.
   - Swift parity verifier reads `parity/corridor-core.json` and passes the
     planner, fusion, depth-grid conversion, state-machine, pipeline, and
     feedback-dispatch cases mirrored from current Kotlin unit tests.
+  - Corridor parity generation wrapper tests pass without requiring a local
+    Android Gradle build or real JDK 17/21.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
   - Model asset bundle-locator smoke verifier passes without an iPhone or full
     Xcode.
@@ -231,11 +233,14 @@ Updated: 2026-05-30.
     `app/src/test/java/com/roana/app/parity/CorridorParityFixtureGenerator.kt`.
   - Gradle task `:app:generateCorridorParityFixtures` is wired to regenerate
     `parity/corridor-core.json`.
-  - Running the Gradle task is still pending because this shell's default
-    `JAVA_HOME` points at `/opt/homebrew/opt/openjdk/bin/java` instead of a JDK
-    home, and with `JAVA_HOME` corrected to the installed OpenJDK 25 home,
-    Gradle still fails before task execution with
-    `java.lang.IllegalArgumentException: 25.0.1`. Use JDK 17 or 21 before
+  - `scripts/generate-corridor-parity-fixtures.py` wraps the Gradle task with
+    deterministic JDK 17/21 discovery, rejects `JAVA_HOME` values that point at
+    `bin/java` instead of a JDK home, and returns a machine-readable blocked
+    result when only incompatible JDKs are present.
+  - Current host dry-run result is still blocked: `JAVA_HOME` points at
+    `/opt/homebrew/opt/openjdk/bin/java`, and the only discovered JDK home is
+    OpenJDK 25.0.1. Install/select JDK 17 or 21, then run
+    `scripts/generate-corridor-parity-fixtures.py --verify-unchanged` before
     relying on Gradle-backed Kotlin generation.
 
 ## Local Code Gate
@@ -339,8 +344,8 @@ Use the matching shared Xcode scheme for each device run: `Roana` for S0,
   LFS or an explicit model-fetch path is added.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
   JSON fixture now covers planner, fusion, depth-grid conversion, state-machine,
-  pipeline, and feedback-dispatch cases, but automatic Kotlin fixture generation
-  from source tests is still pending on a JDK 17/21 host.
+  pipeline, and feedback-dispatch cases, but automatic Kotlin fixture
+  regeneration still needs a JDK 17/21 host.
 - Do not claim iPhone performance, preview orientation, signing, installation,
   or camera callback cadence until physical-device evidence exists.
 - Do not resume Android QNN diagnosis while this iOS port slice is active.
