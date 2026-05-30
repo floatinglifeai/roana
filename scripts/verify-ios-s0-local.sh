@@ -42,6 +42,7 @@ required_files=(
   "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/YoloSpeechFeedbackPolicy.swift"
+  "$IOS_DIR/RoanaTests/ModelAssets/main.swift"
   "$IOS_DIR/RoanaTests/ModelMode/main.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/Inference/main.swift"
@@ -194,6 +195,12 @@ swiftc \
   -D DEBUG \
   "$IOS_DIR/Roana/Models/ModelInferenceMode.swift" \
   "$IOS_DIR/RoanaTests/ModelMode/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" >/dev/null
+
+swiftc \
+  "$IOS_DIR/Roana/Models/ModelAssetResourceLocator.swift" \
+  "$IOS_DIR/RoanaTests/ModelAssets/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" >/dev/null
 

@@ -152,6 +152,10 @@ Updated: 2026-05-30.
   - `ModelAssetResourceLocator` looks for both root-bundled and
     `ModelAssets/`-nested `YOLO11n` and `DepthAnythingV2Small` resources with
     `.mlmodelc` or `.mlpackage` extensions.
+  - `ios/Roana/RoanaTests/ModelAssets/main.swift` covers the app-side bundle
+    lookup path with temporary root and `ModelAssets/`-nested `.mlmodelc` /
+    `.mlpackage` fixtures, so the staged names used by the installer are
+    checked before a real iPhone run.
   - `scripts/check-ios-model-assets.py` validates manifest schema, expected
     model contracts, and can enforce local asset presence with
     `--require-present`.
@@ -181,6 +185,8 @@ Updated: 2026-05-30.
     planner, fusion, depth-grid conversion, state-machine, pipeline, and
     feedback-dispatch cases mirrored from current Kotlin unit tests.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
+  - Model asset bundle-locator smoke verifier passes without an iPhone or full
+    Xcode.
   - iOS model asset checker tests pass; the default checker reports both
     expected resources as missing until real local model assets are supplied.
   - iOS model asset installer tests pass without requiring real model binaries.
