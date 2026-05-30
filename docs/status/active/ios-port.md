@@ -83,6 +83,8 @@ Updated: 2026-05-30.
     `.mlmodelc` or `.mlpackage` extensions.
   - `scripts/check-ios-model-assets.py` validates the manifest and can enforce
     local asset presence with `--require-present`.
+  - `scripts/install-ios-model-assets.py` stages local `.mlpackage` or
+    `.mlmodelc` directories into the expected bundle names by copy or symlink.
   - Current local model asset status is intentionally `missing` because large
     Core ML assets are not committed.
 - iOS safety/privacy boundary:
@@ -99,6 +101,7 @@ Updated: 2026-05-30.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
   - iOS model asset checker tests pass; the default checker reports both
     expected resources as missing until real local model assets are supplied.
+  - iOS model asset installer tests pass without requiring real model binaries.
   - Swift privacy boundary verifier passes without full Xcode.
   - Frame inference coordinator smoke verifier passes without full Xcode.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
