@@ -32,6 +32,7 @@
 		8F4C003B2CAE000100000001 /* ModelDescriptionLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C003C2CAE000100000001 /* ModelDescriptionLogger.swift */; };
 		8F4C003D2CAE000100000001 /* CameraFrameOrientation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C003E2CAE000100000001 /* CameraFrameOrientation.swift */; };
 		8F4C00412CAE000100000001 /* ModelInferenceMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00422CAE000100000001 /* ModelInferenceMode.swift */; };
+		8F4C00432CAE000100000001 /* YoloSpeechFeedbackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00442CAE000100000001 /* YoloSpeechFeedbackPolicy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -62,6 +63,7 @@
 		8F4C003C2CAE000100000001 /* ModelDescriptionLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDescriptionLogger.swift; sourceTree = "<group>"; };
 		8F4C003E2CAE000100000001 /* CameraFrameOrientation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraFrameOrientation.swift; sourceTree = "<group>"; };
 		8F4C00422CAE000100000001 /* ModelInferenceMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelInferenceMode.swift; sourceTree = "<group>"; };
+		8F4C00442CAE000100000001 /* YoloSpeechFeedbackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoloSpeechFeedbackPolicy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -168,6 +170,7 @@
 				8F4C00342CAE000100000001 /* CorridorFeedbackDispatcher.swift */,
 				8F4C003F2CAE000100000001 /* SpeechAudioSession.swift */,
 				8F4C00222CAE000100000001 /* SpeechFeedbackDispatcher.swift */,
+				8F4C00442CAE000100000001 /* YoloSpeechFeedbackPolicy.swift */,
 			);
 			path = Speech;
 			sourceTree = "<group>";
@@ -258,6 +261,7 @@
 				8F4C001F2CAE000100000001 /* YoloObstacleDetector.swift in Sources */,
 				8F4C00402CAE000100000001 /* SpeechAudioSession.swift in Sources */,
 				8F4C00212CAE000100000001 /* SpeechFeedbackDispatcher.swift in Sources */,
+				8F4C00432CAE000100000001 /* YoloSpeechFeedbackPolicy.swift in Sources */,
 				8F4C00252CAE000100000001 /* CorridorPlanner.swift in Sources */,
 				8F4C00272CAE000100000001 /* CorridorStateMachine.swift in Sources */,
 				8F4C00292CAE000100000001 /* CorridorGridFusion.swift in Sources */,

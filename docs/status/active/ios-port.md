@@ -87,6 +87,10 @@ Updated: 2026-05-30.
   - Detection timing logs use `roana_ios_yolo`.
   - Detection-to-speech wiring uses `AVSpeechSynthesizer` and logs
     `roana_ios_speech` for the YOLO-only V0a path.
+  - YOLO-only speech uses a portable `YoloSpeechFeedbackPolicy` so repeated
+    detections of the same label are throttled while different obstacle labels
+    can still interrupt promptly; a pure Swift smoke test verifies the policy
+    without an iPhone.
   - Speech output now activates an `AVAudioSession` with playback /
     spoken-audio / duck-others settings before queuing utterances and logs
     `roana_ios_audio_session`, giving future device artifacts proof that speech
