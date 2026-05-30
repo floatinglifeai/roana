@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Roana"
 include(":app")
+include(":litert-smoke")

@@ -14,8 +14,8 @@ if [ ! -x "./gradlew" ]; then
   exit 1
 fi
 
-mkdir -p app/build build
-chmod -R g+rwX app/build build
+mkdir -p litert-smoke/build build
+chmod -R g+rwX litert-smoke/build build
 
 docker run --rm \
   --platform "$ANDROID_BUILD_PLATFORM" \
@@ -30,6 +30,6 @@ docker run --rm \
   --env HOST_UID="$(id -u)" \
   --env HOST_GID="$(id -g)" \
   "$ANDROID_IMAGE" \
-  bash -lc 'trap "chown -R $HOST_UID:$HOST_GID /workspace/.gradle /workspace/app/build /workspace/build 2>/dev/null || true" EXIT; ./gradlew --no-daemon :app:assembleDebug'
+  bash -lc 'trap "chown -R $HOST_UID:$HOST_GID /workspace/.gradle /workspace/litert-smoke/build /workspace/build 2>/dev/null || true" EXIT; ./gradlew --no-daemon :litert-smoke:assembleDebug'
 
-printf '\nDebug APK: %s\n' "$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+printf '\nLiteRT smoke APK: %s\n' "$ROOT_DIR/litert-smoke/build/outputs/apk/debug/litert-smoke-debug.apk"

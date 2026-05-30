@@ -6,6 +6,10 @@ Updated: 2026-05-30.
 
 - Active objective: implement `docs/plan/v0-implementation-plan.md` via
   `intuitive-flow`.
+- Active follow-up objective: implement
+  `docs/plan/android-litert-validation-plan.md` via `intuitive-flow` as a
+  debug-only validation path, while preserving the current QNN-required
+  production runtime.
 - Latest completed slice: the Snapdragon 8 Gen 2 live V0b path now runs YOLO
   and Depth Anything on QNN HTP, passes the short machine gate, and passes the
   30-minute thermal live-corridor gate without severe frame gaps.
@@ -254,6 +258,29 @@ Updated: 2026-05-30.
     the old CPU fallback selectors, XNNPACK runtime option, and nullable
     delegate-state fields into production runtime. The QNN smoke metadata-only
     XNNPACK interpreter remains diagnostic-only and is not a runtime fallback.
+  - LiteRT validation Phase 0 review decision: pin
+    `com.google.ai.edge.litert:litert` to `2.1.5`, prefer a debug-only app path,
+    but use an isolated sample module if the LiteRT dependency conflicts with
+    the current QNN app classpath. The smoke code uses the `CompiledModel` API
+    through `Accelerator.NPU`,
+    `Environment.create(BuiltinNpuAcceleratorProvider(...))`, input/output
+    buffer allocation, and `run(...)`. The first verifier artifact must be
+    `logs/litert-smoke-*.log`; it may pass only with explicit
+    `litert_backend selected=npu` and loaded/timing evidence, and it must fail
+    on unavailable, missing runtime, rejected model, or unproven backend proof.
+  - LiteRT validation Phase 0/1 implementation artifact set: production
+    `scripts/build-debug.sh` passes and still builds only
+    `app/build/outputs/apk/debug/app-debug.apk`; the isolated
+    `scripts/build-litert-smoke-debug.sh` gate builds
+    `litert-smoke/build/outputs/apk/debug/litert-smoke-debug.apk`; Docker
+    `:app:testDebugUnitTest` passes; Python verifier tests pass via
+    `python3 -m unittest scripts/test_probe_android_acceleration_libs.py
+    scripts/test_analyze_v0b_log.py`; `scripts/verify-litert-smoke-device.sh`
+    currently returns `blocked` before artifact capture because ADB lists no
+    connected device. Next device run should use:
+    `BUILD_FIRST=0 INSTALL_FIRST=1 MODEL=all LITERT_ACCELERATOR=npu
+    LITERT_TIMING_ITERATIONS=1 LOG_SECONDS=20
+    scripts/verify-litert-smoke-device.sh`.
 
 ## Stop Condition
 
@@ -276,12 +303,13 @@ proof before calling the full corridor demo complete.
 
 ## Next Agent-Owned Step
 
-Use `scripts/verify-v0b-device.sh` as the short machine gate and
-`RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the sustained Android
-regression gate. The next V0b proof is the known-corridor sighted-spotter run
-when a human can perform it. Agent-owned follow-up work can proceed on the
-origin/main research directions: optional LiteRT metadata/API exploration and
-iOS S0 physical-device verification after full Xcode is installed. Do not add a
+Use `scripts/verify-litert-smoke-device.sh` on the Snapdragon 8 Gen 2 phone to
+capture the first LiteRT validation artifact. Keep the production Android
+runtime on the proven QNN path; use `scripts/verify-v0b-device.sh` as the short
+machine gate and `RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the
+sustained Android regression gate. The next V0b proof is the known-corridor
+sighted-spotter run when a human can perform it. iOS S0 physical-device
+verification remains blocked until full Xcode is installed. Do not add a
 lower-performance CPU fallback path.
 
 For the corridor proof, run:
