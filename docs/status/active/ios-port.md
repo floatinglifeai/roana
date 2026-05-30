@@ -157,6 +157,9 @@ Updated: 2026-05-30.
     `--require-present`.
   - `scripts/install-ios-model-assets.py` stages local `.mlpackage` or
     `.mlmodelc` directories into the expected bundle names by copy or symlink.
+    Symlink mode is preferred for local testing, and copy mode has an explicit
+    large-asset guard so model binaries do not get casually duplicated into the
+    app tree.
   - Current local model asset status is intentionally `missing` because large
     Core ML assets are not committed.
 - iOS safety/privacy boundary:

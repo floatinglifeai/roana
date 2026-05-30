@@ -70,6 +70,7 @@ python3 -m unittest "$ROOT_DIR/scripts/test_capture_ios_device_log.py" >/dev/nul
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
+grep -q "allow-large-copy" "$ROOT_DIR/scripts/install-ios-model-assets.py"
 grep -q "matched_yolo_speech_labels" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "yolo_speech_match" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "audio_session_active" "$ROOT_DIR/scripts/analyze-ios-log.py"

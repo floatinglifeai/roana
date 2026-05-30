@@ -24,4 +24,7 @@ scripts/install-ios-model-assets.py --model yolo11n --source /path/to/yolo-expor
 scripts/install-ios-model-assets.py --model depth-anything-v2-small --source /path/to/DepthAnything.mlpackage --symlink
 ```
 
-Use `--force` to replace an existing staged resource with the same extension.
+Symlink mode is preferred for large local model resources. Copy mode refuses
+large sources by default; pass `--allow-large-copy` only when you explicitly
+want a copied local asset. Use `--force` to replace an existing staged resource
+with the same extension.
