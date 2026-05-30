@@ -39,12 +39,18 @@ def fake_log(
     include_background_restart: bool = False,
     include_idle_timer: bool = False,
     include_permission: bool = True,
+    include_motion_quality: bool = False,
 ) -> str:
     lines: list[str] = []
     if include_permission:
         lines.append("roana_ios_lifecycle camera_authorization state=authorized")
     lines.append("roana_ios_lifecycle camera_started")
     lines.append(f"roana_ios_model_mode value={model_mode}")
+    if include_motion_quality:
+        lines.append(
+            "roana_ios_motion_quality label=stable reason=motion_unavailable "
+            "trusts_guidance=true source=replay"
+        )
     if include_orientation:
         lines.append("roana_ios_lifecycle camera_output_orientation interface=portrait angle=90 vision=right")
         lines.append("roana_ios_orientation source=preview interface=portrait angle=90 vision=right")
@@ -295,6 +301,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
             fake_log(
                 frame_count=3,
                 include_permission=False,
+                include_motion_quality=True,
                 include_orientation=True,
                 include_yolo=True,
                 include_yolo_description=True,
@@ -332,6 +339,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-audio-session",
             "0",
+            "--require-motion-quality",
+            "1",
             "--require-corridor-guidance",
             "0",
             "--require-model-mode",
@@ -343,6 +352,29 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(0, data["details"]["audio_session_active_count"])
         self.assertEqual("", data["details"]["normal_corridor_feedback"])
         self.assertIn("command=STOP", data["details"]["stop_corridor_feedback"])
+        self.assertEqual(["stable"], data["details"]["motion_quality_labels"])
+        self.assertEqual(["motion_unavailable"], data["details"]["motion_quality_reasons"])
+        self.assertEqual(["replay"], data["details"]["motion_quality_sources"])
+        self.assertTrue(data["details"]["motion_quality_trusts_guidance"])
+
+    def test_reports_missing_motion_quality_when_required(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=3, include_permission=False, run_seconds=2.0),
+            "--min-frame-stats",
+            "3",
+            "--min-run-seconds",
+            "2",
+            "--require-camera-start",
+            "0",
+            "--require-permission",
+            "0",
+            "--require-motion-quality",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("motion_quality", data["missing"])
+        self.assertIn("motion_quality_trusts_guidance", data["missing"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
         data = self.run_analyzer(

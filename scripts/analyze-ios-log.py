@@ -72,6 +72,11 @@ def parse_log(log_path: Path) -> dict[str, object]:
     yolo_detection_labels = set()
     audio_session_active = []
     audio_session_failed = []
+    motion_quality = []
+    motion_quality_labels = set()
+    motion_quality_reasons = set()
+    motion_quality_sources = set()
+    motion_quality_trusts_guidance = False
     model_modes = set()
     safety_fail_safe_stop = []
     safety_fail_safe_stop_reasons = set()
@@ -163,6 +168,19 @@ def parse_log(log_path: Path) -> dict[str, object]:
             audio_session_active.append(line)
         if "roana_ios_audio_session status=failed" in line:
             audio_session_failed.append(line)
+        if "roana_ios_motion_quality" in line:
+            motion_quality.append(line)
+            label = fields.get("label")
+            reason = fields.get("reason")
+            source = fields.get("source")
+            if label:
+                motion_quality_labels.add(label)
+            if reason:
+                motion_quality_reasons.add(reason)
+            if source:
+                motion_quality_sources.add(source)
+            if parse_bool(fields.get("trusts_guidance", "0")):
+                motion_quality_trusts_guidance = True
         if "roana_ios_model_mode" in line:
             mode = fields.get("value")
             if mode:
@@ -289,6 +307,11 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "matched_yolo_speech_labels": matched_speech_labels,
         "audio_session_active_count": len(audio_session_active),
         "audio_session_failed_count": len(audio_session_failed),
+        "motion_quality_count": len(motion_quality),
+        "motion_quality_labels": sorted(motion_quality_labels),
+        "motion_quality_reasons": sorted(motion_quality_reasons),
+        "motion_quality_sources": sorted(motion_quality_sources),
+        "motion_quality_trusts_guidance": motion_quality_trusts_guidance,
         "model_modes": sorted(model_modes),
         "safety_fail_safe_stop_count": len(safety_fail_safe_stop),
         "safety_fail_safe_stop_reasons": sorted(safety_fail_safe_stop_reasons),
@@ -337,6 +360,7 @@ def missing_evidence(
     require_permission_denied: bool,
     require_camera_start: bool,
     require_audio_session: bool,
+    require_motion_quality: bool,
     require_inference: bool,
     require_fail_safe_stop: bool,
     require_corridor_guidance: bool,
@@ -438,6 +462,10 @@ def missing_evidence(
         missing.append("audio_session_active")
     if require_audio_session and (require_speech or require_corridor) and details["audio_session_failed_count"] > 0:
         missing.append("audio_session_no_failure")
+    if require_motion_quality and details["motion_quality_count"] < 1:
+        missing.append("motion_quality")
+    if require_motion_quality and not details["motion_quality_trusts_guidance"]:
+        missing.append("motion_quality_trusts_guidance")
     if require_orientation and details["preview_orientation_count"] < 1:
         missing.append("preview_orientation")
     if require_orientation and details["capture_orientation_count"] < 1:
@@ -514,6 +542,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-permission-denied", default="0")
     parser.add_argument("--require-camera-start", default="1")
     parser.add_argument("--require-audio-session", default="1")
+    parser.add_argument("--require-motion-quality", default="0")
     parser.add_argument("--require-model-mode", choices=("none", "disabled", "yolo", "corridor"), default="none")
     parser.add_argument("--require-corridor-guidance", default="1")
     return parser
@@ -545,6 +574,7 @@ def main() -> None:
         require_permission_denied=parse_bool(args.require_permission_denied),
         require_camera_start=parse_bool(args.require_camera_start),
         require_audio_session=parse_bool(args.require_audio_session),
+        require_motion_quality=parse_bool(args.require_motion_quality),
         require_inference=parse_bool(args.require_inference),
         require_fail_safe_stop=parse_bool(args.require_fail_safe_stop),
         require_corridor_guidance=parse_bool(args.require_corridor_guidance),

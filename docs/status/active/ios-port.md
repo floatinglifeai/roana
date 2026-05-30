@@ -256,6 +256,10 @@ Updated: 2026-05-30.
     `scripts/verify-ios-replay-log.py --fixture guidance --min-run-seconds 20
     --max-p95-ms 500`, proving at least one normal RIGHT/STRAIGHT guidance
     utterance plus audio-session evidence from the replay harness.
+    Replay logs now also include `roana_ios_motion_quality label=stable
+    reason=motion_unavailable trusts_guidance=true source=replay`, and replay
+    verification requires that evidence so image-only fixtures prove that
+    missing motion data does not block guidance.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
