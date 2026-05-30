@@ -22,10 +22,12 @@ final class CameraSessionController: NSObject, ObservableObject {
     private let depthRunner = DepthAnythingRunner()
     private let corridorPipeline = CorridorPipeline(feedbackDispatcher: CorridorFeedbackDispatcher())
     private let speechDispatcher = SpeechFeedbackDispatcher()
+    private let orientationLock = NSLock()
 
     private var isConfigured = false
     private var shouldRunWhenForegrounded = false
     private var isInForeground = true
+    private var frameOrientation = CameraFrameOrientation.current(interfaceOrientation: nil)
 
     @MainActor func start() {
         refreshDeviceDiagnostics()
@@ -80,6 +82,15 @@ final class CameraSessionController: NSObject, ObservableObject {
         @unknown default:
             isInForeground = false
             setIdleTimer(false)
+        }
+    }
+
+    func updateOrientation(_ orientation: FrameOrientation) {
+        sessionQueue.async { [weak self] in
+            guard let self else {
+                return
+            }
+            self.applyOutputOrientation(orientation)
         }
     }
 
@@ -159,13 +170,7 @@ final class CameraSessionController: NSObject, ObservableObject {
         }
         session.addOutput(output)
 
-        if let connection = output.connection(with: .video) {
-            let angle: CGFloat = 90
-            if connection.isVideoRotationAngleSupported(angle) {
-                connection.videoRotationAngle = angle
-                logLifecycle("camera_output_orientation angle=\(Int(angle))")
-            }
-        }
+        applyOutputOrientation(CameraFrameOrientation.current(interfaceOrientation: nil))
 
         logLifecycle(
             "camera_configured preset=hd1280x720 pixel_format=420YpCbCr8BiPlanarFullRange discards_late=true queue=serial",
@@ -196,6 +201,37 @@ final class CameraSessionController: NSObject, ObservableObject {
     private func logLifecycle(_ message: String) {
         print("roana_ios_lifecycle \(message)")
     }
+
+    private func applyOutputOrientation(_ orientation: FrameOrientation) {
+        guard let connection = session.outputs
+            .compactMap({ $0.connection(with: .video) })
+            .first else {
+            return
+        }
+
+        if connection.isVideoRotationAngleSupported(orientation.rotationAngle) {
+            connection.videoRotationAngle = orientation.rotationAngle
+            setFrameOrientation(orientation)
+            logLifecycle(
+                "camera_output_orientation interface=\(orientation.interfaceName) " +
+                    "angle=\(orientation.rotationAngleText) vision=\(orientation.visionOrientationName)",
+            )
+        }
+    }
+
+    private func setFrameOrientation(_ orientation: FrameOrientation) {
+        orientationLock.lock()
+        frameOrientation = orientation
+        orientationLock.unlock()
+    }
+
+    private func currentFrameOrientation() -> FrameOrientation {
+        orientationLock.lock()
+        defer {
+            orientationLock.unlock()
+        }
+        return frameOrientation
+    }
 }
 
 extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate {
@@ -220,10 +256,11 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
     }
 
     private func runInference(sampleBuffer: CMSampleBuffer) {
-        let detectionResult = obstacleDetector.detect(sampleBuffer: sampleBuffer)
+        let orientation = currentFrameOrientation()
+        let detectionResult = obstacleDetector.detect(sampleBuffer: sampleBuffer, orientation: orientation)
         let detections = detectionResult.bestDetection.map { [$0] } ?? []
 
-        let depthResult = depthRunner.infer(sampleBuffer: sampleBuffer)
+        let depthResult = depthRunner.infer(sampleBuffer: sampleBuffer, orientation: orientation)
         if let grid = depthResult.grid {
             _ = corridorPipeline.process(
                 grid: grid,

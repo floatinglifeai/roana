@@ -41,8 +41,8 @@ def fake_log(
         lines.append("roana_ios_lifecycle camera_authorization state=authorized")
     lines.append("roana_ios_lifecycle camera_started")
     if include_orientation:
-        lines.append("roana_ios_lifecycle camera_output_orientation angle=90")
-        lines.append("roana_ios_orientation source=preview interface=portrait angle=90")
+        lines.append("roana_ios_lifecycle camera_output_orientation interface=portrait angle=90 vision=right")
+        lines.append("roana_ios_orientation source=preview interface=portrait angle=90 vision=right")
     if include_idle_timer:
         lines.append("roana_ios_lifecycle idle_timer_disabled value=true")
     for index in range(frame_count):
@@ -56,7 +56,7 @@ def fake_log(
         if include_inference:
             lines.append("roana_ios_inference status=scheduled frame_id=1")
         lines.append(
-            "roana_ios_yolo status=ready elapsed_ms=12.00 label=person "
+            "roana_ios_yolo status=ready elapsed_ms=12.00 vision=right label=person "
             "score=0.91 center_x=0.50 center_y=0.80 width=0.20 height=0.30"
         )
         if include_inference:
@@ -76,7 +76,7 @@ def fake_log(
             "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32"
         )
     if include_depth:
-        lines.append("roana_ios_depth status=ok elapsed_ms=31.00 grid_rows=15 grid_cols=15")
+        lines.append("roana_ios_depth status=ok elapsed_ms=31.00 vision=right grid_rows=15 grid_cols=15")
     if include_depth_description:
         lines.append(
             "roana_ios_depth status=model_description resource=DepthAnythingV2Small "
@@ -172,6 +172,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-depth-description",
             "1",
+            "--require-vision-orientation",
+            "1",
             "--require-corridor",
             "1",
             "--require-speech",
@@ -188,6 +190,12 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(1, data["details"]["yolo_description_count"])
         self.assertEqual(1, data["details"]["depth_ok_count"])
         self.assertEqual(1, data["details"]["depth_description_count"])
+        self.assertEqual(1, data["details"]["yolo_vision_orientation_count"])
+        self.assertEqual(1, data["details"]["depth_vision_orientation_count"])
+        self.assertEqual(["right"], data["details"]["preview_vision_orientations"])
+        self.assertEqual(["right"], data["details"]["capture_vision_orientations"])
+        self.assertEqual(["right"], data["details"]["yolo_vision_orientations"])
+        self.assertEqual(["right"], data["details"]["depth_vision_orientations"])
         self.assertEqual(1, data["details"]["corridor_count"])
         self.assertEqual(1, data["details"]["preview_orientation_count"])
         self.assertEqual(1, data["details"]["capture_orientation_count"])
@@ -205,6 +213,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "--require-depth",
             "1",
             "--require-depth-description",
+            "1",
+            "--require-vision-orientation",
             "1",
             "--require-corridor",
             "1",
@@ -235,10 +245,13 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "yolo_model_description",
                 "depth_inference",
                 "depth_model_description",
+                "yolo_vision_orientation",
+                "depth_vision_orientation",
                 "corridor_decision",
                 "speech_queued",
                 "preview_orientation",
                 "capture_orientation",
+                "camera_vision_orientation",
                 "inference_finished",
                 "corridor_guidance_feedback",
                 "corridor_stop_feedback",
@@ -326,6 +339,46 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("yolo_model_description", data["missing"])
         self.assertIn("depth_model_description", data["missing"])
+
+    def test_reports_missing_vision_orientation_evidence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_depth=True,
+            ).replace(" vision=right", ""),
+            "--require-yolo",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-vision-orientation",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("yolo_vision_orientation", data["missing"])
+        self.assertIn("depth_vision_orientation", data["missing"])
+
+    def test_reports_mismatched_vision_orientation_evidence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_orientation=True,
+                include_yolo=True,
+                include_depth=True,
+            ).replace("roana_ios_yolo status=ready elapsed_ms=12.00 vision=right", "roana_ios_yolo status=ready elapsed_ms=12.00 vision=left"),
+            "--require-yolo",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-orientation",
+            "1",
+            "--require-vision-orientation",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("yolo_vision_orientation_match", data["missing"])
 
     def test_reports_missing_orientation_evidence(self) -> None:
         data = self.run_analyzer(
