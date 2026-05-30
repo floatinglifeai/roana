@@ -71,13 +71,12 @@ final class YoloObstacleDetector {
     private let state: State
 
     init(
-        modelResourceName: String = "YOLO11n",
+        modelResourceName: String = ModelAssetResourceLocator.yoloResourceName,
         minimumConfidence: VNConfidence = 0.45,
     ) {
         self.minimumConfidence = minimumConfidence
 
-        guard let modelURL = Bundle.main.url(forResource: modelResourceName, withExtension: "mlmodelc") ??
-            Bundle.main.url(forResource: modelResourceName, withExtension: "mlpackage") else {
+        guard let modelURL = ModelAssetResourceLocator.modelURL(forResource: modelResourceName) else {
             request = nil
             state = .modelMissing
             print("roana_ios_yolo status=model_missing resource=\(modelResourceName)")
