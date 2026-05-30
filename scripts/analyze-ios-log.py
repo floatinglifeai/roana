@@ -11,6 +11,13 @@ from statistics import mean
 
 
 GUIDANCE_COMMANDS = frozenset({"LEFT", "STRAIGHT", "RIGHT"})
+THERMAL_SEVERITY = {
+    "nominal": 0,
+    "fair": 1,
+    "serious": 2,
+    "critical": 3,
+    "unknown": 4,
+}
 
 
 def parse_bool(value: str) -> bool:
@@ -59,6 +66,7 @@ def parse_log(log_path: Path) -> dict[str, object]:
     max_dropped = 0
     max_inference_skipped = 0
     p95_values = []
+    thermal_states = []
 
     for line in lines:
         fields = line_fields(line)
@@ -69,6 +77,9 @@ def parse_log(log_path: Path) -> dict[str, object]:
             p95 = numeric_field(fields, "p95_ms")
             if p95 is not None:
                 p95_values.append(p95)
+            thermal_state = fields.get("thermal")
+            if thermal_state:
+                thermal_states.append(thermal_state)
         if "roana_ios_yolo status=model_description" in line:
             yolo_descriptions.append(line)
         if "roana_ios_depth status=model_description" in line:
@@ -149,12 +160,21 @@ def parse_log(log_path: Path) -> dict[str, object]:
         if value is not None
     ]
 
+    max_thermal_state = "none"
+    max_thermal_severity = -1
+    for state in thermal_states:
+        severity = THERMAL_SEVERITY.get(state, THERMAL_SEVERITY["unknown"])
+        if severity > max_thermal_severity:
+            max_thermal_state = state
+            max_thermal_severity = severity
+
     return {
         "line_count": len(lines),
         "frame_stats_count": len(frame_stats),
         "max_backlog": max_backlog,
         "max_dropped": max_dropped,
         "max_p95_ms": rounded(max(p95_values), 2) if p95_values else 0.0,
+        "max_thermal_state": max_thermal_state,
         "avg_yolo_ms": rounded(mean(yolo_elapsed), 2) if yolo_elapsed else 0.0,
         "avg_depth_ms": rounded(mean(depth_elapsed), 2) if depth_elapsed else 0.0,
         "yolo_description_count": len(yolo_descriptions),
@@ -190,6 +210,8 @@ def missing_evidence(
     min_frame_stats: int,
     max_backlog: int,
     max_dropped: int,
+    max_p95_ms: float,
+    max_thermal_state: str,
     require_yolo: bool,
     require_yolo_description: bool,
     require_depth: bool,
@@ -213,6 +235,14 @@ def missing_evidence(
         missing.append(f"backlog<={max_backlog}")
     if details["max_dropped"] > max_dropped:
         missing.append(f"dropped<={max_dropped}")
+    if max_p95_ms > 0 and details["max_p95_ms"] > max_p95_ms:
+        missing.append(f"p95_ms<={max_p95_ms:g}")
+    if max_thermal_state != "none":
+        allowed_severity = THERMAL_SEVERITY.get(max_thermal_state, THERMAL_SEVERITY["unknown"])
+        observed_state = str(details["max_thermal_state"])
+        observed_severity = THERMAL_SEVERITY.get(observed_state, THERMAL_SEVERITY["unknown"])
+        if observed_severity > allowed_severity:
+            missing.append(f"thermal<={max_thermal_state}")
     if require_permission and not details["permission_seen"]:
         missing.append("camera_permission_state")
     if require_permission_denied and not details["permission_denied_seen"]:
@@ -264,6 +294,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-frame-stats", default=120, type=int)
     parser.add_argument("--max-backlog", default=0, type=int)
     parser.add_argument("--max-dropped", default=0, type=int)
+    parser.add_argument("--max-p95-ms", default=0.0, type=float)
+    parser.add_argument(
+        "--max-thermal-state",
+        choices=("none", "nominal", "fair", "serious", "critical"),
+        default="none",
+    )
     parser.add_argument("--max-inference-skipped", default=0, type=int)
     parser.add_argument("--require-yolo", default="0")
     parser.add_argument("--require-yolo-description", default="0")
@@ -290,6 +326,8 @@ def main() -> None:
         min_frame_stats=args.min_frame_stats,
         max_backlog=args.max_backlog,
         max_dropped=args.max_dropped,
+        max_p95_ms=args.max_p95_ms,
+        max_thermal_state=args.max_thermal_state,
         require_yolo=parse_bool(args.require_yolo),
         require_yolo_description=parse_bool(args.require_yolo_description),
         require_depth=parse_bool(args.require_depth),
