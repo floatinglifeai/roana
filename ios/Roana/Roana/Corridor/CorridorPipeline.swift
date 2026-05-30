@@ -8,6 +8,7 @@ final class CorridorPipeline {
     private let stateMachine: CorridorStateMachine
     private let gridFusion: CorridorGridFusion
     private let feedbackDispatcher: CorridorFeedbackDispatcher?
+    private let lock = NSLock()
 
     init(
         planner: CorridorPlanner = CorridorPlanner(),
@@ -36,6 +37,11 @@ final class CorridorPipeline {
     }
 
     private func applyDecision(_ decision: CorridorDecision, forceFeedback: Bool) -> CorridorFrameResult {
+        lock.lock()
+        defer {
+            lock.unlock()
+        }
+
         let state = stateMachine.update(decision: decision)
         print(
             "roana_ios_corridor decision=\(decision.command.rawValue) state=\(state.command.rawValue) " +

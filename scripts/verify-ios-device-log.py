@@ -108,6 +108,8 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         args.require_orientation,
         "--require-inference",
         args.require_inference,
+        "--require-fail-safe-stop",
+        args.require_fail_safe_stop,
         "--require-permission",
         args.require_permission,
         "--require-permission-denied",
@@ -158,6 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-speech", default=None)
     parser.add_argument("--require-orientation", default=None)
     parser.add_argument("--require-inference", default=None)
+    parser.add_argument("--require-fail-safe-stop", default=None)
     return parser
 
 
@@ -209,6 +212,8 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.require_camera_start = "0" if denied_gate else "1"
     if args.require_inference is None:
         args.require_inference = "1" if model_gate else "0"
+    if args.require_fail_safe_stop is None:
+        args.require_fail_safe_stop = "1" if corridor_gate else "0"
     return args
 
 

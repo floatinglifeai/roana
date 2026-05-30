@@ -99,6 +99,14 @@ Updated: 2026-05-30.
     plus YOLO detections into `CorridorPipeline`, and leave missing-model depth
     state as a no-op until assets are available. Non-missing depth failures
     route through conservative `low_confidence` STOP.
+  - Dropped capture frames and inference-busy skipped frames now emit
+    `roana_ios_safety event=fail_safe_stop reason=frame_loss` and route through
+    corridor `failSafeStop(reason: "frame_loss")`. `CorridorPipeline` serializes
+    state-machine updates with a lock so normal inference and frame-loss safety
+    events cannot race each other.
+  - Debug builds can force the same frame-loss proof path at launch with
+    `--roana-debug-fail-safe-stop` or `ROANA_DEBUG_FAIL_SAFE_STOP=1`; release
+    builds leave the hook disabled.
   - The adapter supports common Core ML depth layouts:
     `[H,W]`, `[H,W,1]`, `[1,H,W]`, `[1,H,W,1]`, and `[1,1,H,W]`.
   - Pure Swift smoke tests cover small-output fallback, optimized large-output
@@ -144,7 +152,8 @@ Updated: 2026-05-30.
     including frame stats, orientation evidence, Core ML model-description
     logs, ordered background-stop/restart evidence, idle-timer disable/enable
     evidence, model/corridor/speech evidence, and inference coordinator
-    scheduled/skipped/finished counts.
+    scheduled/skipped/finished counts. V0b log gates also require a
+    machine-checkable fail-safe STOP artifact for frame-loss safety.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
     artifacts. All granted-camera physical-run gates require preview/capture
@@ -156,9 +165,9 @@ Updated: 2026-05-30.
     Core ML resource and feature contract instead of only proving inference
     callbacks.
     V0a/V0b defaults require Vision orientation evidence from the model logs.
-    V0b defaults also require p95 frame cadence at or below 100 ms and thermal
-    state no worse than `fair`, matching the corridor-demo ≥10 FPS /
-    no-throttle acceptance gate.
+    V0b defaults also require frame-loss fail-safe STOP evidence, p95 frame
+    cadence at or below 100 ms, and thermal state no worse than `fair`,
+    matching the corridor-demo ≥10 FPS / no-throttle acceptance gate.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
     permission artifact without requiring camera start, frame stats, or
     orientation logs.

@@ -63,6 +63,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
     corridor_ok = []
     corridor_feedback_spoken = []
     speech_queued = []
+    safety_fail_safe_stop = []
+    safety_fail_safe_stop_reasons = set()
     yolo_vision_orientation_lines = []
     depth_vision_orientation_lines = []
     lifecycle_lines = []
@@ -141,6 +143,11 @@ def parse_log(log_path: Path) -> dict[str, object]:
             corridor_feedback_spoken.append(line)
         if "roana_ios_speech status=queued" in line:
             speech_queued.append(line)
+        if "roana_ios_safety event=fail_safe_stop" in line:
+            safety_fail_safe_stop.append(line)
+            reason = fields.get("reason")
+            if reason:
+                safety_fail_safe_stop_reasons.add(reason)
         if "roana_ios_lifecycle" in line:
             lifecycle_lines.append(line)
             if "camera_started" in line:
@@ -251,6 +258,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "depth_ok_count": len(depth_ok),
         "corridor_count": len(corridor_ok),
         "speech_queued_count": len(speech_queued),
+        "safety_fail_safe_stop_count": len(safety_fail_safe_stop),
+        "safety_fail_safe_stop_reasons": sorted(safety_fail_safe_stop_reasons),
         "preview_orientation_count": len(preview_orientation_lines),
         "capture_orientation_count": len(capture_orientation_lines),
         "inference_scheduled_count": len(inference_scheduled),
@@ -296,6 +305,7 @@ def missing_evidence(
     require_permission_denied: bool,
     require_camera_start: bool,
     require_inference: bool,
+    require_fail_safe_stop: bool,
     max_inference_skipped: int,
 ) -> list[str]:
     missing: list[str] = []
@@ -387,6 +397,8 @@ def missing_evidence(
         missing.append("capture_orientation")
     if require_inference and details["inference_finished_count"] < 1:
         missing.append("inference_finished")
+    if require_fail_safe_stop and details["safety_fail_safe_stop_count"] < 1:
+        missing.append("fail_safe_stop")
     if details["max_inference_skipped"] > max_inference_skipped:
         missing.append(f"inference_skipped<={max_inference_skipped}")
     if require_corridor and not details["normal_corridor_feedback"]:
@@ -437,6 +449,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-speech", default="0")
     parser.add_argument("--require-orientation", default="0")
     parser.add_argument("--require-inference", default="0")
+    parser.add_argument("--require-fail-safe-stop", default="0")
     parser.add_argument("--require-background-stop", default="0")
     parser.add_argument("--require-background-cycle", default="0")
     parser.add_argument("--require-idle-timer", default="0")
@@ -472,6 +485,7 @@ def main() -> None:
         require_permission_denied=parse_bool(args.require_permission_denied),
         require_camera_start=parse_bool(args.require_camera_start),
         require_inference=parse_bool(args.require_inference),
+        require_fail_safe_stop=parse_bool(args.require_fail_safe_stop),
         max_inference_skipped=args.max_inference_skipped,
     )
     status = "passed" if not missing else "blocked"
