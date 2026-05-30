@@ -209,6 +209,9 @@ Updated: 2026-05-30.
     label that matches a YOLO detection label. V0a/V0b speech gates require
     audio-session activation evidence, and V0b log gates also require a
     machine-checkable fail-safe STOP artifact for frame-loss safety.
+    Model-description gates now check the expected Core ML contracts from the
+    manifest: YOLO image input `640x640`, Depth Anything image input `518x518`,
+    and multi-array model outputs where applicable.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
     artifacts. All granted-camera physical-run gates require preview/capture
