@@ -88,6 +88,9 @@ Updated: 2026-05-30.
   - Current local model asset status is intentionally `missing` because large
     Core ML assets are not committed.
 - iOS safety/privacy boundary:
+  - iOS subtree agent contract exists at `ios/AGENTS.md` and records the
+    hard platform, privacy, safety, verification, and out-of-scope constraints
+    for future iOS work.
   - Swift verifier exists at `ios/Roana/RoanaTests/Privacy/main.swift`.
   - The verifier enforces the iOS V0 camera-only `Info.plist` boundary and scans
     production Swift source for network, frame-storage, identity, cloud/VLM, and
