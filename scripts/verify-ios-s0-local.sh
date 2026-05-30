@@ -77,7 +77,12 @@ grep -q "FrameInferenceCoordinator<CMSampleBuffer>" "$IOS_DIR/Roana/Camera/Camer
 grep -q "inferenceCoordinator.submit(sampleBuffer)" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "app.roana.ios.inference" "$IOS_DIR/Roana/Camera/FrameInferenceCoordinator.swift"
 grep -q "roana_ios_inference" "$IOS_DIR/Roana/Camera/FrameInferenceCoordinator.swift"
-grep -q "UIApplication.shared.isIdleTimerDisabled = true" "$IOS_DIR/Roana/ContentView.swift"
+grep -q "UIApplication.shared.isIdleTimerDisabled = disabled" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "idle_timer_disabled value=" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+if grep -q "isIdleTimerDisabled" "$IOS_DIR/Roana/ContentView.swift"; then
+  echo "ContentView must not control UIApplication.isIdleTimerDisabled directly" >&2
+  exit 1
+fi
 grep -q "roana_ios_frame_stats" "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
 grep -q "camera_background_stop" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "camera_permission_denied" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
