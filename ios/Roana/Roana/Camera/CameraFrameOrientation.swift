@@ -3,9 +3,13 @@
 
 import CoreGraphics
 import ImageIO
-import UIKit
 import Vision
 
+#if canImport(UIKit)
+    import UIKit
+#endif
+
+#if canImport(UIKit)
 enum CameraFrameOrientation {
     static func current(interfaceOrientation: UIInterfaceOrientation?) -> FrameOrientation {
         switch interfaceOrientation {
@@ -22,6 +26,7 @@ enum CameraFrameOrientation {
         }
     }
 }
+#endif
 
 struct FrameOrientation {
     let interfaceName: String
