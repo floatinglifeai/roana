@@ -45,14 +45,22 @@ scripts/verify-ios-replay-log.py --log /tmp/roana-ios-video-replay-smoke.log \
   --fixture stop --min-run-seconds 2 --max-p95-ms 1000
 ```
 
-`samples/home_iphone_0530.mp4` is a local development fixture and is not
-committed. Keep full videos out of normal git history unless the project adopts
-Git LFS or a separate fixture-fetch path.
+`samples/home_iphone_0530.mp4` is a local development fixture and is ignored by
+git. Keep full videos out of normal git history unless the project adopts Git
+LFS or a separate fixture-fetch path. `samples/README.md` records the current
+local-only policy and the replay label vocabulary.
+
+Current V0b replay labels:
+
+- Command labels: `STOP`, `STRAIGHT`, `LEFT`, `RIGHT`.
+- Scene-quality labels: `pointing_down`, `unstable`, `too_close`, `occluded`.
+- `stop` fixtures must prove STOP behavior. `guidance` fixtures must prove at
+  least one normal LEFT / STRAIGHT / RIGHT corridor utterance.
 
 ## Remaining Discussion Questions
 
-- Should we store only small derived replay logs, adopt Git LFS for selected
-  fixture videos, or keep user-recorded videos local-only?
+- Should selected videos move to Git LFS / fixture-fetch later, or should all
+  user-recorded videos remain local-only?
 - Should replay stay only in scripts/tests, or also live behind a debug-only app
   mode?
 - What minimum motion contract should both iOS and Android expose?
