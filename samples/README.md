@@ -11,6 +11,9 @@ Current policy:
   scrubbed and useful for automated verification.
 - Use `scripts/replay-ios-video.sh` to generate logs from a local video, then
   verify the log with `scripts/verify-ios-replay-log.py`.
+- Use `scripts/label-ios-replay.py --from-log <replay.log>` to create a small
+  clip-level label summary from replay evidence. The summary is metadata only;
+  videos remain local-only by default.
 
 V0b replay labels:
 

@@ -57,8 +57,10 @@ required_files=(
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
   "$ROOT_DIR/scripts/capture-ios-device-log.py"
   "$ROOT_DIR/scripts/run-ios-v0b-physical.py"
+  "$ROOT_DIR/scripts/label-ios-replay.py"
   "$ROOT_DIR/scripts/test_capture_ios_device_log.py"
   "$ROOT_DIR/scripts/test_run_ios_v0b_physical.py"
+  "$ROOT_DIR/scripts/test_label_ios_replay.py"
   "$ROOT_DIR/scripts/check-ios-xcodeproj-membership.py"
   "$ROOT_DIR/scripts/test_check_ios_xcodeproj_membership.py"
   "$ROOT_DIR/scripts/replay-ios-video.sh"
@@ -80,6 +82,7 @@ python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_capture_ios_device_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_run_ios_v0b_physical.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_label_ios_replay.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_xcodeproj_membership.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
@@ -213,6 +216,7 @@ grep -q "AVAssetReader" "$IOS_DIR/RoanaTests/VideoReplay/main.swift"
 grep -q "roana_ios_replay" "$IOS_DIR/RoanaTests/VideoReplay/main.swift"
 grep -q "ROANA_IOS_MODEL_ASSETS_DIR" "$ROOT_DIR/scripts/replay-ios-video.sh"
 grep -q "require-corridor-guidance" "$ROOT_DIR/scripts/verify-ios-replay-log.py"
+grep -q "fixture_suggestion" "$ROOT_DIR/scripts/label-ios-replay.py"
 "$ROOT_DIR/scripts/replay-ios-video.sh" --help >/dev/null
 grep -q "Do not upload video frames" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "Low confidence, missing frames" "$ROOT_DIR/ios/AGENTS.md"

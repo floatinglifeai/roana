@@ -260,6 +260,11 @@ Updated: 2026-05-30.
     reason=motion_unavailable trusts_guidance=true source=replay`, and replay
     verification requires that evidence so image-only fixtures prove that
     missing motion data does not block guidance.
+  - `scripts/label-ios-replay.py` can create a local JSON label summary from an
+    existing replay log or by running replay against a local video. It suggests
+    command labels (`STOP`, `STRAIGHT`, `LEFT`, `RIGHT`), scene-quality labels
+    such as `too_close` / `occluded` / `pointing_down` / `unstable`, and a
+    fixture type, without adding production recording or committing videos.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -388,6 +393,9 @@ offline/unavailable.
 - Do not add large Core ML model artifacts directly to git; keep generated
   `.mlmodelc` / `.mlpackage` outputs out of normal source commits unless Git
   LFS or an explicit model-fetch path is added.
+- Do not commit user-recorded replay videos or private scene-derived metadata
+  unless they have been reviewed and the project adopts an explicit fixture
+  sharing policy.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
   JSON fixture now covers planner, fusion, depth-grid conversion, state-machine,
   pipeline, and feedback-dispatch cases, but regenerating that Android-derived
