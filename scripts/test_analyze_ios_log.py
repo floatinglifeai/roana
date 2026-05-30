@@ -28,6 +28,7 @@ def fake_log(
     include_inference: bool = False,
     inference_skipped: int = 0,
     p95_ms: float = 34.0,
+    run_seconds: float = 60.0,
     thermal_state: str = "nominal",
     include_orientation: bool = False,
     include_background_stop: bool = False,
@@ -49,7 +50,7 @@ def fake_log(
             "roana_ios_frame_stats "
             f"width=1280 height=720 pixel_format=420YpCbCr8BiPlanarFullRange "
             f"interval_ms=33.30 p50_ms=33.30 p95_ms={p95_ms:.2f} dropped={dropped} "
-            f"backlog={backlog} thermal={thermal_state} frame={index}"
+            f"backlog={backlog} thermal={thermal_state} run_s={run_seconds:.2f} frame={index}"
         )
     if include_yolo:
         if include_inference:
@@ -250,6 +251,17 @@ class AnalyzeIosLogTest(unittest.TestCase):
 
         self.assertEqual("blocked", data["status"])
         self.assertEqual({"backlog<=0", "dropped<=0"}, set(data["missing"]))
+
+    def test_reports_short_camera_run(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=120, run_seconds=12.5),
+            "--min-run-seconds",
+            "60",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("run_s>=60", data["missing"])
+        self.assertEqual(12.5, data["details"]["max_run_seconds"])
 
     def test_reports_slow_frame_cadence(self) -> None:
         data = self.run_analyzer(

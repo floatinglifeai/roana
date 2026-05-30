@@ -32,8 +32,10 @@ Updated: 2026-05-30.
   thermal state, and camera authorization state.
 - Frame diagnostics with dimensions, pixel format, callback interval, rolling
   p50/p95 interval, dropped-frame count, backlog indicator, and thermal state.
+  Frame stats also include `run_s` so future S0/V0 artifacts prove run
+  duration rather than only frame count.
 - Stable log prefix:
-  `roana_ios_frame_stats width=... height=... interval_ms=... p50_ms=... p95_ms=... dropped=... thermal=...`.
+  `roana_ios_frame_stats width=... height=... interval_ms=... p50_ms=... p95_ms=... dropped=... thermal=... run_s=...`.
 - Single-flight model inference coordinator keeps `AVCaptureVideoDataOutput`
   callbacks short, runs model work on `app.roana.ios.inference`, and logs
   `roana_ios_inference status=scheduled|skipped|finished` so slow model frames
@@ -135,13 +137,14 @@ Updated: 2026-05-30.
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
     artifacts. All granted-camera physical-run gates require preview/capture
     orientation evidence, ordered background-stop/restart evidence, and
-    idle-timer disable/enable evidence by default. V0a/V0b defaults require
-    YOLO model-description evidence, and V0b defaults require Depth Anything
-    model-description evidence, so the first model-backed device artifact
-    proves the exported Core ML feature contract instead of only proving
-    inference callbacks. V0b defaults also require p95 frame cadence at or
-    below 100 ms and thermal state no worse than `fair`, matching the
-    corridor-demo ≥10 FPS / no-throttle acceptance gate.
+    idle-timer disable/enable evidence by default, plus at least 60 seconds of
+    `run_s` frame evidence. V0a/V0b defaults require YOLO model-description
+    evidence, and V0b defaults require Depth Anything model-description
+    evidence, so the first model-backed device artifact proves the exported
+    Core ML feature contract instead of only proving inference callbacks. V0b
+    defaults also require p95 frame cadence at or below 100 ms and thermal
+    state no worse than `fair`, matching the corridor-demo ≥10 FPS /
+    no-throttle acceptance gate.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
     permission artifact without requiring camera start, frame stats, or
     orientation logs.
@@ -202,7 +205,7 @@ logs/ios-skeleton-<timestamp>.log
 Machine-check the artifact with:
 
 ```bash
-scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-background-stop 1 --require-background-cycle 1 --require-orientation 1 --require-idle-timer 1
+scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --min-run-seconds 60 --require-background-stop 1 --require-background-cycle 1 --require-orientation 1 --require-idle-timer 1
 ```
 
 Or use the physical-run wrapper:

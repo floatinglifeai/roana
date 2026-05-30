@@ -72,6 +72,8 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         str(args.log),
         "--min-frame-stats",
         str(args.min_frame_stats),
+        "--min-run-seconds",
+        str(args.min_run_seconds),
         "--max-backlog",
         str(args.max_backlog),
         "--max-dropped",
@@ -126,6 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--log", required=True, type=Path)
     parser.add_argument("--gate", choices=("s0", "s0-denied", "v0a", "v0b"), default="s0")
     parser.add_argument("--min-frame-stats", default=120, type=int)
+    parser.add_argument("--min-run-seconds", default=None, type=float)
     parser.add_argument("--max-backlog", default=0, type=int)
     parser.add_argument("--max-dropped", default=0, type=int)
     parser.add_argument("--max-p95-ms", default=None, type=float)
@@ -162,12 +165,15 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
 
     if args.require_model_assets is None:
         args.require_model_assets = "1" if model_gate else "0"
+    if args.min_run_seconds is None:
+        args.min_run_seconds = 0.0 if denied_gate else 60.0
     if args.max_p95_ms is None:
         args.max_p95_ms = 100.0 if corridor_gate else 0.0
     if args.max_thermal_state is None:
         args.max_thermal_state = "fair" if corridor_gate else "none"
     if denied_gate:
         args.min_frame_stats = 0
+        args.min_run_seconds = 0.0
         args.max_backlog = max(args.max_backlog, 0)
         args.max_dropped = max(args.max_dropped, 0)
         args.require_background_stop = "0"

@@ -17,6 +17,7 @@ final class FrameDiagnostics {
         let droppedFrames: Int
         let queueBacklog: Int
         let thermalState: String
+        let cameraRunSeconds: Double
 
         var intervalMillisecondsText: String {
             format(intervalMilliseconds)
@@ -35,7 +36,7 @@ final class FrameDiagnostics {
                 "width=\(width) height=\(height) pixel_format=\(pixelFormat) " +
                 "interval_ms=\(intervalMillisecondsText) p50_ms=\(p50MillisecondsText) " +
                 "p95_ms=\(p95MillisecondsText) dropped=\(droppedFrames) " +
-                "backlog=\(queueBacklog) thermal=\(thermalState)"
+                "backlog=\(queueBacklog) thermal=\(thermalState) run_s=\(format(cameraRunSeconds))"
         }
 
         private func format(_ value: Double?) -> String {
@@ -51,6 +52,7 @@ final class FrameDiagnostics {
     private var intervals = RollingPercentileWindow(capacity: 120)
     private var droppedFrameCount = 0
     private var inCallback = false
+    private var firstFrameUptime: TimeInterval?
 
     func record(sampleBuffer: CMSampleBuffer) -> Stats? {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
@@ -107,6 +109,7 @@ final class FrameDiagnostics {
             droppedFrames: droppedFrameCount,
             queueBacklog: 0,
             thermalState: ProcessInfo.processInfo.thermalState.logValue,
+            cameraRunSeconds: cameraRunSeconds(),
         )
     }
 
@@ -138,7 +141,16 @@ final class FrameDiagnostics {
             droppedFrames: droppedFrameCount,
             queueBacklog: queueBacklog,
             thermalState: ProcessInfo.processInfo.thermalState.logValue,
+            cameraRunSeconds: cameraRunSeconds(),
         )
+    }
+
+    private func cameraRunSeconds() -> Double {
+        let now = ProcessInfo.processInfo.systemUptime
+        if firstFrameUptime == nil {
+            firstFrameUptime = now
+        }
+        return max(0, now - (firstFrameUptime ?? now))
     }
 
     private func pixelFormatName(_ format: OSType) -> String {
