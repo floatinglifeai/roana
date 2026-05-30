@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "source": "app/src/test/java/com/roana/app/CorridorPlannerTest.kt",
+  "cases": [
+    {
+      "name": "choosesStraightForCenteredOpenCorridor",
+      "type": "planner",
+      "grid": {
+        "kind": "carvedCorridor",
+        "colsFromBottom": [7, 7, 7, 7, 7, 7, 7, 7, 7]
+      },
+      "expected": {
+        "command": "STRAIGHT",
+        "reason": "path_found",
+        "minPathCells": 6
+      }
+    },
+    {
+      "name": "choosesLeftForLeftBiasedCorridor",
+      "type": "planner",
+      "grid": {
+        "kind": "carvedCorridor",
+        "colsFromBottom": [7, 7, 7, 6, 5, 5, 4, 4, 4]
+      },
+      "expected": {
+        "command": "LEFT",
+        "reason": "path_found",
+        "minPathCells": 6
+      }
+    },
+    {
+      "name": "choosesRightForRightBiasedCorridor",
+      "type": "planner",
+      "grid": {
+        "kind": "carvedCorridor",
+        "colsFromBottom": [7, 7, 7, 8, 9, 9, 10, 10, 10]
+      },
+      "expected": {
+        "command": "RIGHT",
+        "reason": "path_found",
+        "minPathCells": 6
+      }
+    },
+    {
+      "name": "choosesStraightQuicklyWhenEveryCellIsSafe",
+      "type": "planner",
+      "grid": {
+        "kind": "filled",
+        "value": 0.30
+      },
+      "expected": {
+        "command": "STRAIGHT",
+        "reason": "path_found",
+        "pathCells": 15
+      }
+    },
+    {
+      "name": "stopsForNearLowerHalfObstacle",
+      "type": "planner",
+      "grid": {
+        "kind": "carvedCorridor",
+        "colsFromBottom": [7, 7, 7, 7, 7, 7, 7, 7, 7],
+        "overrides": [
+          { "row": 12, "col": 7, "value": 0.95 }
+        ]
+      },
+      "expected": {
+        "command": "STOP",
+        "reason": "near_obstacle",
+        "pathCells": 0
+      }
+    },
+    {
+      "name": "stateMachineRequiresThreeConfirmationsForNonStop",
+      "type": "stateMachine",
+      "decisions": [
+        { "command": "STRAIGHT", "reason": "test" },
+        { "command": "STRAIGHT", "reason": "test" },
+        { "command": "STRAIGHT", "reason": "test" }
+      ],
+      "expectedStates": [
+        { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 1 },
+        { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 2 },
+        { "command": "STRAIGHT", "changed": true, "pendingCommand": null, "pendingCount": 0 }
+      ]
+    },
+    {
+      "name": "stateMachineTreatsFrameLossAsStop",
+      "type": "stateMachine",
+      "decisions": [
+        { "command": "STRAIGHT", "reason": "test" },
+        { "command": "STRAIGHT", "reason": "test" },
+        { "command": "STRAIGHT", "reason": "test" },
+        { "command": "STRAIGHT", "reason": "frame_loss" }
+      ],
+      "expectedStates": [
+        { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 1 },
+        { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 2 },
+        { "command": "STRAIGHT", "changed": true, "pendingCommand": null, "pendingCount": 0 },
+        { "command": "STOP", "changed": true, "pendingCommand": null, "pendingCount": 0 }
+      ]
+    },
+    {
+      "name": "gridFusionHighConfidenceCenterDetectionForcesNearObstacleStop",
+      "type": "fusion",
+      "grid": {
+        "kind": "carvedCorridor",
+        "colsFromBottom": [7, 7, 7, 7, 7, 7, 7, 7, 7]
+      },
+      "detections": [
+        { "confidence": 0.92, "centerX": 0.5, "centerY": 0.84, "width": 0.25, "height": 0.24 }
+      ],
+      "expected": {
+        "command": "STOP",
+        "reason": "near_obstacle"
+      }
+    }
+  ]
+}

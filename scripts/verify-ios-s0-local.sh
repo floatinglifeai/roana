@@ -76,6 +76,15 @@ swiftc \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" >/dev/null
 
+swiftc \
+  "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift" \
+  "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift" \
+  "$IOS_DIR/Roana/Corridor/CorridorGridFusion.swift" \
+  "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift" \
+  "$IOS_DIR/RoanaTests/Parity/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" "$ROOT_DIR/parity/corridor-core.json" >/dev/null
+
 if ! command -v xcodebuild >/dev/null 2>&1; then
   echo "xcodebuild unavailable; iOS local structural checks passed, build deferred" >&2
   exit 2
