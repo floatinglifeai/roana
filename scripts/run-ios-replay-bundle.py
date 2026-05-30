@@ -68,7 +68,7 @@ def verify_command(args: argparse.Namespace, paths: dict[str, Path]) -> list[str
         "--log",
         str(paths["log"]),
         "--fixture",
-        args.fixture,
+        args.resolved_fixture,
         "--min-run-seconds",
         f"{args.min_run_seconds:g}",
         "--max-p95-ms",
@@ -93,13 +93,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timestamp", default=timestamp())
     parser.add_argument("--fps", type=float, default=2.0)
     parser.add_argument("--max-seconds", type=float)
-    parser.add_argument("--fixture", choices=("stop", "guidance"), default="stop")
+    parser.add_argument("--fixture", choices=("auto", "stop", "guidance"), default="auto")
     parser.add_argument("--min-run-seconds", type=float, default=0.0)
     parser.add_argument("--max-p95-ms", type=float, default=0.0)
     parser.add_argument("--replay-bin", type=Path, default=REPLAY)
     parser.add_argument("--verify-bin", type=Path, default=VERIFIER)
     parser.add_argument("--label-bin", type=Path, default=LABELER)
     return parser
+
+
+def resolve_fixture(requested: str, label_json: dict[str, Any]) -> str:
+    if requested != "auto":
+        return requested
+    suggestion = str(label_json.get("fixture_suggestion", ""))
+    return "guidance" if suggestion == "guidance" else "stop"
 
 
 def main() -> int:
@@ -128,14 +135,16 @@ def main() -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 1
 
-    verify_status, verify_output = run(verify_command(args, paths))
-    verify_json = parse_json(verify_output)
-    write_json(paths["verify"], verify_json)
-
     label_status, label_output = run(label_command(args, paths))
     label_json = parse_json(label_output)
     if not paths["labels"].is_file():
         write_json(paths["labels"], label_json)
+
+    args.resolved_fixture = resolve_fixture(args.fixture, label_json)
+
+    verify_status, verify_output = run(verify_command(args, paths))
+    verify_json = parse_json(verify_output)
+    write_json(paths["verify"], verify_json)
 
     missing: list[str] = []
     if verify_status != 0:
@@ -150,7 +159,8 @@ def main() -> int:
         "status": "passed" if not missing else "blocked",
         "missing": missing,
         "artifacts": {name: str(path) for name, path in paths.items()},
-        "fixture": args.fixture,
+        "fixture": args.resolved_fixture,
+        "requestedFixture": args.fixture,
         "labels": {
             "fixtureSuggestion": label_json.get("fixture_suggestion"),
             "commandLabels": label_json.get("command_labels", []),

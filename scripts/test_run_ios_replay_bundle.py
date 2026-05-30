@@ -47,7 +47,9 @@ class RunIosReplayBundleTest(unittest.TestCase):
                 """
                 #!/usr/bin/env python3
                 import json
-                print(json.dumps({"status": "passed", "missing": [], "fixture": "stop"}))
+                import sys
+                fixture = sys.argv[sys.argv.index("--fixture") + 1]
+                print(json.dumps({"status": "passed", "missing": [], "fixture": fixture}))
                 """,
             )
             write_executable(
@@ -97,6 +99,8 @@ class RunIosReplayBundleTest(unittest.TestCase):
             self.assertEqual("", result.stderr)
             self.assertEqual(0, result.returncode, result.stdout)
             self.assertEqual("passed", data["status"])
+            self.assertEqual("auto", data["requestedFixture"])
+            self.assertEqual("stop", data["fixture"])
             self.assertEqual([], data["missing"])
             self.assertEqual("stop", data["labels"]["fixtureSuggestion"])
             self.assertEqual(["STOP"], data["labels"]["commandLabels"])
@@ -106,6 +110,72 @@ class RunIosReplayBundleTest(unittest.TestCase):
             self.assertTrue(Path(data["artifacts"]["verify"]).is_file())
             self.assertTrue(Path(data["artifacts"]["labels"]).is_file())
             self.assertEqual("roana-ios-replay-home-clip-20260530T010203Z.log", Path(data["artifacts"]["log"]).name)
+
+    def test_auto_fixture_uses_guidance_suggestion(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            video = root / "clip.mp4"
+            video.write_text("fixture", encoding="utf-8")
+            replay = root / "fake-replay.py"
+            verify = root / "fake-verify.py"
+            label = root / "fake-label.py"
+            seen_fixture = root / "seen-fixture.txt"
+
+            write_executable(replay, "#!/usr/bin/env python3\nprint('roana_ios_replay status=finished frames=1')\n")
+            write_executable(
+                verify,
+                f"""
+                #!/usr/bin/env python3
+                import json
+                import pathlib
+                import sys
+                fixture = sys.argv[sys.argv.index("--fixture") + 1]
+                pathlib.Path({str(seen_fixture)!r}).write_text(fixture, encoding="utf-8")
+                print(json.dumps({{"status": "passed", "missing": [], "fixture": fixture}}))
+                """,
+            )
+            write_executable(
+                label,
+                """
+                #!/usr/bin/env python3
+                import json
+                print(json.dumps({
+                    "status": "passed",
+                    "missing": [],
+                    "fixture_suggestion": "guidance",
+                    "command_labels": ["RIGHT"],
+                    "scene_quality_labels": [],
+                    "segments": [{"time_s": 1.0, "command": "RIGHT"}],
+                }))
+                """,
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    str(video),
+                    "--output-dir",
+                    str(root / "out"),
+                    "--timestamp",
+                    "20260530T010203Z",
+                    "--replay-bin",
+                    str(replay),
+                    "--verify-bin",
+                    str(verify),
+                    "--label-bin",
+                    str(label),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            data = json.loads(result.stdout)
+            self.assertEqual(0, result.returncode, result.stdout)
+            self.assertEqual("auto", data["requestedFixture"])
+            self.assertEqual("guidance", data["fixture"])
+            self.assertEqual("guidance", seen_fixture.read_text(encoding="utf-8"))
 
     def test_blocks_when_verifier_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

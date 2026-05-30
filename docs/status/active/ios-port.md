@@ -269,7 +269,9 @@ Updated: 2026-05-30.
   - `scripts/run-ios-replay-bundle.py` wraps the local replay workflow into one
     command that writes replay log, verification JSON, and label JSON artifacts
     under `/tmp` by default, so long user-recorded videos can be processed
-    locally without adding app-side recording or photo-library access.
+    locally without adding app-side recording or photo-library access. Its
+    default `--fixture auto` verifies guidance-only clips as `guidance` and
+    verifies stop/mixed/review clips against the conservative STOP fixture.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at

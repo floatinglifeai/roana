@@ -17,6 +17,8 @@ Current policy:
   videos remain local-only by default.
 - Use `scripts/run-ios-replay-bundle.py <video>` when you want one command to
   create the replay log, verification JSON, and label JSON under `/tmp`.
+  The default `--fixture auto` verifies guidance-only clips as `guidance` and
+  verifies stop/mixed/review clips against the conservative STOP fixture.
 
 V0b replay labels:
 
