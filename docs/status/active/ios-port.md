@@ -115,11 +115,15 @@ Updated: 2026-05-30.
   - Frame inference coordinator smoke verifier passes without full Xcode.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts,
-    including frame stats, model/corridor/speech evidence, and inference
-    coordinator scheduled/skipped/finished counts.
+    including frame stats, Core ML model-description logs,
+    model/corridor/speech evidence, and inference coordinator
+    scheduled/skipped/finished counts.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
-    artifacts.
+    artifacts. V0a/V0b defaults require YOLO model-description evidence, and
+    V0b defaults require Depth Anything model-description evidence, so the
+    first model-backed device artifact proves the exported Core ML feature
+    contract instead of only proving inference callbacks.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
@@ -184,8 +188,11 @@ Or use the physical-run wrapper:
 scripts/verify-ios-device-log.py --gate s0 --log logs/ios-skeleton-<timestamp>.log
 ```
 
-After model assets are available, add `--require-yolo 1 --require-depth 1
---require-corridor 1 --require-speech 1 --require-inference 1`.
+After model assets are available, add `--require-yolo 1
+--require-yolo-description 1 --require-depth 1 --require-depth-description 1
+--require-corridor 1 --require-speech 1 --require-inference 1` when calling
+the analyzer directly. The physical-run wrapper applies the V0a/V0b
+model-description requirements by default.
 
 Before running model-backed iOS V0a/V0b gates, check the local asset contract:
 

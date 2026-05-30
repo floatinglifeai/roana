@@ -42,7 +42,9 @@ def parse_log(log_path: Path) -> dict[str, object]:
     lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
 
     frame_stats = []
+    yolo_descriptions = []
     depth_ok = []
+    depth_descriptions = []
     corridor_ok = []
     corridor_feedback_spoken = []
     speech_queued = []
@@ -64,6 +66,10 @@ def parse_log(log_path: Path) -> dict[str, object]:
             p95 = numeric_field(fields, "p95_ms")
             if p95 is not None:
                 p95_values.append(p95)
+        if "roana_ios_yolo status=model_description" in line:
+            yolo_descriptions.append(line)
+        if "roana_ios_depth status=model_description" in line:
+            depth_descriptions.append(line)
         if "roana_ios_depth status=ok" in line:
             depth_ok.append(line)
         if "roana_ios_corridor decision=" in line:
@@ -126,6 +132,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "max_p95_ms": rounded(max(p95_values), 2) if p95_values else 0.0,
         "avg_yolo_ms": rounded(mean(yolo_elapsed), 2) if yolo_elapsed else 0.0,
         "avg_depth_ms": rounded(mean(depth_elapsed), 2) if depth_elapsed else 0.0,
+        "yolo_description_count": len(yolo_descriptions),
+        "depth_description_count": len(depth_descriptions),
         "yolo_ok_count": len(yolo_elapsed),
         "depth_ok_count": len(depth_ok),
         "corridor_count": len(corridor_ok),
@@ -151,7 +159,9 @@ def missing_evidence(
     max_backlog: int,
     max_dropped: int,
     require_yolo: bool,
+    require_yolo_description: bool,
     require_depth: bool,
+    require_depth_description: bool,
     require_corridor: bool,
     require_speech: bool,
     require_background_stop: bool,
@@ -176,8 +186,12 @@ def missing_evidence(
         missing.append("camera_background_stop")
     if require_yolo and details["yolo_ok_count"] < 1:
         missing.append("yolo_inference")
+    if require_yolo_description and details["yolo_description_count"] < 1:
+        missing.append("yolo_model_description")
     if require_depth and details["depth_ok_count"] < 1:
         missing.append("depth_inference")
+    if require_depth_description and details["depth_description_count"] < 1:
+        missing.append("depth_model_description")
     if require_corridor and details["corridor_count"] < 1:
         missing.append("corridor_decision")
     if require_speech and details["speech_queued_count"] < 1:
@@ -201,7 +215,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-dropped", default=0, type=int)
     parser.add_argument("--max-inference-skipped", default=0, type=int)
     parser.add_argument("--require-yolo", default="0")
+    parser.add_argument("--require-yolo-description", default="0")
     parser.add_argument("--require-depth", default="0")
+    parser.add_argument("--require-depth-description", default="0")
     parser.add_argument("--require-corridor", default="0")
     parser.add_argument("--require-speech", default="0")
     parser.add_argument("--require-inference", default="0")
@@ -219,7 +235,9 @@ def main() -> None:
         max_backlog=args.max_backlog,
         max_dropped=args.max_dropped,
         require_yolo=parse_bool(args.require_yolo),
+        require_yolo_description=parse_bool(args.require_yolo_description),
         require_depth=parse_bool(args.require_depth),
+        require_depth_description=parse_bool(args.require_depth_description),
         require_corridor=parse_bool(args.require_corridor),
         require_speech=parse_bool(args.require_speech),
         require_background_stop=parse_bool(args.require_background_stop),
