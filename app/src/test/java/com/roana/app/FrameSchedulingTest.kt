@@ -22,6 +22,17 @@ class FrameSchedulingTest {
     }
 
     @Test
+    fun liveDepthSkipsYoloFramesAndKeepsAnalyzerHeadroom() {
+        assertFalse(shouldRunLiveDepthFrame(frame = 0, skipForYoloFrame = false))
+        assertFalse(shouldRunLiveDepthFrame(frame = 1, skipForYoloFrame = true))
+        assertFalse(shouldRunLiveDepthFrame(frame = 2, skipForYoloFrame = false))
+        assertFalse(shouldRunLiveDepthFrame(frame = 4, skipForYoloFrame = false))
+        assertTrue(shouldRunLiveDepthFrame(frame = 5, skipForYoloFrame = false))
+        assertFalse(shouldRunLiveDepthFrame(frame = 9, skipForYoloFrame = true))
+        assertTrue(shouldRunLiveDepthFrame(frame = 13, skipForYoloFrame = false))
+    }
+
+    @Test
     fun warmupFrameGapsDoNotTriggerSafetyStop() {
         assertTrue(isWarmupFrameGap(frame = 1))
         assertFalse(isUnsafeFrameGap(gapMs = 2_000, frame = 1))

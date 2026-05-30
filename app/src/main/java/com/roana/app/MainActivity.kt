@@ -548,10 +548,7 @@ class MainActivity : ComponentActivity() {
         ) {
             val runner = depthRunner ?: return
             val pipeline = corridorPipeline ?: return
-            if (skipForYoloFrame) {
-                return
-            }
-            if (!shouldRunPeriodicFrame(frames, DEPTH_FRAME_INTERVAL)) {
+            if (!shouldRunLiveDepthFrame(frames, skipForYoloFrame)) {
                 return
             }
 
@@ -654,7 +651,6 @@ class MainActivity : ComponentActivity() {
             "com.roana.app.extra.DEBUG_SAFE_STOP"
         private const val LOG_INTERVAL_MS = 1_000L
         private const val YOLO_FRAME_INTERVAL = 10L
-        private const val DEPTH_FRAME_INTERVAL = 1L
         private const val FRAME_GAP_WARNING_MS = 150L
         private const val NS_PER_MS = 1_000_000L
         private const val REASON_FRAME_LOSS = "frame_loss"
@@ -667,6 +663,9 @@ internal fun shouldRunPeriodicFrame(frame: Long, interval: Long): Boolean {
     return frame > 0L && (frame - 1L) % interval == 0L
 }
 
+internal fun shouldRunLiveDepthFrame(frame: Long, skipForYoloFrame: Boolean): Boolean =
+    !skipForYoloFrame && shouldRunPeriodicFrame(frame, LIVE_DEPTH_FRAME_INTERVAL)
+
 internal fun isUnsafeFrameGap(gapMs: Long, frame: Long): Boolean =
     !isWarmupFrameGap(frame) && gapMs > FRAME_GAP_SAFETY_MS
 
@@ -675,3 +674,4 @@ internal fun isWarmupFrameGap(frame: Long): Boolean =
 
 private const val FRAME_GAP_SAFETY_MS = 500L
 private const val FRAME_GAP_WARMUP_FRAMES = 3L
+private const val LIVE_DEPTH_FRAME_INTERVAL = 4L

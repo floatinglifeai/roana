@@ -6,12 +6,12 @@ Updated: 2026-05-30.
 
 - Active objective: implement `docs/plan/v0-implementation-plan.md` via
   `intuitive-flow`.
-- Latest completed slice: Mac + Docker + ADB development is working, and a
-  Snapdragon 8 Gen 2 phone exposed QNN DSP transport/skeleton setup failure
-  before model-specific offload can be evaluated.
-- Current V0b slice: QNN DSP transport diagnosis is active; do not add a CPU
-  fallback performance profile until the QNN transport/skeleton root cause is
-  known.
+- Latest completed slice: the Snapdragon 8 Gen 2 live V0b path now runs YOLO
+  and Depth Anything on QNN HTP, passes the short machine gate, and passes the
+  30-minute thermal live-corridor gate without severe frame gaps.
+- Current V0b slice: the remaining proof is the known-corridor
+  sighted-spotter run. Do not add a CPU fallback performance profile; the
+  remaining work should keep diagnosing actual Android/iOS support gaps.
 - Rebased onto `origin/main` after the QNN smoke-gate work. The acceleration
   research now tracks the Android speedup-library direction (LiteRT Next
   primary, ONNX Runtime QNN diagnostic, ExecuTorch later candidate) and the iOS
@@ -218,6 +218,17 @@ Updated: 2026-05-30.
     depth-specific luma fast path, YOLO/depth frame isolation, and a frame-loss
     policy that distinguishes startup/light CameraX jitter from severe runtime
     frame loss.
+  - Sustained V0b thermal proof artifact:
+    `logs/v0a-device-20260530T024149Z.log`, launched by
+    `RUN_THERMAL_GATE=1 REQUIRE_CORRIDOR_TEST=0 LOG_SECONDS=60
+    ./scripts/verify-v0b-device.sh` after reducing the live depth cadence to
+    leave CameraX analyzer headroom. The 30-minute gate passed on the same
+    Snapdragon 8 Gen 2 phone with `thermal_gap_count=0`,
+    `thermal_live_corridor_count=8850`, `thermal_depth_fps=18.646`,
+    `thermal_tail_depth_fps=18.692`, and thermal status `none` before and
+    after. The short warm gate in the same verifier also passed with
+    `gap_count=0`, normal STRAIGHT guidance feedback spoken, and
+    low-confidence safe STOP feedback spoken.
 
 ## Stop Condition
 
@@ -229,22 +240,23 @@ machine. QNN HTP transport is now operational on the current target-class
 Snapdragon 8 Gen 2 phone after declaring the public vendor FastRPC native
 library and using explicit app native-library paths for QNN. Both model smoke
 tests pass on QNN HTP, and the live corridor path executes QNN depth frames.
-The short V0b machine gate now passes on the target Snapdragon 8 Gen 2 phone:
-live Depth Anything runs above the 10 FPS target on QNN HTP, frame-loss count is
-zero under the refined runtime safety policy, normal corridor guidance is
-spoken, and low-confidence safe STOP is proven on device. Emergency STOP
-behavior for near obstacles, severe runtime frame loss, and low confidence is
-covered in unit tests and real-device safe-stop proof. The 30-minute thermal
-gate and known-corridor sighted-spotter proof remain the next V0b proofs before
-calling the full corridor demo complete.
+The short V0b machine gate and 30-minute thermal gate now pass on the target
+Snapdragon 8 Gen 2 phone: live Depth Anything runs above the 10 FPS target on
+QNN HTP, severe frame-loss count is zero under the refined runtime safety
+policy, normal corridor guidance is spoken, and low-confidence safe STOP is
+proven on device. Emergency STOP behavior for near obstacles, severe runtime
+frame loss, and low confidence is covered in unit tests and real-device
+safe-stop proof. The known-corridor sighted-spotter proof remains the next V0b
+proof before calling the full corridor demo complete.
 
 ## Next Agent-Owned Step
 
 Use `scripts/verify-v0b-device.sh` as the short machine gate and
-`RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the next Android proof.
-The next agent-owned Android step is the 30-minute thermal run on the target
-phone, followed by the known-corridor sighted-spotter proof when a human can
-perform it. Do not add a lower-performance CPU fallback profile.
+`RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the sustained Android
+regression gate. The next V0b proof is the known-corridor sighted-spotter run
+when a human can perform it. Agent-owned follow-up work can proceed on the
+origin/main research directions: Android speedup-library options and iOS
+support. Do not add a lower-performance CPU fallback profile.
 
 ## No-Touch Scope
 
