@@ -110,6 +110,8 @@ def analyze_log(args: argparse.Namespace) -> dict[str, object]:
         args.require_inference,
         "--require-fail-safe-stop",
         args.require_fail_safe_stop,
+        "--require-model-mode",
+        args.require_model_mode,
         "--require-permission",
         args.require_permission,
         "--require-permission-denied",
@@ -161,6 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-orientation", default=None)
     parser.add_argument("--require-inference", default=None)
     parser.add_argument("--require-fail-safe-stop", default=None)
+    parser.add_argument("--require-model-mode", choices=("none", "disabled", "yolo", "corridor"), default=None)
     return parser
 
 
@@ -214,6 +217,13 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
         args.require_inference = "1" if model_gate else "0"
     if args.require_fail_safe_stop is None:
         args.require_fail_safe_stop = "1" if corridor_gate else "0"
+    if args.require_model_mode is None:
+        if corridor_gate:
+            args.require_model_mode = "corridor"
+        elif model_gate:
+            args.require_model_mode = "yolo"
+        else:
+            args.require_model_mode = "disabled"
     return args
 
 

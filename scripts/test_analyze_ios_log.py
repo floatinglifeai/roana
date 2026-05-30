@@ -28,6 +28,7 @@ def fake_log(
     speech_label: str = "person",
     include_fail_safe_stop: bool = False,
     include_inference: bool = False,
+    model_mode: str = "disabled",
     inference_skipped: int = 0,
     p95_ms: float = 34.0,
     run_seconds: float = 60.0,
@@ -42,6 +43,7 @@ def fake_log(
     if include_permission:
         lines.append("roana_ios_lifecycle camera_authorization state=authorized")
     lines.append("roana_ios_lifecycle camera_started")
+    lines.append(f"roana_ios_model_mode value={model_mode}")
     if include_orientation:
         lines.append("roana_ios_lifecycle camera_output_orientation interface=portrait angle=90 vision=right")
         lines.append("roana_ios_orientation source=preview interface=portrait angle=90 vision=right")
@@ -179,6 +181,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 include_speech=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--require-yolo",
             "1",
@@ -200,6 +203,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-fail-safe-stop",
             "1",
+            "--require-model-mode",
+            "corridor",
         )
 
         self.assertEqual("passed", data["status"])
@@ -232,6 +237,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(["person"], data["details"]["matched_yolo_speech_labels"])
         self.assertEqual(2, data["details"]["audio_session_active_count"])
         self.assertEqual(0, data["details"]["audio_session_failed_count"])
+        self.assertEqual(["corridor"], data["details"]["model_modes"])
         self.assertEqual(1, data["details"]["safety_fail_safe_stop_count"])
         self.assertEqual(["frame_loss"], data["details"]["safety_fail_safe_stop_reasons"])
 
@@ -247,6 +253,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--require-yolo",
             "1",
@@ -268,12 +275,15 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-fail-safe-stop",
             "1",
+            "--require-model-mode",
+            "corridor",
         )
 
         self.assertEqual("passed", data["status"])
         self.assertEqual([], data["missing"])
         self.assertEqual(0, data["details"]["speech_queued_count"])
         self.assertEqual(2, data["details"]["corridor_feedback_spoken_count"])
+        self.assertEqual(["corridor"], data["details"]["model_modes"])
         self.assertEqual(["frame_loss"], data["details"]["safety_fail_safe_stop_reasons"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
@@ -488,6 +498,32 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("yolo_model_description", data["missing"])
         self.assertIn("depth_model_description", data["missing"])
+
+    def test_reports_missing_model_mode_evidence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=120).replace("roana_ios_model_mode value=disabled\n", ""),
+            "--require-model-mode",
+            "disabled",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("model_mode>=disabled", data["missing"])
+
+    def test_reports_model_mode_below_required_gate(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                model_mode="disabled",
+            ),
+            "--require-yolo",
+            "1",
+            "--require-model-mode",
+            "yolo",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("model_mode>=yolo", data["missing"])
 
     def test_reports_wrong_model_description_resources(self) -> None:
         data = self.run_analyzer(

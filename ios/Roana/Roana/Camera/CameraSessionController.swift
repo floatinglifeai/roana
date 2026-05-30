@@ -18,11 +18,12 @@ final class CameraSessionController: NSObject, ObservableObject {
     private let captureQueue = DispatchQueue(label: "app.roana.ios.camera.frames")
     private let inferenceCoordinator = FrameInferenceCoordinator<CMSampleBuffer>()
     private let diagnostics = FrameDiagnostics()
-    private let obstacleDetector = YoloObstacleDetector()
-    private let depthRunner = DepthAnythingRunner()
+    private let obstacleDetector: YoloObstacleDetector?
+    private let depthRunner: DepthAnythingRunner?
     private let corridorPipeline = CorridorPipeline(feedbackDispatcher: CorridorFeedbackDispatcher())
     private let speechDispatcher = SpeechFeedbackDispatcher()
     private let orientationLock = NSLock()
+    private let modelInferenceMode: ModelInferenceMode
     private let debugFailSafeStopEnabled: Bool
 
     private var isConfigured = false
@@ -31,8 +32,13 @@ final class CameraSessionController: NSObject, ObservableObject {
     private var frameOrientation = CameraFrameOrientation.current(interfaceOrientation: nil)
 
     override init() {
+        let inferenceMode = ModelInferenceMode.current()
+        modelInferenceMode = inferenceMode
         debugFailSafeStopEnabled = DebugFailSafeStop.isEnabled()
+        obstacleDetector = inferenceMode.runsYolo ? YoloObstacleDetector() : nil
+        depthRunner = inferenceMode.runsDepth ? DepthAnythingRunner() : nil
         super.init()
+        print("roana_ios_model_mode value=\(modelInferenceMode.rawValue)")
         if debugFailSafeStopEnabled {
             print("roana_ios_safety debug_fail_safe_stop enabled=true reason=frame_loss")
         }
@@ -257,6 +263,14 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
 
         print(stats.logLine)
 
+        Task { @MainActor in
+            self.updateFrameSummary(stats)
+        }
+
+        guard modelInferenceMode.runsYolo else {
+            return
+        }
+
         let scheduled = inferenceCoordinator.submit(sampleBuffer) { [weak self] sampleBuffer in
             self?.runInference(sampleBuffer: sampleBuffer)
         }
@@ -264,27 +278,30 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
             failSafeStop(reason: "frame_loss")
         }
 
-        Task { @MainActor in
-            self.updateFrameSummary(stats)
-        }
     }
 
     private func runInference(sampleBuffer: CMSampleBuffer) {
+        guard let obstacleDetector else {
+            return
+        }
+
         let orientation = currentFrameOrientation()
         let detectionResult = obstacleDetector.detect(sampleBuffer: sampleBuffer, orientation: orientation)
         let detections = detectionResult.bestDetection.map { [$0] } ?? []
 
-        let depthResult = depthRunner.infer(sampleBuffer: sampleBuffer, orientation: orientation)
         var corridorOwnsSpeech = false
-        if let grid = depthResult.grid {
-            corridorOwnsSpeech = true
-            _ = corridorPipeline.process(
-                grid: grid,
-                detections: detections.map(\.corridorDetection),
-            )
-        } else if depthResult.state != .modelMissing {
-            corridorOwnsSpeech = true
-            _ = corridorPipeline.failSafeStop(reason: "low_confidence")
+        if modelInferenceMode.runsDepth, let depthRunner {
+            let depthResult = depthRunner.infer(sampleBuffer: sampleBuffer, orientation: orientation)
+            if let grid = depthResult.grid {
+                corridorOwnsSpeech = true
+                _ = corridorPipeline.process(
+                    grid: grid,
+                    detections: detections.map(\.corridorDetection),
+                )
+            } else if depthResult.state != .modelMissing {
+                corridorOwnsSpeech = true
+                _ = corridorPipeline.failSafeStop(reason: "low_confidence")
+            }
         }
 
         if let detection = detectionResult.bestDetection {

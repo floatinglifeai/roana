@@ -26,6 +26,7 @@ def fake_log(
     speech_label: str = "person",
     include_fail_safe_stop: bool = False,
     include_inference: bool = False,
+    model_mode: str = "disabled",
     p95_ms: float = 34.0,
     run_seconds: float = 60.0,
     thermal_state: str = "nominal",
@@ -37,6 +38,7 @@ def fake_log(
     lines = [
         "roana_ios_lifecycle camera_authorization state=authorized",
         "roana_ios_lifecycle camera_started",
+        f"roana_ios_model_mode value={model_mode}",
     ]
     if include_orientation:
         lines.append("roana_ios_lifecycle camera_output_orientation interface=portrait angle=90 vision=right")
@@ -115,6 +117,7 @@ def fake_log(
 def fake_denied_log() -> str:
     return "\n".join(
         [
+            "roana_ios_model_mode value=disabled",
             "roana_ios_lifecycle camera_authorization state=denied",
             "roana_ios_lifecycle camera_permission_denied state=denied",
         ],
@@ -159,6 +162,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(details["status"], "passed")
         self.assertEqual(details["missing"], [])
+        self.assertEqual(["disabled"], details["analysis"]["details"]["model_modes"])
 
     def test_v0a_defaults_require_model_evidence(self) -> None:
         status, details = self.run_verifier(
@@ -197,6 +201,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_speech=True,
                 speech_label="chair",
                 include_inference=True,
+                model_mode="yolo",
             ),
             "--gate",
             "v0a",
@@ -223,6 +228,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_yolo_description=True,
                 include_speech=True,
                 include_inference=True,
+                model_mode="yolo",
             ).replace(
                 "roana_ios_audio_session status=active category=playback mode=spokenAudio options=duckOthers\n",
                 "",
@@ -236,6 +242,30 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(status, 2)
         self.assertEqual(details["status"], "blocked")
         self.assertIn("audio_session_active", details["missing"])
+
+    def test_v0a_defaults_require_yolo_model_mode(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_speech=True,
+                include_inference=True,
+                model_mode="disabled",
+            ),
+            "--gate",
+            "v0a",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("model_mode>=yolo", details["missing"])
 
     def test_s0_defaults_require_sixty_second_run(self) -> None:
         status, details = self.run_verifier(
@@ -270,6 +300,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--gate",
             "v0b",
@@ -295,6 +326,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--gate",
             "v0b",
@@ -306,6 +338,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(details["status"], "passed")
         self.assertEqual(0, details["analysis"]["details"]["speech_queued_count"])
         self.assertEqual(["frame_loss"], details["analysis"]["details"]["safety_fail_safe_stop_reasons"])
+        self.assertEqual(["corridor"], details["analysis"]["details"]["model_modes"])
 
     def test_v0b_defaults_require_model_descriptions(self) -> None:
         status, details = self.run_verifier(
@@ -321,6 +354,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_speech=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--gate",
             "v0b",
@@ -348,6 +382,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             )
             .replace("resource=YOLO11n", "resource=WrongYolo")
             .replace("resource=DepthAnythingV2Small", "resource=WrongDepth"),
@@ -377,6 +412,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             )
             .replace("inputs=image:image_640x640", "inputs=unknown")
             .replace(
@@ -411,6 +447,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ).replace(" vision=right", ""),
             "--gate",
             "v0b",
@@ -438,6 +475,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ).replace("roana_ios_depth status=ok elapsed_ms=31.00 vision=right", "roana_ios_depth status=ok elapsed_ms=31.00 vision=left"),
             "--gate",
             "v0b",
@@ -465,6 +503,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--gate",
             "v0b",
@@ -492,6 +531,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_corridor=True,
                 include_fail_safe_stop=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--gate",
             "v0b",
@@ -517,6 +557,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth_description=True,
                 include_corridor=True,
                 include_inference=True,
+                model_mode="corridor",
             ),
             "--gate",
             "v0b",

@@ -13,6 +13,7 @@ from statistics import mean
 GUIDANCE_COMMANDS = frozenset({"LEFT", "STRAIGHT", "RIGHT"})
 EXPECTED_YOLO_RESOURCE = "YOLO11n"
 EXPECTED_DEPTH_RESOURCE = "DepthAnythingV2Small"
+MODEL_MODE_ORDER = {"disabled": 0, "yolo": 1, "corridor": 2}
 THERMAL_SEVERITY = {
     "nominal": 0,
     "fair": 1,
@@ -67,6 +68,7 @@ def parse_log(log_path: Path) -> dict[str, object]:
     yolo_detection_labels = set()
     audio_session_active = []
     audio_session_failed = []
+    model_modes = set()
     safety_fail_safe_stop = []
     safety_fail_safe_stop_reasons = set()
     yolo_vision_orientation_lines = []
@@ -157,6 +159,10 @@ def parse_log(log_path: Path) -> dict[str, object]:
             audio_session_active.append(line)
         if "roana_ios_audio_session status=failed" in line:
             audio_session_failed.append(line)
+        if "roana_ios_model_mode" in line:
+            mode = fields.get("value")
+            if mode:
+                model_modes.add(mode)
         if "roana_ios_safety event=fail_safe_stop" in line:
             safety_fail_safe_stop.append(line)
             reason = fields.get("reason")
@@ -279,6 +285,7 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "matched_yolo_speech_labels": matched_speech_labels,
         "audio_session_active_count": len(audio_session_active),
         "audio_session_failed_count": len(audio_session_failed),
+        "model_modes": sorted(model_modes),
         "safety_fail_safe_stop_count": len(safety_fail_safe_stop),
         "safety_fail_safe_stop_reasons": sorted(safety_fail_safe_stop_reasons),
         "preview_orientation_count": len(preview_orientation_lines),
@@ -327,6 +334,7 @@ def missing_evidence(
     require_camera_start: bool,
     require_inference: bool,
     require_fail_safe_stop: bool,
+    require_model_mode: str,
     max_inference_skipped: int,
 ) -> list[str]:
     missing: list[str] = []
@@ -366,6 +374,8 @@ def missing_evidence(
         missing.append("idle_timer_enabled")
     if require_yolo and details["yolo_ok_count"] < 1:
         missing.append("yolo_inference")
+    if not has_required_model_mode(details["model_modes"], require_model_mode):
+        missing.append(f"model_mode>={require_model_mode}")
     if require_yolo_description and details["yolo_description_count"] < 1:
         missing.append("yolo_model_description")
     if require_yolo_description and details["yolo_description_count"] >= 1:
@@ -435,6 +445,14 @@ def missing_evidence(
     return missing
 
 
+def has_required_model_mode(modes: object, required: str) -> bool:
+    if required == "none":
+        return True
+    required_level = MODEL_MODE_ORDER[required]
+    observed_levels = [MODEL_MODE_ORDER.get(str(mode), -1) for mode in modes]
+    return bool(observed_levels) and max(observed_levels) >= required_level
+
+
 def has_model_feature_contract(
     *,
     inputs: object,
@@ -483,6 +501,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-permission", default="1")
     parser.add_argument("--require-permission-denied", default="0")
     parser.add_argument("--require-camera-start", default="1")
+    parser.add_argument("--require-model-mode", choices=("none", "disabled", "yolo", "corridor"), default="none")
     return parser
 
 
@@ -513,6 +532,7 @@ def main() -> None:
         require_camera_start=parse_bool(args.require_camera_start),
         require_inference=parse_bool(args.require_inference),
         require_fail_safe_stop=parse_bool(args.require_fail_safe_stop),
+        require_model_mode=args.require_model_mode,
         max_inference_skipped=args.max_inference_skipped,
     )
     status = "passed" if not missing else "blocked"
