@@ -18,6 +18,8 @@ final class CameraSessionController: NSObject, ObservableObject {
     private let captureQueue = DispatchQueue(label: "app.roana.ios.camera.frames")
     private let diagnostics = FrameDiagnostics()
     private let obstacleDetector = YoloObstacleDetector()
+    private let depthRunner = DepthAnythingRunner()
+    private let corridorPipeline = CorridorPipeline()
     private let speechDispatcher = SpeechFeedbackDispatcher()
 
     private var isConfigured = false
@@ -206,6 +208,18 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
         print(stats.logLine)
 
         let detectionResult = obstacleDetector.detect(sampleBuffer: sampleBuffer)
+        let detections = detectionResult.bestDetection.map { [$0] } ?? []
+
+        let depthResult = depthRunner.infer(sampleBuffer: sampleBuffer)
+        if let grid = depthResult.grid {
+            _ = corridorPipeline.process(
+                grid: grid,
+                detections: detections.map(\.corridorDetection),
+            )
+        } else if depthResult.state != .modelMissing {
+            _ = corridorPipeline.failSafeStop(reason: "low_confidence")
+        }
+
         if let detection = detectionResult.bestDetection {
             speechDispatcher.speak(detection: detection)
         }

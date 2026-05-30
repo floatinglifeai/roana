@@ -24,11 +24,14 @@ required_files=(
   "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift"
   "$IOS_DIR/Roana/Corridor/CorridorGridFusion.swift"
   "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift"
+  "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
+  "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
   "$IOS_DIR/Roana/Diagnostics/DeviceDiagnostics.swift"
   "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
   "$IOS_DIR/Roana/Diagnostics/RollingPercentileWindow.swift"
   "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+  "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/main.swift"
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
 )
@@ -57,6 +60,8 @@ grep -q "DispatchQueue(label: \"app.roana.ios.camera.frames\")" "$IOS_DIR/Roana/
 grep -q "UIApplication.shared.isIdleTimerDisabled = true" "$IOS_DIR/Roana/ContentView.swift"
 grep -q "roana_ios_frame_stats" "$IOS_DIR/Roana/Diagnostics/FrameDiagnostics.swift"
 grep -q "camera_background_stop" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "DepthAnythingRunner()" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
+grep -q "corridorPipeline.process" "$IOS_DIR/Roana/Camera/CameraSessionController.swift"
 grep -q "VNCoreMLRequest" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -q "VNRecognizedObjectObservation" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -q "AVSpeechSynthesizer" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
@@ -66,6 +71,10 @@ grep -q "near_obstacle" "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift"
 grep -q "frame_loss" "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift"
 grep -q "low_confidence" "$IOS_DIR/Roana/Corridor/CorridorStateMachine.swift"
 grep -q "roana_ios_corridor" "$IOS_DIR/Roana/Corridor/CorridorPipeline.swift"
+grep -q "MLMultiArray" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
+grep -q "expectedInputWidth = 518" "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift"
+grep -q "roana_ios_depth" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
+grep -q "computeUnits = .all" "$IOS_DIR/Roana/Depth/DepthAnythingRunner.swift"
 
 swiftc \
   "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift" \
@@ -84,6 +93,13 @@ swiftc \
   "$IOS_DIR/RoanaTests/Parity/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" "$ROOT_DIR/parity/corridor-core.json" >/dev/null
+
+swiftc \
+  "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift" \
+  "$IOS_DIR/Roana/Depth/DepthAnythingOutputAdapter.swift" \
+  "$IOS_DIR/RoanaTests/Depth/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" >/dev/null
 
 if ! command -v xcodebuild >/dev/null 2>&1; then
   echo "xcodebuild unavailable; iOS local structural checks passed, build deferred" >&2

@@ -22,6 +22,8 @@
 		8F4C00272CAE000100000001 /* CorridorStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00282CAE000100000001 /* CorridorStateMachine.swift */; };
 		8F4C00292CAE000100000001 /* CorridorGridFusion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C002A2CAE000100000001 /* CorridorGridFusion.swift */; };
 		8F4C002B2CAE000100000001 /* CorridorPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C002C2CAE000100000001 /* CorridorPipeline.swift */; };
+		8F4C002E2CAE000100000001 /* DepthAnythingOutputAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C002F2CAE000100000001 /* DepthAnythingOutputAdapter.swift */; };
+		8F4C00312CAE000100000001 /* DepthAnythingRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00322CAE000100000001 /* DepthAnythingRunner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +44,8 @@
 		8F4C00282CAE000100000001 /* CorridorStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorridorStateMachine.swift; sourceTree = "<group>"; };
 		8F4C002A2CAE000100000001 /* CorridorGridFusion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorridorGridFusion.swift; sourceTree = "<group>"; };
 		8F4C002C2CAE000100000001 /* CorridorPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorridorPipeline.swift; sourceTree = "<group>"; };
+		8F4C002F2CAE000100000001 /* DepthAnythingOutputAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthAnythingOutputAdapter.swift; sourceTree = "<group>"; };
+		8F4C00322CAE000100000001 /* DepthAnythingRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthAnythingRunner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +82,7 @@
 				8F4C00092CAE000100000001 /* ContentView.swift */,
 				8F4C001D2CAE000100000001 /* Camera */,
 				8F4C002D2CAE000100000001 /* Corridor */,
+				8F4C00302CAE000100000001 /* Depth */,
 				8F4C001E2CAE000100000001 /* Diagnostics */,
 				8F4C00232CAE000100000001 /* Models */,
 				8F4C00242CAE000100000001 /* Speech */,
@@ -116,6 +121,15 @@
 				8F4C002C2CAE000100000001 /* CorridorPipeline.swift */,
 			);
 			path = Corridor;
+			sourceTree = "<group>";
+		};
+		8F4C00302CAE000100000001 /* Depth */ = {
+			isa = PBXGroup;
+			children = (
+				8F4C002F2CAE000100000001 /* DepthAnythingOutputAdapter.swift */,
+				8F4C00322CAE000100000001 /* DepthAnythingRunner.swift */,
+			);
+			path = Depth;
 			sourceTree = "<group>";
 		};
 		8F4C00232CAE000100000001 /* Models */ = {
@@ -217,6 +231,8 @@
 				8F4C00272CAE000100000001 /* CorridorStateMachine.swift in Sources */,
 				8F4C00292CAE000100000001 /* CorridorGridFusion.swift in Sources */,
 				8F4C002B2CAE000100000001 /* CorridorPipeline.swift in Sources */,
+				8F4C002E2CAE000100000001 /* DepthAnythingOutputAdapter.swift in Sources */,
+				8F4C00312CAE000100000001 /* DepthAnythingRunner.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
