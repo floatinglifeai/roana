@@ -54,12 +54,27 @@ Updated: 2026-05-30.
   - Swift `CorridorGridFusion` port that marks high-confidence detections as
     obstacle cells in the planner grid.
   - Swift `CorridorPipeline` wrapper that logs `roana_ios_corridor`.
+- Code-only Depth Anything path:
+  - `DepthAnythingOutputAdapter` converts raw depth output values or
+    `MLMultiArray` outputs into the 15x15 planner grid.
+  - `DepthAnythingRunner` loads a bundled `DepthAnythingV2Small` Core ML
+    resource when present, requests all compute units, runs a `VNCoreMLRequest`,
+    and logs `roana_ios_depth`.
+  - Camera callbacks now attempt depth inference, feed successful depth grids
+    plus YOLO detections into `CorridorPipeline`, and leave missing-model depth
+    state as a no-op until assets are available. Non-missing depth failures
+    route through conservative `low_confidence` STOP.
+  - The adapter supports common Core ML depth layouts:
+    `[H,W]`, `[H,W,1]`, `[1,H,W]`, `[1,H,W,1]`, and `[1,1,H,W]`.
+  - Pure Swift smoke tests cover small-output fallback, optimized large-output
+    aggregation, and constant-output normalization.
 - Executable local proof:
   - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
     passes with `CorridorCoreSmoke passed`.
   - Swift parity verifier reads `parity/corridor-core.json` and passes the
     planner, fusion, and state-machine cases mirrored from current Kotlin unit
     tests.
+  - Depth adapter smoke verifier passes without an iPhone or full Xcode.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Automatic Kotlin fixture generation is still pending because local Gradle
