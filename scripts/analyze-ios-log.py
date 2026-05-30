@@ -13,6 +13,10 @@ from statistics import mean
 GUIDANCE_COMMANDS = frozenset({"LEFT", "STRAIGHT", "RIGHT"})
 EXPECTED_YOLO_RESOURCE = "YOLO11n"
 EXPECTED_DEPTH_RESOURCE = "DepthAnythingV2Small"
+EXPECTED_YOLO_INPUT = "image_640x640"
+EXPECTED_YOLO_OUTPUTS = ("multiarray_",)
+EXPECTED_DEPTH_INPUT = "image_518x518"
+EXPECTED_DEPTH_OUTPUTS = ("multiarray_",)
 MODEL_MODE_ORDER = {"disabled": 0, "yolo": 1, "corridor": 2}
 THERMAL_SEVERITY = {
     "nominal": 0,
@@ -384,8 +388,8 @@ def missing_evidence(
         if not has_model_feature_contract(
             inputs=details["yolo_description_inputs"],
             outputs=details["yolo_description_outputs"],
-            required_input="image_",
-            required_output=None,
+            required_input=EXPECTED_YOLO_INPUT,
+            required_outputs=EXPECTED_YOLO_OUTPUTS,
         ):
             missing.append("yolo_model_features")
     if require_depth and details["depth_ok_count"] < 1:
@@ -398,8 +402,8 @@ def missing_evidence(
         if not has_model_feature_contract(
             inputs=details["depth_description_inputs"],
             outputs=details["depth_description_outputs"],
-            required_input="image_",
-            required_output="multiarray_",
+            required_input=EXPECTED_DEPTH_INPUT,
+            required_outputs=EXPECTED_DEPTH_OUTPUTS,
         ):
             missing.append("depth_model_features")
     if require_vision_orientation and require_yolo and details["yolo_vision_orientation_count"] < 1:
@@ -458,7 +462,7 @@ def has_model_feature_contract(
     inputs: object,
     outputs: object,
     required_input: str | None,
-    required_output: str | None,
+    required_outputs: tuple[str, ...],
 ) -> bool:
     input_values = [str(value) for value in inputs if str(value) not in {"", "unknown"}]
     output_values = [str(value) for value in outputs if str(value) not in {"", "unknown"}]
@@ -466,8 +470,9 @@ def has_model_feature_contract(
         return False
     if required_input and not any(required_input in value for value in input_values):
         return False
-    if required_output and not any(required_output in value for value in output_values):
-        return False
+    for required_output in required_outputs:
+        if not any(required_output in value for value in output_values):
+            return False
     return True
 
 
