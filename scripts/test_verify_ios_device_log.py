@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -12,6 +13,11 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).with_name("verify-ios-device-log.py")
+spec = importlib.util.spec_from_file_location("verify_ios_device_log", SCRIPT)
+assert spec is not None
+verify_ios_device_log = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(verify_ios_device_log)
 
 
 def fake_log(
@@ -128,6 +134,61 @@ def fake_denied_log() -> str:
 
 
 class VerifyIosDeviceLogTest(unittest.TestCase):
+    def test_devicectl_json_requires_iphone(self) -> None:
+        payload = {"result": {"devices": []}}
+
+        missing = verify_ios_device_log.iphone_device_readiness_from_devicectl_json(json.dumps(payload))
+
+        self.assertEqual(["iphone_device"], missing)
+
+    def test_devicectl_json_rejects_unavailable_iphone(self) -> None:
+        payload = {
+            "result": {
+                "devices": [
+                    {
+                        "hardwareProperties": {
+                            "platform": "iOS",
+                            "deviceType": "iPhone",
+                        },
+                        "connectionProperties": {
+                            "tunnelState": "unavailable",
+                        },
+                        "deviceProperties": {
+                            "ddiServicesAvailable": False,
+                        },
+                    },
+                ],
+            },
+        }
+
+        missing = verify_ios_device_log.iphone_device_readiness_from_devicectl_json(json.dumps(payload))
+
+        self.assertEqual(["iphone_device_available"], missing)
+
+    def test_devicectl_json_accepts_available_iphone_tunnel(self) -> None:
+        payload = {
+            "result": {
+                "devices": [
+                    {
+                        "hardwareProperties": {
+                            "platform": "iOS",
+                            "deviceType": "iPhone",
+                        },
+                        "connectionProperties": {
+                            "tunnelState": "connected",
+                        },
+                        "deviceProperties": {
+                            "ddiServicesAvailable": False,
+                        },
+                    },
+                ],
+            },
+        }
+
+        missing = verify_ios_device_log.iphone_device_readiness_from_devicectl_json(json.dumps(payload))
+
+        self.assertEqual([], missing)
+
     def run_verifier(self, log_text: str, *extra_args: str) -> tuple[int, dict[str, object]]:
         with tempfile.TemporaryDirectory() as tmp:
             log_path = Path(tmp) / "ios.log"

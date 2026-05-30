@@ -7,6 +7,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -24,6 +25,54 @@ def parse_bool(value: str) -> bool:
 def run_command(command: list[str]) -> tuple[int, str]:
     completed = subprocess.run(command, check=False, capture_output=True, text=True)
     return completed.returncode, completed.stdout + completed.stderr
+
+
+def iphone_device_readiness_from_devicectl_json(text: str) -> list[str]:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return ["iphone_device"]
+
+    devices = payload.get("result", {}).get("devices", [])
+    iphone_devices = []
+    available_devices = []
+    for device in devices:
+        hardware = device.get("hardwareProperties", {})
+        if hardware.get("platform") != "iOS" or hardware.get("deviceType") != "iPhone":
+            continue
+
+        iphone_devices.append(device)
+        connection = device.get("connectionProperties", {})
+        properties = device.get("deviceProperties", {})
+        tunnel_state = str(connection.get("tunnelState", "")).lower()
+        if tunnel_state and tunnel_state != "unavailable":
+            available_devices.append(device)
+        elif properties.get("ddiServicesAvailable") is True:
+            available_devices.append(device)
+
+    if not iphone_devices:
+        return ["iphone_device"]
+    if not available_devices:
+        return ["iphone_device_available"]
+    return []
+
+
+def devicectl_device_readiness() -> list[str]:
+    with tempfile.TemporaryDirectory() as tmp:
+        output_path = Path(tmp) / "devices.json"
+        status, _ = run_command(
+            [
+                "xcrun",
+                "devicectl",
+                "list",
+                "devices",
+                "--json-output",
+                str(output_path),
+            ],
+        )
+        if status != 0 or not output_path.is_file():
+            return [DEVICEXCRUN_MISSING]
+        return iphone_device_readiness_from_devicectl_json(output_path.read_text(encoding="utf-8"))
 
 
 def host_readiness(*, require_device: bool, skip_host_checks: bool) -> list[str]:
@@ -44,11 +93,7 @@ def host_readiness(*, require_device: bool, skip_host_checks: bool) -> list[str]
         if xcrun is None:
             missing.append(DEVICEXCRUN_MISSING)
         else:
-            status, output = run_command([xcrun, "devicectl", "list", "devices"])
-            if status != 0:
-                missing.append(DEVICEXCRUN_MISSING)
-            elif "iPhone" not in output:
-                missing.append("iphone_device")
+            missing.extend(devicectl_device_readiness())
     return missing
 
 

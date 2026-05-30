@@ -232,6 +232,8 @@ Updated: 2026-05-30.
     matching the corridor-demo ≥10 FPS / no-throttle acceptance gate.
     Gate defaults also require mode evidence: S0 and denied-camera artifacts
     require `disabled`, V0a requires `yolo`, and V0b requires `corridor`.
+    Host readiness now parses `devicectl --json-output` and blocks with
+    `iphone_device_available` when the iPhone is known but offline/unavailable.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
     permission artifact without requiring camera start, frame stats, or
     orientation logs.
