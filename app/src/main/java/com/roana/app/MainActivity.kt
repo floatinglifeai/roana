@@ -84,7 +84,10 @@ class MainActivity : ComponentActivity() {
         setupUi()
         obstacleDetector = YoloObstacleDetector(
             context = this,
-            backend = InferenceBackend.create(precision = InferenceBackend.Precision.QUANTIZED),
+            backend = InferenceBackend.create(
+                context = this,
+                precision = InferenceBackend.Precision.QUANTIZED,
+            ),
         )
         maybeSetupDebugLiveCorridor()
         maybeRunDebugQnnModelSmoke()
@@ -520,7 +523,7 @@ class MainActivity : ComponentActivity() {
         private fun maybeRunLiveCorridor(image: ImageProxy) {
             val runner = depthRunner ?: return
             val pipeline = corridorPipeline ?: return
-            if (frames % DEPTH_FRAME_INTERVAL != 1L) {
+            if (!shouldRunPeriodicFrame(frames, DEPTH_FRAME_INTERVAL)) {
                 return
             }
 
@@ -610,4 +613,9 @@ class MainActivity : ComponentActivity() {
         private const val REASON_FRAME_LOSS = "frame_loss"
         private const val REASON_LOW_CONFIDENCE = "low_confidence"
     }
+}
+
+internal fun shouldRunPeriodicFrame(frame: Long, interval: Long): Boolean {
+    require(interval > 0) { "interval must be positive" }
+    return frame > 0L && (frame - 1L) % interval == 0L
 }

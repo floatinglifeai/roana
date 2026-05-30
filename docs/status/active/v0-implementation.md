@@ -178,6 +178,21 @@ Updated: 2026-05-30.
     paths do not change the failure; the probe now returns
     `QNN HTP stub is present, but libcdsprpc.so is not visible in the app
     linker namespace`.
+  - QNN transport fix: the app manifest now declares optional
+    `<uses-native-library android:name="libcdsprpc.so" android:required="false" />`,
+    which makes the vendor FastRPC library visible to the app linker namespace
+    on the Xiaomi `SM8550` target while preserving installability on devices
+    without that public native library. After this change, the default QNN smoke
+    gate artifact `logs/qnn-smoke-20260530T000545Z.log` passes for both YOLO
+    and Depth Anything on `qnn_htp` using explicit QNN library/skel paths.
+  - Live V0b QNN artifact: `logs/v0a-device-20260530T001530Z.log` proves the
+    real CameraX live corridor path now selects `qnn_htp` for both quantized
+    YOLO and FP16 Depth Anything, and emits `corridor_live status=ok` frames.
+    The remaining V0b machine gate fails on performance and scheduling rather
+    than transport: analyzer output reports `depth_elapsed_ms=174.69`,
+    `depth_fps=5.724`, `gap_count=34`, and no normal guidance feedback because
+    repeated frame-loss safe stops keep resetting the 3-frame guidance
+    confirmation.
 
 ## Stop Condition
 
@@ -185,30 +200,26 @@ V0a is complete. V0b has verified backend fallback, Depth Anything asset
 loading, reusable Depth Anything preprocessing/inference, Depth Anything-sized
 downsampling plus YOLO detection fusion into the 15x15 planner, a reusable
 corridor pipeline, and a pure-Kotlin 3-frame command confirmation state
-machine. A debug-gated live CameraX -> Depth Anything -> corridor pipeline path
-exists, but the current target-class Snapdragon 8 Gen 2 phone fails QNN DSP
-transport setup because the app-packaged HTP stub cannot see `libcdsprpc.so` in
-the app linker namespace, then falls back to CPU. Model-specific delegate
-compatibility still cannot be evaluated. Emergency STOP behavior for near
-obstacles, frame loss, and low confidence is covered in unit tests. The full V0b
-corridor demo is not proven on this device because QNN HTP is not operational
-yet, despite device HTP quantized/fp16 capability being reported as available.
+machine. QNN HTP transport is now operational on the current target-class
+Snapdragon 8 Gen 2 phone after declaring the public vendor FastRPC native
+library and using explicit app native-library paths for QNN. Both model smoke
+tests pass on QNN HTP, and the live corridor path executes QNN depth frames.
+The full V0b corridor demo is still not proven because the current serial
+CameraX analyzer loop runs live Depth Anything at about 5.7 FPS and produces
+frame gaps, so it remains below the 10 FPS / no-frame-gap V0b gate. Emergency
+STOP behavior for near obstacles, frame loss, and low confidence is covered in
+unit tests and real-device safe-stop proof.
 
 ## Next Agent-Owned Step
 
-Use `scripts/probe-qnn-device.sh` and `scripts/verify-qnn-smoke-device.sh` as
-the next machine gates while diagnosing QNN compatibility. The next
-agent-owned step is to test whether `libcdsprpc.so` can be made visible to the
-QNN HTP stub without changing model export: first inspect whether Qualcomm's
-Android packaging expects an app-bundled FastRPC dependency or a public vendor
-namespace entry, then use a narrow app-side load/linker probe or a cross-runtime
-LiteRT Next / ONNX Runtime QNN diagnostic to compare the failure. Only after
-transport succeeds should model export/operator support, tensor layout, and
-quantization format be treated as the primary suspects. Do not add a
-lower-performance CPU fallback profile before that root cause is known. After
-QNN accepts both models, rerun `scripts/verify-v0b-device.sh` for the short
-live-corridor gate; only then run `RUN_THERMAL_GATE=1
-scripts/verify-v0b-device.sh` and the known-corridor sighted-spotter proof.
+Use `scripts/verify-v0b-device.sh` as the next machine gate. The next
+agent-owned step is no longer QNN transport diagnosis; it is live pipeline
+performance and scheduling. Focus on reducing serialized CameraX analyzer work
+so live depth can reach at least 10 FPS without frame gaps and so STRAIGHT/LEFT/
+RIGHT guidance can survive the 3-frame confirmation instead of being reset by
+frame-loss STOPs. Do not add a lower-performance CPU fallback profile. After
+the short machine V0b gate passes, run `RUN_THERMAL_GATE=1
+scripts/verify-v0b-device.sh` and then the known-corridor sighted-spotter proof.
 
 ## No-Touch Scope
 
