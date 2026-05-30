@@ -9,6 +9,11 @@
       "runtime": "YoloObstacleDetector",
       "source": "Ultralytics YOLO11n Core ML export with NMS enabled",
       "sourceCommand": "yolo export model=yolo11n.pt format=coreml nms=True imgsz=640",
+      "expectedInput": {
+        "width": 640,
+        "height": 640
+      },
+      "expectedOutputs": ["VNRecognizedObjectObservation"],
       "notes": "Bundle as YOLO11n.mlpackage or compiled YOLO11n.mlmodelc. The Vision path expects VNRecognizedObjectObservation output."
     },
     {
@@ -19,8 +24,9 @@
       "source": "apple/coreml-depth-anything-v2-small",
       "expectedInput": {
         "width": 518,
-        "height": 392
+        "height": 518
       },
+      "expectedOutputs": ["MLMultiArray"],
       "notes": "Bundle as DepthAnythingV2Small.mlpackage or compiled DepthAnythingV2Small.mlmodelc. The adapter accepts common MLMultiArray depth output layouts."
     }
   ]

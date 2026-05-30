@@ -190,6 +190,15 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(1, data["details"]["yolo_description_count"])
         self.assertEqual(1, data["details"]["depth_ok_count"])
         self.assertEqual(1, data["details"]["depth_description_count"])
+        self.assertEqual(["YOLO11n"], data["details"]["yolo_description_resources"])
+        self.assertEqual(["DepthAnythingV2Small"], data["details"]["depth_description_resources"])
+        self.assertEqual(["image:image_640x640"], data["details"]["yolo_description_inputs"])
+        self.assertEqual(
+            ["coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32"],
+            data["details"]["yolo_description_outputs"],
+        )
+        self.assertEqual(["image:image_518x518"], data["details"]["depth_description_inputs"])
+        self.assertEqual(["depth:multiarray_1x1x518x518_float32"], data["details"]["depth_description_outputs"])
         self.assertEqual(1, data["details"]["yolo_vision_orientation_count"])
         self.assertEqual(1, data["details"]["depth_vision_orientation_count"])
         self.assertEqual(["right"], data["details"]["preview_vision_orientations"])
@@ -339,6 +348,61 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("yolo_model_description", data["missing"])
         self.assertIn("depth_model_description", data["missing"])
+
+    def test_reports_wrong_model_description_resources(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+            )
+            .replace("resource=YOLO11n", "resource=WrongYolo")
+            .replace("resource=DepthAnythingV2Small", "resource=WrongDepth"),
+            "--require-yolo",
+            "1",
+            "--require-yolo-description",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-depth-description",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("yolo_model_resource", data["missing"])
+        self.assertIn("depth_model_resource", data["missing"])
+
+    def test_reports_incomplete_model_description_features(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+            )
+            .replace("inputs=image:image_640x640", "inputs=unknown")
+            .replace(
+                "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32",
+                "outputs=unknown",
+            )
+            .replace("inputs=image:image_518x518", "inputs=unknown")
+            .replace("outputs=depth:multiarray_1x1x518x518_float32", "outputs=unknown"),
+            "--require-yolo",
+            "1",
+            "--require-yolo-description",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-depth-description",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("yolo_model_features", data["missing"])
+        self.assertIn("depth_model_features", data["missing"])
 
     def test_reports_missing_vision_orientation_evidence(self) -> None:
         data = self.run_analyzer(

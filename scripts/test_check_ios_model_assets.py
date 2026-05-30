@@ -26,13 +26,17 @@ def write_manifest(path: Path) -> None:
                         "acceptedExtensions": ["mlmodelc", "mlpackage"],
                         "runtime": "YoloObstacleDetector",
                         "source": "test",
+                        "expectedInput": {"width": 640, "height": 640},
+                        "expectedOutputs": ["VNRecognizedObjectObservation"],
                     },
                     {
-                        "id": "depth",
+                        "id": "depth-anything-v2-small",
                         "resourceName": "DepthAnythingV2Small",
                         "acceptedExtensions": ["mlmodelc", "mlpackage"],
                         "runtime": "DepthAnythingRunner",
                         "source": "test",
+                        "expectedInput": {"width": 518, "height": 518},
+                        "expectedOutputs": ["MLMultiArray"],
                     },
                 ],
             },
@@ -57,7 +61,7 @@ class CheckIosModelAssetsTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             details = json.loads(result.stdout)
             self.assertEqual(details["status"], "missing")
-            self.assertEqual(details["missing"], ["yolo11n", "depth"])
+            self.assertEqual(details["missing"], ["yolo11n", "depth-anything-v2-small"])
 
     def test_require_present_fails_when_assets_are_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -121,6 +125,26 @@ class CheckIosModelAssetsTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 1)
             self.assertEqual(json.loads(result.stdout)["status"], "invalid")
+
+    def test_manifest_contract_drift_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "manifest.json"
+            write_manifest(manifest)
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            data["models"][1]["expectedInput"]["height"] = 392
+            manifest.write_text(json.dumps(data), encoding="utf-8")
+
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--manifest", str(manifest)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            details = json.loads(result.stdout)
+            self.assertEqual(details["status"], "invalid")
+            self.assertIn("models[1].expectedInput={'width': 518, 'height': 518}", details["errors"])
 
 
 if __name__ == "__main__":

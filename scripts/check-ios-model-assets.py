@@ -10,6 +10,16 @@ from typing import Any
 
 
 REQUIRED_MODEL_FIELDS = ("id", "resourceName", "acceptedExtensions", "runtime", "source")
+EXPECTED_MODEL_CONTRACTS = {
+    "yolo11n": {
+        "expectedInput": {"width": 640, "height": 640},
+        "expectedOutputs": {"VNRecognizedObjectObservation"},
+    },
+    "depth-anything-v2-small": {
+        "expectedInput": {"width": 518, "height": 518},
+        "expectedOutputs": {"MLMultiArray"},
+    },
+}
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = REPO_ROOT / "ios/Roana/Roana/ModelAssets/manifest.json"
 
@@ -53,6 +63,28 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
         for extension in accepted_extensions:
             if extension not in {"mlmodelc", "mlpackage"}:
                 errors.append(f"models[{index}].acceptedExtensions={extension}")
+
+        model_id = model.get("id")
+        if isinstance(model_id, str) and model_id in EXPECTED_MODEL_CONTRACTS:
+            errors.extend(validate_expected_contract(index, model, EXPECTED_MODEL_CONTRACTS[model_id]))
+
+    return errors
+
+
+def validate_expected_contract(
+    index: int,
+    model: dict[str, Any],
+    expected: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+
+    expected_input = model.get("expectedInput")
+    if expected_input != expected["expectedInput"]:
+        errors.append(f"models[{index}].expectedInput={expected['expectedInput']}")
+
+    expected_outputs = model.get("expectedOutputs")
+    if not isinstance(expected_outputs, list) or set(expected_outputs) != expected["expectedOutputs"]:
+        errors.append(f"models[{index}].expectedOutputs={sorted(expected['expectedOutputs'])}")
 
     return errors
 

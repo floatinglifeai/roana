@@ -235,6 +235,69 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("depth_model_description", details["missing"])
 
+    def test_v0b_defaults_require_expected_model_resources(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_speech=True,
+                include_inference=True,
+            )
+            .replace("resource=YOLO11n", "resource=WrongYolo")
+            .replace("resource=DepthAnythingV2Small", "resource=WrongDepth"),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("yolo_model_resource", details["missing"])
+        self.assertIn("depth_model_resource", details["missing"])
+
+    def test_v0b_defaults_require_model_feature_descriptions(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_speech=True,
+                include_inference=True,
+            )
+            .replace("inputs=image:image_640x640", "inputs=unknown")
+            .replace(
+                "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32",
+                "outputs=unknown",
+            )
+            .replace("inputs=image:image_518x518", "inputs=unknown")
+            .replace("outputs=depth:multiarray_1x1x518x518_float32", "outputs=unknown"),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("yolo_model_features", details["missing"])
+        self.assertIn("depth_model_features", details["missing"])
+
     def test_v0b_defaults_require_vision_orientation_evidence(self) -> None:
         status, details = self.run_verifier(
             fake_log(
