@@ -77,6 +77,7 @@ class YoloObstacleDetector(
             targetHeight = inputHeight,
             output = inputBuffer,
             scratch = inputScratch,
+            lumaOnly = true,
         )
         val inputMs = elapsedMs(inputStartedNs)
 
