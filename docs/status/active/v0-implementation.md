@@ -229,6 +229,16 @@ Updated: 2026-05-30.
     after. The short warm gate in the same verifier also passed with
     `gap_count=0`, normal STRAIGHT guidance feedback spoken, and
     low-confidence safe STOP feedback spoken.
+  - Android acceleration-library metadata probe artifact:
+    `logs/android-acceleration-libs-20260530T032748Z.json`. It confirms the
+    tracked Maven candidates are currently resolvable:
+    `com.google.ai.edge.litert:litert` latest `2.1.5`,
+    `com.microsoft.onnxruntime:onnxruntime-android` latest `1.26.0`,
+    `com.microsoft.onnxruntime:onnxruntime-android-qnn` latest `1.26.0`, and
+    `org.pytorch:executorch-android` latest `1.3.1`. Decision remains to keep
+    the passing QNN HTP delegate as the production path, reserve LiteRT for an
+    optional broader-device spike, use ORT QNN only as a diagnostic cross-check,
+    and defer ExecuTorch migration.
 
 ## Stop Condition
 
@@ -255,8 +265,9 @@ Use `scripts/verify-v0b-device.sh` as the short machine gate and
 `RUN_THERMAL_GATE=1 scripts/verify-v0b-device.sh` as the sustained Android
 regression gate. The next V0b proof is the known-corridor sighted-spotter run
 when a human can perform it. Agent-owned follow-up work can proceed on the
-origin/main research directions: Android speedup-library options and iOS
-support. Do not add a lower-performance CPU fallback profile.
+origin/main research directions: optional LiteRT metadata/API exploration and
+iOS S0 physical-device verification after full Xcode is installed. Do not add a
+lower-performance CPU fallback profile.
 
 ## No-Touch Scope
 
