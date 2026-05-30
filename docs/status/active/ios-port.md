@@ -152,6 +152,10 @@ Updated: 2026-05-30.
   - `ModelAssetResourceLocator` looks for both root-bundled and
     `ModelAssets/`-nested `YOLO11n` and `DepthAnythingV2Small` resources with
     `.mlmodelc` or `.mlpackage` extensions.
+  - `ios/Roana/RoanaTests/ModelAssets/main.swift` covers the app-side bundle
+    lookup path with temporary root and `ModelAssets/`-nested `.mlmodelc` /
+    `.mlpackage` fixtures, so the staged names used by the installer are
+    checked before a real iPhone run.
   - `scripts/check-ios-model-assets.py` validates manifest schema, expected
     model contracts, and can enforce local asset presence with
     `--require-present`.
@@ -167,20 +171,34 @@ Updated: 2026-05-30.
     hard platform, privacy, safety, verification, and out-of-scope constraints
     for future iOS work.
   - Swift verifier exists at `ios/Roana/RoanaTests/Privacy/main.swift`.
-  - The verifier enforces the iOS V0 camera-only `Info.plist` boundary and scans
-    production Swift source for network, frame-storage, identity, cloud/VLM, and
-    street-crossing guidance tokens.
+  - The verifier enforces the iOS V0 camera-only `Info.plist` boundary, scans
+    production Swift source for network, frame-storage, forbidden framework,
+    identity, cloud/VLM, and street-crossing guidance tokens, and reports the
+    exact source file/line for violations.
+  - `scripts/test_ios_privacy_boundary.py` compiles the verifier and exercises
+    camera-only pass, forbidden source, forbidden framework import, and
+    forbidden `Info.plist` negative fixtures.
 - Executable local proof:
   - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/Roana/Speech/CorridorFeedbackDispatcher.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
     passes with `CorridorCoreSmoke passed`.
   - Swift parity verifier reads `parity/corridor-core.json` and passes the
     planner, fusion, depth-grid conversion, state-machine, pipeline, and
     feedback-dispatch cases mirrored from current Kotlin unit tests.
+  - Corridor parity generation wrapper tests pass without requiring a local
+    Android Gradle build or real JDK 17/21.
+  - `scripts/check-ios-xcodeproj-membership.py` verifies that every production
+    Swift file under `ios/Roana/Roana` is present in the app target's Sources
+    build phase and that `Assets.xcassets` / `ModelAssets` are present in the
+    Resources phase. The current project reports 24 Swift sources and no
+    missing membership.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
+  - Model asset bundle-locator smoke verifier passes without an iPhone or full
+    Xcode.
   - iOS model asset checker tests pass; the default checker reports both
     expected resources as missing until real local model assets are supplied.
   - iOS model asset installer tests pass without requiring real model binaries.
-  - Swift privacy boundary verifier passes without full Xcode.
+  - Swift privacy boundary verifier and negative-fixture tests pass without
+    full Xcode.
   - Frame inference coordinator smoke verifier passes without full Xcode.
   - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
     the future machine-checkable log gates for iOS S0/V0a/V0b artifacts,
@@ -191,6 +209,9 @@ Updated: 2026-05-30.
     label that matches a YOLO detection label. V0a/V0b speech gates require
     audio-session activation evidence, and V0b log gates also require a
     machine-checkable fail-safe STOP artifact for frame-loss safety.
+    Model-description gates now check the expected Core ML contracts from the
+    manifest: YOLO image input `640x640`, Depth Anything image input `518x518`,
+    and multi-array model outputs where applicable.
   - `scripts/verify-ios-device-log.py` wraps host/device readiness, optional
     model-asset checks, and the iOS log analyzer for S0/V0a/V0b physical-run
     artifacts. All granted-camera physical-run gates require preview/capture
@@ -220,11 +241,14 @@ Updated: 2026-05-30.
     `app/src/test/java/com/roana/app/parity/CorridorParityFixtureGenerator.kt`.
   - Gradle task `:app:generateCorridorParityFixtures` is wired to regenerate
     `parity/corridor-core.json`.
-  - Running the Gradle task is still pending because this shell's default
-    `JAVA_HOME` points at `/opt/homebrew/opt/openjdk/bin/java` instead of a JDK
-    home, and with `JAVA_HOME` corrected to the installed OpenJDK 25 home,
-    Gradle still fails before task execution with
-    `java.lang.IllegalArgumentException: 25.0.1`. Use JDK 17 or 21 before
+  - `scripts/generate-corridor-parity-fixtures.py` wraps the Gradle task with
+    deterministic JDK 17/21 discovery, rejects `JAVA_HOME` values that point at
+    `bin/java` instead of a JDK home, and returns a machine-readable blocked
+    result when only incompatible JDKs are present.
+  - Current host dry-run result is still blocked: `JAVA_HOME` points at
+    `/opt/homebrew/opt/openjdk/bin/java`, and the only discovered JDK home is
+    OpenJDK 25.0.1. Install/select JDK 17 or 21, then run
+    `scripts/generate-corridor-parity-fixtures.py --verify-unchanged` before
     relying on Gradle-backed Kotlin generation.
 
 ## Local Code Gate
@@ -328,8 +352,8 @@ Use the matching shared Xcode scheme for each device run: `Roana` for S0,
   LFS or an explicit model-fetch path is added.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
   JSON fixture now covers planner, fusion, depth-grid conversion, state-machine,
-  pipeline, and feedback-dispatch cases, but automatic Kotlin fixture generation
-  from source tests is still pending on a JDK 17/21 host.
+  pipeline, and feedback-dispatch cases, but automatic Kotlin fixture
+  regeneration still needs a JDK 17/21 host.
 - Do not claim iPhone performance, preview orientation, signing, installation,
   or camera callback cadence until physical-device evidence exists.
 - Do not resume Android QNN diagnosis while this iOS port slice is active.

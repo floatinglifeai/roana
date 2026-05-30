@@ -42,6 +42,7 @@ required_files=(
   "$IOS_DIR/Roana/Speech/SpeechAudioSession.swift"
   "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
   "$IOS_DIR/Roana/Speech/YoloSpeechFeedbackPolicy.swift"
+  "$IOS_DIR/RoanaTests/ModelAssets/main.swift"
   "$IOS_DIR/RoanaTests/ModelMode/main.swift"
   "$IOS_DIR/RoanaTests/Depth/main.swift"
   "$IOS_DIR/RoanaTests/Inference/main.swift"
@@ -53,6 +54,10 @@ required_files=(
   "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana-V0b-Corridor.xcscheme"
   "$ROOT_DIR/scripts/capture-ios-device-log.py"
   "$ROOT_DIR/scripts/test_capture_ios_device_log.py"
+  "$ROOT_DIR/scripts/check-ios-xcodeproj-membership.py"
+  "$ROOT_DIR/scripts/test_check_ios_xcodeproj_membership.py"
+  "$ROOT_DIR/scripts/generate-corridor-parity-fixtures.py"
+  "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py"
 )
 
 for path in "${required_files[@]}"; do
@@ -68,8 +73,12 @@ python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_capture_ios_device_log.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_model_assets.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_check_ios_xcodeproj_membership.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_generate_corridor_parity_fixtures.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_install_ios_model_assets.py" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_ios_privacy_boundary.py" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_verify_ios_device_log.py" >/dev/null
+python3 "$ROOT_DIR/scripts/check-ios-xcodeproj-membership.py" >/dev/null
 grep -q "allow-large-copy" "$ROOT_DIR/scripts/install-ios-model-assets.py"
 grep -q "matched_yolo_speech_labels" "$ROOT_DIR/scripts/analyze-ios-log.py"
 grep -q "yolo_speech_match" "$ROOT_DIR/scripts/analyze-ios-log.py"
@@ -193,6 +202,12 @@ swiftc \
   -D DEBUG \
   "$IOS_DIR/Roana/Models/ModelInferenceMode.swift" \
   "$IOS_DIR/RoanaTests/ModelMode/main.swift" \
+  -o "$SMOKE_BINARY"
+"$SMOKE_BINARY" >/dev/null
+
+swiftc \
+  "$IOS_DIR/Roana/Models/ModelAssetResourceLocator.swift" \
+  "$IOS_DIR/RoanaTests/ModelAssets/main.swift" \
   -o "$SMOKE_BINARY"
 "$SMOKE_BINARY" >/dev/null
 

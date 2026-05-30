@@ -580,6 +580,31 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertIn("yolo_model_features", data["missing"])
         self.assertIn("depth_model_features", data["missing"])
 
+    def test_reports_wrong_model_description_input_shapes(self) -> None:
+        data = self.run_analyzer(
+            fake_log(
+                frame_count=120,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+            )
+            .replace("inputs=image:image_640x640", "inputs=image:image_320x320")
+            .replace("inputs=image:image_518x518", "inputs=image:image_384x384"),
+            "--require-yolo",
+            "1",
+            "--require-yolo-description",
+            "1",
+            "--require-depth",
+            "1",
+            "--require-depth-description",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("yolo_model_features", data["missing"])
+        self.assertIn("depth_model_features", data["missing"])
+
     def test_reports_missing_vision_orientation_evidence(self) -> None:
         data = self.run_analyzer(
             fake_log(
