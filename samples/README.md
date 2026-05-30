@@ -15,6 +15,8 @@ Current policy:
   clip-level label summary from replay evidence. It also includes approximate
   segment labels based on replay frame timestamps. The summary is metadata only;
   videos remain local-only by default.
+- Use `scripts/run-ios-replay-bundle.py <video>` when you want one command to
+  create the replay log, verification JSON, and label JSON under `/tmp`.
 
 V0b replay labels:
 

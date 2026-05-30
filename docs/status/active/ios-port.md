@@ -266,6 +266,10 @@ Updated: 2026-05-30.
     such as `too_close` / `occluded` / `pointing_down` / `unstable`, and a
     fixture type, and emits approximate segment labels from replay frame
     timestamps, without adding production recording or committing videos.
+  - `scripts/run-ios-replay-bundle.py` wraps the local replay workflow into one
+    command that writes replay log, verification JSON, and label JSON artifacts
+    under `/tmp` by default, so long user-recorded videos can be processed
+    locally without adding app-side recording or photo-library access.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at

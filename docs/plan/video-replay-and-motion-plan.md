@@ -34,6 +34,9 @@ cross-platform motion signal for camera-quality checks.
   `stop` / `guidance` / `mixed` / `review` fixture suggestion. The helper also
   emits approximate segment labels by assigning corridor decisions and spoken
   feedback to the most recent replay frame timestamp.
+- Implemented local replay bundle helper: `scripts/run-ios-replay-bundle.py`
+  runs replay, verification, and labeling in one command and writes the replay
+  log, verification JSON, and label JSON to local artifact paths.
 
 ## Non-Goals
 
@@ -88,6 +91,17 @@ scripts/label-ios-replay.py samples/home_iphone_0530.mp4 --fps 2 --max-seconds 2
   --log /tmp/roana-ios-video-replay-guidance-probe.log \
   --summary /tmp/roana-ios-video-replay-guidance-probe.labels.json
 ```
+
+Create the replay log, verification JSON, and label JSON in one local bundle:
+
+```bash
+scripts/run-ios-replay-bundle.py samples/home_iphone_0530.mp4 \
+  --fps 2 --max-seconds 20 --fixture guidance \
+  --min-run-seconds 20 --max-p95-ms 500
+```
+
+By default, bundle artifacts are written under `/tmp` with names like
+`roana-ios-replay-<video>-<timestamp>.log`, `.verify.json`, and `.labels.json`.
 
 `samples/home_iphone_0530.mp4` is a local development fixture and is ignored by
 git. Keep full videos out of normal git history unless the project adopts Git
