@@ -11,7 +11,10 @@ import org.tensorflow.lite.Interpreter
 class DepthAnythingRunner(
     context: Context,
     private var backend: InferenceBackend =
-        InferenceBackend.create(precision = InferenceBackend.Precision.FP16),
+        InferenceBackend.create(
+            context = context,
+            precision = InferenceBackend.Precision.FP16,
+        ),
     private val preprocessor: DepthFramePreprocessor = DepthFramePreprocessor(),
 ) : AutoCloseable {
     private val modelBuffer = context.assets.openFd(MODEL_ASSET).use { descriptor ->

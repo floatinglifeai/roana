@@ -100,6 +100,20 @@ analysis_list_text() {
   printf '%s' "$2" | python3 -c 'import json, sys; print(" ".join(json.load(sys.stdin)[sys.argv[1]]))' "$key"
 }
 
+json_field() {
+  local key="$1"
+  python3 -c '
+import json
+import sys
+
+text = sys.stdin.read()
+start = text.find("{")
+if start < 0:
+    raise SystemExit("missing JSON object")
+print(json.loads(text[start:])[sys.argv[1]])
+' "$key"
+}
+
 if [ -z "$ADB_BIN" ]; then
   if command -v adb >/dev/null 2>&1; then
     ADB_BIN="$(command -v adb)"
@@ -154,7 +168,7 @@ if [ "$verify_status" -ne 0 ]; then
   exit 1
 fi
 
-log_path="$(printf '%s\n' "$verify_output" | python3 -c 'import json, sys; print(json.load(sys.stdin)["artifact"])')"
+log_path="$(printf '%s\n' "$verify_output" | json_field "artifact")"
 if [ ! -f "$log_path" ]; then
   escaped_output="$(printf '%s' "$verify_output" | json_escape)"
   json_result "failed" "" "V0a verifier did not produce a readable log artifact." "{\"verify_output\": $escaped_output}"
@@ -205,7 +219,7 @@ if [ "$REQUIRE_THERMAL_MINUTES" -gt 0 ]; then
     exit 1
   fi
 
-  thermal_log_path="$(printf '%s\n' "$thermal_output" | python3 -c 'import json, sys; print(json.load(sys.stdin)["artifact"])')"
+  thermal_log_path="$(printf '%s\n' "$thermal_output" | json_field "artifact")"
   if [ ! -f "$thermal_log_path" ]; then
     escaped_output="$(printf '%s' "$thermal_output" | json_escape)"
     json_result "failed" "$log_path" "Thermal verifier did not produce a readable log artifact." "{\"verify_output\": $escaped_output, \"prerequisite_details\": $details}"

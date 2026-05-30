@@ -44,7 +44,7 @@ install_apk() {
   local install_status
   output_file="$(mktemp)"
 
-  "$ADB_BIN" "${DEVICE_ARG[@]}" push "$APK_PATH" "$DEVICE_APK_PATH" >/dev/null
+  "$ADB_BIN" "${DEVICE_ARG[@]}" push "$APK_PATH" "$DEVICE_APK_PATH" >/dev/null 2>&1
 
   set +e
   "$ADB_BIN" "${DEVICE_ARG[@]}" shell pm install -r -g -d "$DEVICE_APK_PATH" >"$output_file" 2>&1

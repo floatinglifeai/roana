@@ -32,7 +32,7 @@ class InferenceBackend private constructor(
             context: Context? = null,
             preferQnn: Boolean = true,
             precision: Precision = Precision.QUANTIZED,
-            variant: QnnVariant = QnnVariant.DEFAULT,
+            variant: QnnVariant = QnnVariant.EXPLICIT_PATHS,
         ): InferenceBackend {
             if (!preferQnn) {
                 Log.i(
