@@ -16,8 +16,8 @@ EXPECTED_MODEL_CONTRACTS = {
         "expectedOutputs": {"VNRecognizedObjectObservation"},
     },
     "depth-anything-v2-small": {
-        "expectedInput": {"width": 518, "height": 518},
-        "expectedOutputs": {"MLMultiArray"},
+        "expectedInput": {"width": 518, "height": 392},
+        "expectedOutputs": {"MLMultiArray", "VNPixelBufferObservation"},
     },
 }
 REPO_ROOT = Path(__file__).resolve().parents[1]

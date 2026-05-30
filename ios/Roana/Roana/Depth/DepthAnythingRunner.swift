@@ -3,6 +3,7 @@
 
 import CoreML
 import CoreMedia
+import CoreVideo
 import Foundation
 import Vision
 
@@ -98,11 +99,24 @@ final class DepthAnythingRunner {
     }
 
     private func plannerGrid(from observations: [VNObservation]?) throws -> DepthGrid {
-        guard let featureObservation = observations?.compactMap({ $0 as? VNCoreMLFeatureValueObservation }).first,
-              let multiArray = featureObservation.featureValue.multiArrayValue else {
-            throw DepthRunnerError.missingDepthMultiArray
+        guard let observations else {
+            throw DepthRunnerError.missingDepthOutput
         }
-        return try DepthAnythingOutputAdapter.plannerGrid(from: multiArray)
+
+        if let featureObservation = observations.compactMap({ $0 as? VNCoreMLFeatureValueObservation }).first {
+            if let multiArray = featureObservation.featureValue.multiArrayValue {
+                return try DepthAnythingOutputAdapter.plannerGrid(from: multiArray)
+            }
+            if let pixelBuffer = featureObservation.featureValue.imageBufferValue {
+                return try DepthAnythingOutputAdapter.plannerGrid(from: pixelBuffer)
+            }
+        }
+
+        if let pixelBufferObservation = observations.compactMap({ $0 as? VNPixelBufferObservation }).first {
+            return try DepthAnythingOutputAdapter.plannerGrid(from: pixelBufferObservation.pixelBuffer)
+        }
+
+        throw DepthRunnerError.missingDepthOutput
     }
 
     private func elapsedMilliseconds(since started: CFAbsoluteTime) -> Double {
@@ -115,7 +129,7 @@ final class DepthAnythingRunner {
 }
 
 enum DepthRunnerError: Error {
-    case missingDepthMultiArray
+    case missingDepthOutput
 }
 
 private func sanitizeDepthLogValue(_ value: String) -> String {

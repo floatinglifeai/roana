@@ -24,10 +24,10 @@
       "source": "apple/coreml-depth-anything-v2-small",
       "expectedInput": {
         "width": 518,
-        "height": 518
+        "height": 392
       },
-      "expectedOutputs": ["MLMultiArray"],
-      "notes": "Bundle as DepthAnythingV2Small.mlpackage or compiled DepthAnythingV2Small.mlmodelc. The adapter accepts common MLMultiArray depth output layouts."
+      "expectedOutputs": ["MLMultiArray", "VNPixelBufferObservation"],
+      "notes": "Bundle as DepthAnythingV2Small.mlpackage or compiled DepthAnythingV2Small.mlmodelc. The adapter accepts common MLMultiArray layouts and grayscale image depth outputs."
     }
   ]
 }
