@@ -23,11 +23,20 @@ final class CameraSessionController: NSObject, ObservableObject {
     private let corridorPipeline = CorridorPipeline(feedbackDispatcher: CorridorFeedbackDispatcher())
     private let speechDispatcher = SpeechFeedbackDispatcher()
     private let orientationLock = NSLock()
+    private let debugFailSafeStopEnabled: Bool
 
     private var isConfigured = false
     private var shouldRunWhenForegrounded = false
     private var isInForeground = true
     private var frameOrientation = CameraFrameOrientation.current(interfaceOrientation: nil)
+
+    override init() {
+        debugFailSafeStopEnabled = DebugFailSafeStop.isEnabled()
+        super.init()
+        if debugFailSafeStopEnabled {
+            print("roana_ios_safety debug_fail_safe_stop enabled=true reason=frame_loss")
+        }
+    }
 
     @MainActor func start() {
         refreshDeviceDiagnostics()
@@ -127,6 +136,8 @@ final class CameraSessionController: NSObject, ObservableObject {
                     self.session.startRunning()
                     self.logLifecycle("camera_started")
                 }
+
+                self.emitDebugFailSafeStopIfNeeded()
 
                 DispatchQueue.main.async {
                     self.statusText = "Camera active"
@@ -246,8 +257,11 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
 
         print(stats.logLine)
 
-        inferenceCoordinator.submit(sampleBuffer) { [weak self] sampleBuffer in
+        let scheduled = inferenceCoordinator.submit(sampleBuffer) { [weak self] sampleBuffer in
             self?.runInference(sampleBuffer: sampleBuffer)
+        }
+        if !scheduled {
+            failSafeStop(reason: "frame_loss")
         }
 
         Task { @MainActor in
@@ -282,6 +296,21 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
         }
     }
 
+    private func failSafeStop(reason: String) {
+        print("roana_ios_safety event=fail_safe_stop reason=\(sanitize(reason))")
+        captureQueue.async { [weak self] in
+            _ = self?.corridorPipeline.failSafeStop(reason: reason)
+        }
+    }
+
+    private func emitDebugFailSafeStopIfNeeded() {
+        guard debugFailSafeStopEnabled else {
+            return
+        }
+
+        failSafeStop(reason: "frame_loss")
+    }
+
     func captureOutput(
         _ output: AVCaptureOutput,
         didDrop sampleBuffer: CMSampleBuffer,
@@ -289,6 +318,7 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
     ) {
         let stats = diagnostics.recordDroppedFrame(sampleBuffer: sampleBuffer)
         print(stats.logLine)
+        failSafeStop(reason: "frame_loss")
         Task { @MainActor in
             self.updateFrameSummary(stats)
         }
@@ -303,4 +333,17 @@ private enum CameraSetupError: Error {
 
 private func sanitize(_ value: String) -> String {
     value.replacingOccurrences(of: " ", with: "_")
+}
+
+private enum DebugFailSafeStop {
+    static func isEnabled() -> Bool {
+        #if DEBUG
+            let arguments = ProcessInfo.processInfo.arguments
+            let environment = ProcessInfo.processInfo.environment
+            return arguments.contains("--roana-debug-fail-safe-stop") ||
+                environment["ROANA_DEBUG_FAIL_SAFE_STOP"] == "1"
+        #else
+            return false
+        #endif
+    }
 }

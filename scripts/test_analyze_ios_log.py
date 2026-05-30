@@ -25,6 +25,7 @@ def fake_log(
     include_depth_description: bool = False,
     include_corridor: bool = False,
     include_speech: bool = False,
+    include_fail_safe_stop: bool = False,
     include_inference: bool = False,
     inference_skipped: int = 0,
     p95_ms: float = 34.0,
@@ -105,6 +106,12 @@ def fake_log(
             )
     if include_speech:
         lines.append("roana_ios_speech status=queued label=person score=91 message=Person_ahead")
+    if include_fail_safe_stop:
+        lines.append("roana_ios_safety event=fail_safe_stop reason=frame_loss")
+        lines.append(
+            "roana_ios_corridor decision=STOP state=STOP "
+            "reason=frame_loss path_cells=0 pending=none pending_count=0"
+        )
     if include_background_stop:
         if include_idle_timer:
             lines.append("roana_ios_lifecycle idle_timer_disabled value=false")
@@ -167,6 +174,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 include_depth_description=True,
                 include_corridor=True,
                 include_speech=True,
+                include_fail_safe_stop=True,
                 include_inference=True,
             ),
             "--require-yolo",
@@ -186,6 +194,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "--require-orientation",
             "1",
             "--require-inference",
+            "1",
+            "--require-fail-safe-stop",
             "1",
         )
 
@@ -210,10 +220,12 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(["right"], data["details"]["capture_vision_orientations"])
         self.assertEqual(["right"], data["details"]["yolo_vision_orientations"])
         self.assertEqual(["right"], data["details"]["depth_vision_orientations"])
-        self.assertEqual(1, data["details"]["corridor_count"])
+        self.assertEqual(2, data["details"]["corridor_count"])
         self.assertEqual(1, data["details"]["preview_orientation_count"])
         self.assertEqual(1, data["details"]["capture_orientation_count"])
         self.assertEqual(1, data["details"]["inference_finished_count"])
+        self.assertEqual(1, data["details"]["safety_fail_safe_stop_count"])
+        self.assertEqual(["frame_loss"], data["details"]["safety_fail_safe_stop_reasons"])
 
     def test_v0b_corridor_feedback_can_satisfy_speech_without_yolo_speech(self) -> None:
         data = self.run_analyzer(
@@ -225,6 +237,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
+                include_fail_safe_stop=True,
                 include_inference=True,
             ),
             "--require-yolo",
@@ -245,12 +258,15 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "1",
             "--require-inference",
             "1",
+            "--require-fail-safe-stop",
+            "1",
         )
 
         self.assertEqual("passed", data["status"])
         self.assertEqual([], data["missing"])
         self.assertEqual(0, data["details"]["speech_queued_count"])
         self.assertEqual(2, data["details"]["corridor_feedback_spoken_count"])
+        self.assertEqual(["frame_loss"], data["details"]["safety_fail_safe_stop_reasons"])
 
     def test_reports_missing_model_and_feedback_evidence(self) -> None:
         data = self.run_analyzer(
@@ -274,6 +290,8 @@ class AnalyzeIosLogTest(unittest.TestCase):
             "--require-orientation",
             "1",
             "--require-inference",
+            "1",
+            "--require-fail-safe-stop",
             "1",
             "--require-background-stop",
             "1",
@@ -304,6 +322,7 @@ class AnalyzeIosLogTest(unittest.TestCase):
                 "capture_orientation",
                 "camera_vision_orientation",
                 "inference_finished",
+                "fail_safe_stop",
                 "corridor_guidance_feedback",
                 "corridor_stop_feedback",
             },
@@ -366,6 +385,16 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual("blocked", data["status"])
         self.assertIn("inference_skipped<=2", data["missing"])
         self.assertEqual(3, data["details"]["max_inference_skipped"])
+
+    def test_reports_missing_fail_safe_stop_evidence(self) -> None:
+        data = self.run_analyzer(
+            fake_log(frame_count=120),
+            "--require-fail-safe-stop",
+            "1",
+        )
+
+        self.assertEqual("blocked", data["status"])
+        self.assertIn("fail_safe_stop", data["missing"])
 
     def test_reports_missing_model_description_evidence(self) -> None:
         data = self.run_analyzer(
