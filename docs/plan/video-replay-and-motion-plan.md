@@ -31,7 +31,9 @@ cross-platform motion signal for camera-quality checks.
 - Implemented local labeling helper: `scripts/label-ios-replay.py` turns a
   replay log, or a local video replayed through the same harness, into a small
   JSON summary with suggested command labels, scene-quality labels, and a
-  `stop` / `guidance` / `mixed` / `review` fixture suggestion.
+  `stop` / `guidance` / `mixed` / `review` fixture suggestion. The helper also
+  emits approximate segment labels by assigning corridor decisions and spoken
+  feedback to the most recent replay frame timestamp.
 
 ## Non-Goals
 
@@ -92,7 +94,8 @@ git. Keep full videos out of normal git history unless the project adopts Git
 LFS or a separate fixture-fetch path. `samples/README.md` records the current
 local-only policy and the replay label vocabulary. Label summaries are small
 metadata, but still review them before committing because they can encode scene
-content from a private video.
+content from a private video. Segment timestamps are approximate replay evidence
+timestamps, not hand-reviewed ground truth.
 
 Current V0b replay labels:
 

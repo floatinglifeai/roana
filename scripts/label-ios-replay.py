@@ -64,6 +64,81 @@ def replay_marker_missing(text: str) -> list[str]:
     return missing
 
 
+def rounded(value: float) -> float:
+    return round(value + 0.0, 2)
+
+
+def scene_labels_for_reason(reason: str | None) -> list[str]:
+    labels: set[str] = set()
+    if reason in TOO_CLOSE_REASONS:
+        labels.add("too_close")
+    if reason in OCCLUDED_REASONS:
+        labels.add("occluded")
+    return sorted(labels)
+
+
+def segment_evidence(text: str) -> list[dict[str, Any]]:
+    segments: list[dict[str, Any]] = []
+    latest_run_seconds: float | None = None
+
+    for line in text.splitlines():
+        fields = analyze_ios_log.line_fields(line)
+        if "roana_ios_frame_stats" in line:
+            latest_run_seconds = analyze_ios_log.numeric_field(fields, "run_s")
+        if "roana_ios_corridor decision=" in line:
+            decision = fields.get("decision", "")
+            if decision not in COMMAND_LABELS:
+                continue
+            reason = fields.get("reason")
+            segment = {
+                "time_s": None if latest_run_seconds is None else rounded(latest_run_seconds),
+                "source": "decision",
+                "command": decision,
+                "reason": reason or "unknown",
+                "scene_quality_labels": scene_labels_for_reason(reason),
+            }
+            segments.append(segment)
+        if "roana_ios_corridor_feedback status=spoken" in line:
+            command = fields.get("command", "")
+            if command not in COMMAND_LABELS:
+                continue
+            reason = fields.get("reason")
+            segment = {
+                "time_s": None if latest_run_seconds is None else rounded(latest_run_seconds),
+                "source": "spoken_feedback",
+                "command": command,
+                "reason": reason or "unknown",
+                "scene_quality_labels": scene_labels_for_reason(reason),
+            }
+            segments.append(segment)
+
+    return coalesce_segments(segments)
+
+
+def coalesce_segments(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not segments:
+        return []
+
+    coalesced: list[dict[str, Any]] = []
+    for segment in segments:
+        previous = coalesced[-1] if coalesced else None
+        if (
+            previous is not None
+            and previous["command"] == segment["command"]
+            and previous["reason"] == segment["reason"]
+            and previous["time_s"] == segment["time_s"]
+        ):
+            previous_sources = set(str(previous["source"]).split("+"))
+            previous_sources.add(str(segment["source"]))
+            previous["source"] = "+".join(sorted(previous_sources))
+            previous_labels = set(previous["scene_quality_labels"])
+            previous_labels.update(segment["scene_quality_labels"])
+            previous["scene_quality_labels"] = sorted(previous_labels)
+            continue
+        coalesced.append(dict(segment))
+    return coalesced
+
+
 def count_evidence(text: str) -> dict[str, Any]:
     decision_counts: Counter[str] = Counter()
     spoken_command_counts: Counter[str] = Counter()
@@ -129,6 +204,7 @@ def summarize_log(log_path: Path) -> dict[str, Any]:
     text = log_path.read_text(encoding="utf-8", errors="replace")
     missing = replay_marker_missing(text)
     evidence = count_evidence(text)
+    segments = segment_evidence(text)
     if not evidence["command_labels"]:
         missing.append("corridor_command_label")
 
@@ -138,6 +214,7 @@ def summarize_log(log_path: Path) -> dict[str, Any]:
         "artifact": str(log_path),
         "missing": missing,
         **evidence,
+        "segments": segments,
         "metrics": {
             "frame_stats_count": details["frame_stats_count"],
             "max_run_seconds": details["max_run_seconds"],

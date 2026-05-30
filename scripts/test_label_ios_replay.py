@@ -48,6 +48,41 @@ def replay_log(
     ) + "\n"
 
 
+def multi_segment_log() -> str:
+    return "\n".join(
+        [
+            "roana_ios_replay status=started video=fixture.mp4 duration_s=4.00 fps=1.00 width=720 height=1280",
+            "roana_ios_motion_quality label=stable reason=motion_unavailable trusts_guidance=true source=replay",
+            (
+                "roana_ios_frame_stats width=720 height=1280 "
+                "pixel_format=420YpCbCr8BiPlanarFullRange interval_ms=1000.00 "
+                "p50_ms=1000.00 p95_ms=1000.00 dropped=0 backlog=0 "
+                "thermal=nominal run_s=1.00"
+            ),
+            "roana_ios_corridor decision=STOP state=STOP reason=near_obstacle path_cells=0 pending=none pending_count=0",
+            (
+                "roana_ios_corridor_feedback status=spoken id=fixture-1 command=STOP "
+                "message=stop reason=near_obstacle changed=true forced=false pending=none pending_count=0"
+            ),
+            (
+                "roana_ios_frame_stats width=720 height=1280 "
+                "pixel_format=420YpCbCr8BiPlanarFullRange interval_ms=1000.00 "
+                "p50_ms=1000.00 p95_ms=1000.00 dropped=0 backlog=0 "
+                "thermal=nominal run_s=3.00"
+            ),
+            (
+                "roana_ios_corridor decision=STRAIGHT state=STRAIGHT reason=path_found "
+                "path_cells=15 pending=none pending_count=0"
+            ),
+            (
+                "roana_ios_corridor_feedback status=spoken id=fixture-2 command=STRAIGHT "
+                "message=go_straight reason=path_found changed=true forced=false pending=none pending_count=0"
+            ),
+            "roana_ios_replay status=finished frames=2",
+        ],
+    ) + "\n"
+
+
 class LabelIosReplayTest(unittest.TestCase):
     def run_labeler(self, log_text: str, *extra_args: str, check: bool = True) -> tuple[int, dict[str, object]]:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -70,6 +105,18 @@ class LabelIosReplayTest(unittest.TestCase):
         self.assertIn("too_close", data["scene_quality_labels"])
         self.assertEqual(1, data["decision_counts"]["STOP"])
         self.assertEqual(1, data["spoken_command_counts"]["STOP"])
+        self.assertEqual(
+            [
+                {
+                    "command": "STOP",
+                    "reason": "near_obstacle",
+                    "scene_quality_labels": ["too_close"],
+                    "source": "decision+spoken_feedback",
+                    "time_s": 2.0,
+                },
+            ],
+            data["segments"],
+        )
 
     def test_labels_guidance(self) -> None:
         _, data = self.run_labeler(
@@ -79,6 +126,31 @@ class LabelIosReplayTest(unittest.TestCase):
         self.assertEqual("guidance", data["fixture_suggestion"])
         self.assertEqual(["STRAIGHT"], data["command_labels"])
         self.assertEqual([], data["scene_quality_labels"])
+
+    def test_labels_approximate_segments(self) -> None:
+        _, data = self.run_labeler(multi_segment_log())
+
+        self.assertEqual("mixed", data["fixture_suggestion"])
+        self.assertEqual(["STOP", "STRAIGHT"], data["command_labels"])
+        self.assertEqual(
+            [
+                {
+                    "command": "STOP",
+                    "reason": "near_obstacle",
+                    "scene_quality_labels": ["too_close"],
+                    "source": "decision+spoken_feedback",
+                    "time_s": 1.0,
+                },
+                {
+                    "command": "STRAIGHT",
+                    "reason": "path_found",
+                    "scene_quality_labels": [],
+                    "source": "decision+spoken_feedback",
+                    "time_s": 3.0,
+                },
+            ],
+            data["segments"],
+        )
 
     def test_labels_motion_quality_scene(self) -> None:
         _, data = self.run_labeler(

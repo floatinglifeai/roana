@@ -264,7 +264,8 @@ Updated: 2026-05-30.
     existing replay log or by running replay against a local video. It suggests
     command labels (`STOP`, `STRAIGHT`, `LEFT`, `RIGHT`), scene-quality labels
     such as `too_close` / `occluded` / `pointing_down` / `unstable`, and a
-    fixture type, without adding production recording or committing videos.
+    fixture type, and emits approximate segment labels from replay frame
+    timestamps, without adding production recording or committing videos.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Kotlin fixture generation source exists at
