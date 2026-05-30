@@ -78,6 +78,8 @@ Updated: 2026-05-30.
     planner, fusion, and state-machine cases mirrored from current Kotlin unit
     tests.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
+  - `scripts/analyze-ios-log.py` and `scripts/test_analyze_ios_log.py` define
+    the future machine-checkable log gates for iOS S0/V0a/V0b artifacts.
 - Parity status:
   - Checked-in JSON fixture exists at `parity/corridor-core.json`.
   - Automatic Kotlin fixture generation is still pending because local Gradle
@@ -125,6 +127,15 @@ Acceptance artifact target:
 ```text
 logs/ios-skeleton-<timestamp>.log
 ```
+
+Machine-check the artifact with:
+
+```bash
+scripts/analyze-ios-log.py --log logs/ios-skeleton-<timestamp>.log --require-background-stop 1
+```
+
+After model assets are available, add `--require-yolo 1 --require-depth 1
+--require-corridor 1 --require-speech 1`.
 
 ## No-Touch Scope
 

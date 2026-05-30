@@ -46,6 +46,7 @@ done
 
 /usr/bin/plutil -lint "$INFO_PLIST" >/dev/null
 python3 -m json.tool "$IOS_DIR/Roana/Assets.xcassets/Contents.json" >/dev/null
+python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
 python3 - <<'PY' "$IOS_DIR/Roana.xcodeproj/xcshareddata/xcschemes/Roana.xcscheme"
 import sys
 import xml.etree.ElementTree as ET
