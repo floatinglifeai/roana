@@ -26,15 +26,26 @@ final class YoloSpeechFeedbackPolicy {
         guard shouldSpeak(label: detection.label, now: now) else {
             return nil
         }
-        lastSpokenLabel = detection.label
-        lastSpeechTime = now
         return YoloSpeechFeedback(
             detection: detection,
             message: message(for: detection.label),
         )
     }
 
-    private func shouldSpeak(label: String, now: Date) -> Bool {
+    func markSpoken(_ feedback: YoloSpeechFeedback, at now: Date) {
+        lastSpokenLabel = feedback.detection.label
+        lastSpeechTime = now
+    }
+
+    func consumeFeedback(for detection: YoloSpeechDetection, now: Date) -> YoloSpeechFeedback? {
+        guard let feedback = feedback(for: detection, now: now) else {
+            return nil
+        }
+        markSpoken(feedback, at: now)
+        return feedback
+    }
+
+    func shouldSpeak(label: String, now: Date) -> Bool {
         label != lastSpokenLabel || now.timeIntervalSince(lastSpeechTime) >= minimumRepeatInterval
     }
 

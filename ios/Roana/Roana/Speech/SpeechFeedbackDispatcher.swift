@@ -50,6 +50,7 @@ final class SpeechFeedbackDispatcher {
 
         synthesizer.stopSpeaking(at: .immediate)
         synthesizer.speak(utterance)
+        feedbackPolicy.markSpoken(feedback, at: now)
 
         print(
             "roana_ios_speech status=queued label=\(sanitizeSpeechLogValue(detection.label)) " +

@@ -160,6 +160,7 @@ grep -q "SpeechAudioSession.activate()" "$IOS_DIR/Roana/Speech/CorridorFeedbackD
 grep -q "roana_ios_yolo" "$IOS_DIR/Roana/Models/YoloObstacleDetector.swift"
 grep -q "roana_ios_speech" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
 grep -q "YoloSpeechFeedbackPolicy" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
+grep -q "markSpoken(feedback" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
 grep -q "repeat_interval" "$IOS_DIR/Roana/Speech/SpeechFeedbackDispatcher.swift"
 grep -q "Person ahead" "$IOS_DIR/Roana/Speech/YoloSpeechFeedbackPolicy.swift"
 grep -q "near_obstacle" "$IOS_DIR/Roana/Corridor/CorridorPlanner.swift"
