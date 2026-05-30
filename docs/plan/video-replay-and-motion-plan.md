@@ -50,6 +50,20 @@ scripts/verify-ios-replay-log.py --log /tmp/roana-ios-video-replay-smoke.log \
   --fixture stop --min-run-seconds 2 --max-p95-ms 1000
 ```
 
+Run a longer guidance replay against the same local sample:
+
+```bash
+scripts/replay-ios-video.sh samples/home_iphone_0530.mp4 --fps 2 --max-seconds 20 \
+  | tee /tmp/roana-ios-video-replay-guidance-probe.log
+```
+
+Verify the resulting guidance fixture log:
+
+```bash
+scripts/verify-ios-replay-log.py --log /tmp/roana-ios-video-replay-guidance-probe.log \
+  --fixture guidance --min-run-seconds 20 --max-p95-ms 500
+```
+
 `samples/home_iphone_0530.mp4` is a local development fixture and is ignored by
 git. Keep full videos out of normal git history unless the project adopts Git
 LFS or a separate fixture-fetch path. `samples/README.md` records the current
