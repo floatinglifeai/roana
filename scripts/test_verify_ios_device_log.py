@@ -86,6 +86,11 @@ def fake_log(
             "command=STOP message=stop reason=low_confidence "
             "changed=true forced=false pending=none pending_count=0"
         )
+        if not include_speech:
+            lines.append(
+                "roana_ios_speech status=suppressed reason=corridor_feedback_active "
+                "label=person score=91"
+            )
     if include_speech:
         lines.append("roana_ios_speech status=queued label=person score=91 message=Person_ahead")
     if include_background_stop:
@@ -198,7 +203,6 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
-                include_speech=True,
                 include_inference=True,
             ),
             "--gate",
@@ -209,6 +213,31 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
 
         self.assertEqual(status, 0)
         self.assertEqual(details["status"], "passed")
+
+    def test_v0b_defaults_do_not_require_generic_yolo_speech(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_inference=True,
+            ),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 0)
+        self.assertEqual(details["status"], "passed")
+        self.assertEqual(0, details["analysis"]["details"]["speech_queued_count"])
 
     def test_v0b_defaults_require_model_descriptions(self) -> None:
         status, details = self.run_verifier(
@@ -248,7 +277,6 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
-                include_speech=True,
                 include_inference=True,
             )
             .replace("resource=YOLO11n", "resource=WrongYolo")
@@ -277,7 +305,6 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
-                include_speech=True,
                 include_inference=True,
             )
             .replace("inputs=image:image_640x640", "inputs=unknown")
@@ -311,7 +338,6 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
-                include_speech=True,
                 include_inference=True,
             ).replace(" vision=right", ""),
             "--gate",
@@ -338,7 +364,6 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
-                include_speech=True,
                 include_inference=True,
             ).replace("roana_ios_depth status=ok elapsed_ms=31.00 vision=right", "roana_ios_depth status=ok elapsed_ms=31.00 vision=left"),
             "--gate",
@@ -365,7 +390,6 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
-                include_speech=True,
                 include_inference=True,
             ),
             "--gate",
@@ -392,7 +416,6 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
                 include_depth=True,
                 include_depth_description=True,
                 include_corridor=True,
-                include_speech=True,
                 include_inference=True,
             ),
             "--gate",

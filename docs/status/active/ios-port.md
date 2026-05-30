@@ -68,7 +68,7 @@ Updated: 2026-05-30.
     assumptions can be checked from the first iPhone artifact.
   - Detection timing logs use `roana_ios_yolo`.
   - Detection-to-speech wiring uses `AVSpeechSynthesizer` and logs
-    `roana_ios_speech`.
+    `roana_ios_speech` for the YOLO-only V0a path.
 - Code-only iOS-V0b decision-core path:
   - Swift `CorridorPlanner` port with near-obstacle STOP, 15x15 DFS path
     search, safe-cell thresholds, horizontal-clearance tie-break, and
@@ -81,6 +81,11 @@ Updated: 2026-05-30.
   - Swift `CorridorFeedbackDispatcher` ports Android's changed-state and
     initial-emergency-STOP speech rules, logs `roana_ios_corridor_feedback`,
     and is wired into the camera corridor pipeline.
+  - When depth/corridor feedback is active, generic YOLO object speech is
+    suppressed with `roana_ios_speech status=suppressed` and
+    `reason=corridor_feedback_active`; corridor feedback owns spoken guidance
+    so V0b does not emit competing "object ahead" and corridor-command
+    utterances for the same frame.
 - Code-only Depth Anything path:
   - `DepthAnythingOutputAdapter` converts raw depth output values or
     `MLMultiArray` outputs into the 15x15 planner grid.
@@ -230,13 +235,15 @@ permission and run:
 scripts/verify-ios-device-log.py --gate s0-denied --log logs/ios-permission-denied-<timestamp>.log
 ```
 
-After model assets are available, add `--require-yolo 1
---require-yolo-description 1 --require-depth 1 --require-depth-description 1
---require-vision-orientation 1 --require-corridor 1 --require-speech 1 --require-inference 1
---max-p95-ms 100 --max-thermal-state fair` when calling the analyzer directly
-for V0b. The physical-run wrapper applies the V0a/V0b model-description
-requirements, V0a/V0b Vision orientation requirements, and the V0b
-cadence/thermal requirements by default.
+After model assets are available, use `scripts/verify-ios-device-log.py --gate
+v0a` for the YOLO-only speech artifact and `scripts/verify-ios-device-log.py
+--gate v0b` for the corridor artifact. When calling the analyzer directly for
+V0b, require YOLO, depth, Vision orientation, corridor feedback, inference,
+`--max-p95-ms 100`, and `--max-thermal-state fair`; do not require generic
+`roana_ios_speech status=queued` because corridor feedback owns V0b speech. The
+physical-run wrapper applies the V0a/V0b model-description requirements,
+V0a/V0b Vision orientation requirements, and the V0b cadence/thermal
+requirements by default.
 
 Before running model-backed iOS V0a/V0b gates, check the local asset contract:
 

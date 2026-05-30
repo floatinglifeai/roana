@@ -200,7 +200,7 @@ def apply_gate_defaults(args: argparse.Namespace) -> argparse.Namespace:
     if args.require_corridor is None:
         args.require_corridor = "1" if corridor_gate else "0"
     if args.require_speech is None:
-        args.require_speech = "1" if model_gate else "0"
+        args.require_speech = "1" if model_gate and not corridor_gate else "0"
     if args.require_orientation is None:
         args.require_orientation = "1"
     if args.require_permission_denied is None:
