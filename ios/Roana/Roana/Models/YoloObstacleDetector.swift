@@ -99,7 +99,7 @@ final class YoloObstacleDetector {
         }
     }
 
-    func detect(sampleBuffer: CMSampleBuffer) -> Result {
+    func detect(sampleBuffer: CMSampleBuffer, orientation: FrameOrientation) -> Result {
         let started = CFAbsoluteTimeGetCurrent()
         guard let request else {
             return Result(
@@ -110,7 +110,7 @@ final class YoloObstacleDetector {
         }
 
         do {
-            let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .right)
+            let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: orientation.cgImageOrientation)
             try handler.perform([request])
             let detection = bestDetection(from: request.results)
             let inferenceMilliseconds = elapsedMilliseconds(since: started)
@@ -118,6 +118,7 @@ final class YoloObstacleDetector {
                 state: .ready,
                 inferenceMilliseconds: inferenceMilliseconds,
                 detection: detection,
+                orientation: orientation,
             )
             return Result(
                 state: .ready,
@@ -162,17 +163,20 @@ final class YoloObstacleDetector {
         state: State,
         inferenceMilliseconds: Double,
         detection: Detection?,
+        orientation: FrameOrientation,
     ) {
         if let detection {
             print(
                 "roana_ios_yolo status=\(state.logValue) elapsed_ms=\(format(inferenceMilliseconds)) " +
+                    "vision=\(orientation.visionOrientationName) " +
                     "label=\(sanitizeYoloLogValue(detection.label)) score=\(format(Double(detection.confidence))) " +
                     "center_x=\(format(Double(detection.centerX))) center_y=\(format(Double(detection.centerY))) " +
                     "width=\(format(Double(detection.width))) height=\(format(Double(detection.height)))",
             )
         } else {
             print(
-                "roana_ios_yolo status=\(state.logValue) elapsed_ms=\(format(inferenceMilliseconds)) detection=none",
+                "roana_ios_yolo status=\(state.logValue) elapsed_ms=\(format(inferenceMilliseconds)) " +
+                    "vision=\(orientation.visionOrientationName) detection=none",
             )
         }
     }

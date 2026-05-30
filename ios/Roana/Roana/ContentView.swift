@@ -8,7 +8,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            CameraPreviewView(session: camera.session)
+            CameraPreviewView(session: camera.session, onOrientationChange: camera.updateOrientation)
                 .ignoresSafeArea()
                 .overlay(permissionOverlay)
 

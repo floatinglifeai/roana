@@ -55,10 +55,16 @@ def parse_log(log_path: Path) -> dict[str, object]:
     corridor_ok = []
     corridor_feedback_spoken = []
     speech_queued = []
+    yolo_vision_orientation_lines = []
+    depth_vision_orientation_lines = []
     lifecycle_lines = []
     lifecycle_events = []
     preview_orientation_lines = []
     capture_orientation_lines = []
+    preview_vision_orientations = set()
+    capture_vision_orientations = set()
+    yolo_vision_orientations = set()
+    depth_vision_orientations = set()
     inference_scheduled = []
     inference_skipped = []
     inference_finished = []
@@ -86,10 +92,23 @@ def parse_log(log_path: Path) -> dict[str, object]:
                 thermal_states.append(thermal_state)
         if "roana_ios_yolo status=model_description" in line:
             yolo_descriptions.append(line)
+        if (
+            ("roana_ios_yolo status=ready" in line or "roana_ios_yolo status=ok" in line)
+            and "vision=" in line
+        ):
+            yolo_vision_orientation_lines.append(line)
+            vision_orientation = fields.get("vision")
+            if vision_orientation:
+                yolo_vision_orientations.add(vision_orientation)
         if "roana_ios_depth status=model_description" in line:
             depth_descriptions.append(line)
         if "roana_ios_depth status=ok" in line:
             depth_ok.append(line)
+            if "vision=" in line:
+                depth_vision_orientation_lines.append(line)
+                vision_orientation = fields.get("vision")
+                if vision_orientation:
+                    depth_vision_orientations.add(vision_orientation)
         if "roana_ios_corridor decision=" in line:
             corridor_ok.append(line)
         if "roana_ios_corridor_feedback status=spoken" in line:
@@ -106,8 +125,14 @@ def parse_log(log_path: Path) -> dict[str, object]:
                 lifecycle_events.append("camera_stopped")
         if "roana_ios_orientation source=preview" in line:
             preview_orientation_lines.append(line)
+            vision_orientation = fields.get("vision")
+            if vision_orientation:
+                preview_vision_orientations.add(vision_orientation)
         if "roana_ios_lifecycle camera_output_orientation" in line:
             capture_orientation_lines.append(line)
+            vision_orientation = fields.get("vision")
+            if vision_orientation:
+                capture_vision_orientations.add(vision_orientation)
         if "roana_ios_inference status=scheduled" in line:
             inference_scheduled.append(line)
         if "roana_ios_inference status=skipped" in line:
@@ -184,6 +209,12 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "avg_depth_ms": rounded(mean(depth_elapsed), 2) if depth_elapsed else 0.0,
         "yolo_description_count": len(yolo_descriptions),
         "depth_description_count": len(depth_descriptions),
+        "yolo_vision_orientation_count": len(yolo_vision_orientation_lines),
+        "depth_vision_orientation_count": len(depth_vision_orientation_lines),
+        "preview_vision_orientations": sorted(preview_vision_orientations),
+        "capture_vision_orientations": sorted(capture_vision_orientations),
+        "yolo_vision_orientations": sorted(yolo_vision_orientations),
+        "depth_vision_orientations": sorted(depth_vision_orientations),
         "yolo_ok_count": len(yolo_elapsed),
         "depth_ok_count": len(depth_ok),
         "corridor_count": len(corridor_ok),
@@ -222,6 +253,7 @@ def missing_evidence(
     require_yolo_description: bool,
     require_depth: bool,
     require_depth_description: bool,
+    require_vision_orientation: bool,
     require_corridor: bool,
     require_speech: bool,
     require_orientation: bool,
@@ -277,6 +309,22 @@ def missing_evidence(
         missing.append("depth_inference")
     if require_depth_description and details["depth_description_count"] < 1:
         missing.append("depth_model_description")
+    if require_vision_orientation and require_yolo and details["yolo_vision_orientation_count"] < 1:
+        missing.append("yolo_vision_orientation")
+    if require_vision_orientation and require_depth and details["depth_vision_orientation_count"] < 1:
+        missing.append("depth_vision_orientation")
+    if require_vision_orientation:
+        camera_vision = set(details["preview_vision_orientations"]) | set(details["capture_vision_orientations"])
+        if require_orientation and not camera_vision:
+            missing.append("camera_vision_orientation")
+        if require_yolo and details["yolo_vision_orientation_count"] >= 1:
+            yolo_vision = set(details["yolo_vision_orientations"])
+            if camera_vision and not yolo_vision.issubset(camera_vision):
+                missing.append("yolo_vision_orientation_match")
+        if require_depth and details["depth_vision_orientation_count"] >= 1:
+            depth_vision = set(details["depth_vision_orientations"])
+            if camera_vision and not depth_vision.issubset(camera_vision):
+                missing.append("depth_vision_orientation_match")
     if require_corridor and details["corridor_count"] < 1:
         missing.append("corridor_decision")
     if require_speech and details["speech_queued_count"] < 1:
@@ -314,6 +362,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-yolo-description", default="0")
     parser.add_argument("--require-depth", default="0")
     parser.add_argument("--require-depth-description", default="0")
+    parser.add_argument("--require-vision-orientation", default="0")
     parser.add_argument("--require-corridor", default="0")
     parser.add_argument("--require-speech", default="0")
     parser.add_argument("--require-orientation", default="0")
@@ -342,6 +391,7 @@ def main() -> None:
         require_yolo_description=parse_bool(args.require_yolo_description),
         require_depth=parse_bool(args.require_depth),
         require_depth_description=parse_bool(args.require_depth_description),
+        require_vision_orientation=parse_bool(args.require_vision_orientation),
         require_corridor=parse_bool(args.require_corridor),
         require_speech=parse_bool(args.require_speech),
         require_orientation=parse_bool(args.require_orientation),

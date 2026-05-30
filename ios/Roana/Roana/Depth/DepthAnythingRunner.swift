@@ -59,7 +59,7 @@ final class DepthAnythingRunner {
         }
     }
 
-    func infer(sampleBuffer: CMSampleBuffer) -> Result {
+    func infer(sampleBuffer: CMSampleBuffer, orientation: FrameOrientation) -> Result {
         let started = CFAbsoluteTimeGetCurrent()
         guard let request else {
             return Result(
@@ -70,13 +70,13 @@ final class DepthAnythingRunner {
         }
 
         do {
-            let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .right)
+            let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: orientation.cgImageOrientation)
             try handler.perform([request])
             let grid = try plannerGrid(from: request.results)
             let inferenceMilliseconds = elapsedMilliseconds(since: started)
             print(
                 "roana_ios_depth status=ok elapsed_ms=\(format(inferenceMilliseconds)) " +
-                    "grid_rows=\(grid.rows) grid_cols=\(grid.cols)",
+                    "vision=\(orientation.visionOrientationName) grid_rows=\(grid.rows) grid_cols=\(grid.cols)",
             )
             return Result(
                 state: .ready,

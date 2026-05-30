@@ -37,8 +37,8 @@ def fake_log(
         "roana_ios_lifecycle camera_started",
     ]
     if include_orientation:
-        lines.append("roana_ios_lifecycle camera_output_orientation angle=90")
-        lines.append("roana_ios_orientation source=preview interface=portrait angle=90")
+        lines.append("roana_ios_lifecycle camera_output_orientation interface=portrait angle=90 vision=right")
+        lines.append("roana_ios_orientation source=preview interface=portrait angle=90 vision=right")
     if include_idle_timer:
         lines.append("roana_ios_lifecycle idle_timer_disabled value=true")
     for index in range(frame_count):
@@ -52,7 +52,7 @@ def fake_log(
         if include_inference:
             lines.append("roana_ios_inference status=scheduled frame_id=1")
         lines.append(
-            "roana_ios_yolo status=ready elapsed_ms=12.00 label=person "
+            "roana_ios_yolo status=ready elapsed_ms=12.00 vision=right label=person "
             "score=0.91 center_x=0.50 center_y=0.80 width=0.20 height=0.30"
         )
         if include_inference:
@@ -64,7 +64,7 @@ def fake_log(
             "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32"
         )
     if include_depth:
-        lines.append("roana_ios_depth status=ok elapsed_ms=31.00 grid_rows=15 grid_cols=15")
+        lines.append("roana_ios_depth status=ok elapsed_ms=31.00 vision=right grid_rows=15 grid_cols=15")
     if include_depth_description:
         lines.append(
             "roana_ios_depth status=model_description resource=DepthAnythingV2Small "
@@ -165,6 +165,7 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertIn("idle_timer_disabled", details["missing"])
         self.assertIn("idle_timer_enabled", details["missing"])
         self.assertIn("inference_finished", details["missing"])
+        self.assertIn("yolo_vision_orientation", details["missing"])
 
     def test_s0_defaults_require_sixty_second_run(self) -> None:
         status, details = self.run_verifier(
@@ -233,6 +234,59 @@ class VerifyIosDeviceLogTest(unittest.TestCase):
         self.assertEqual(details["status"], "blocked")
         self.assertIn("yolo_model_description", details["missing"])
         self.assertIn("depth_model_description", details["missing"])
+
+    def test_v0b_defaults_require_vision_orientation_evidence(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_speech=True,
+                include_inference=True,
+            ).replace(" vision=right", ""),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("yolo_vision_orientation", details["missing"])
+        self.assertIn("depth_vision_orientation", details["missing"])
+
+    def test_v0b_defaults_require_matching_vision_orientation_evidence(self) -> None:
+        status, details = self.run_verifier(
+            fake_log(
+                frame_count=120,
+                include_background_stop=True,
+                include_background_restart=True,
+                include_orientation=True,
+                include_idle_timer=True,
+                include_yolo=True,
+                include_yolo_description=True,
+                include_depth=True,
+                include_depth_description=True,
+                include_corridor=True,
+                include_speech=True,
+                include_inference=True,
+            ).replace("roana_ios_depth status=ok elapsed_ms=31.00 vision=right", "roana_ios_depth status=ok elapsed_ms=31.00 vision=left"),
+            "--gate",
+            "v0b",
+            "--require-model-assets",
+            "0",
+        )
+
+        self.assertEqual(status, 2)
+        self.assertEqual(details["status"], "blocked")
+        self.assertIn("depth_vision_orientation_match", details["missing"])
 
     def test_v0b_defaults_require_ten_fps_cadence(self) -> None:
         status, details = self.run_verifier(

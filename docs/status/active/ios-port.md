@@ -52,9 +52,12 @@ Updated: 2026-05-30.
   evidence so the first device run proves the app keeps the camera session
   awake only while active.
 - Preview and capture-output orientation configuration now emit stable
-  `roana_ios_orientation` / `camera_output_orientation` logs so the first
-  physical S0 run has machine-checkable evidence that orientation handling was
-  configured. Visual correctness still requires the deferred iPhone run.
+  `roana_ios_orientation` / `camera_output_orientation` logs from a shared
+  `CameraFrameOrientation` mapping. YOLO and Depth Anything inference use that
+  same mapping for `VNImageRequestHandler` and log `vision=...`, so the first
+  physical model-backed run has machine-checkable evidence that preview,
+  capture output, and model input orientation agree. Visual correctness still
+  requires the deferred iPhone run.
 - Code-only iOS-V0a path:
   - YOLO11n Core ML loader scaffold using `VNCoreMLRequest`.
   - NMS-export consumption shape via `VNRecognizedObjectObservation`.
@@ -141,8 +144,9 @@ Updated: 2026-05-30.
     `run_s` frame evidence. V0a/V0b defaults require YOLO model-description
     evidence, and V0b defaults require Depth Anything model-description
     evidence, so the first model-backed device artifact proves the exported
-    Core ML feature contract instead of only proving inference callbacks. V0b
-    defaults also require p95 frame cadence at or below 100 ms and thermal
+    Core ML feature contract instead of only proving inference callbacks.
+    V0a/V0b defaults require Vision orientation evidence from the model logs.
+    V0b defaults also require p95 frame cadence at or below 100 ms and thermal
     state no worse than `fair`, matching the corridor-demo ≥10 FPS /
     no-throttle acceptance gate.
   - `scripts/verify-ios-device-log.py --gate s0-denied` checks the denied
@@ -223,10 +227,11 @@ scripts/verify-ios-device-log.py --gate s0-denied --log logs/ios-permission-deni
 
 After model assets are available, add `--require-yolo 1
 --require-yolo-description 1 --require-depth 1 --require-depth-description 1
---require-corridor 1 --require-speech 1 --require-inference 1
+--require-vision-orientation 1 --require-corridor 1 --require-speech 1 --require-inference 1
 --max-p95-ms 100 --max-thermal-state fair` when calling the analyzer directly
 for V0b. The physical-run wrapper applies the V0a/V0b model-description
-requirements and the V0b cadence/thermal requirements by default.
+requirements, V0a/V0b Vision orientation requirements, and the V0b
+cadence/thermal requirements by default.
 
 Before running model-backed iOS V0a/V0b gates, check the local asset contract:
 
