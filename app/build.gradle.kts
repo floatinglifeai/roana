@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.JavaExec
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -52,4 +54,27 @@ dependencies {
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.46.0")
     implementation("org.tensorflow:tensorflow-lite:2.17.0")
     testImplementation("junit:junit:4.13.2")
+}
+
+tasks.register<JavaExec>("generateCorridorParityFixtures") {
+    group = "verification"
+    description = "Generate corridor parity fixtures for the Swift iOS port."
+    val compileTasks = listOf(
+        "compileDebugUnitTestKotlin",
+        "compileDebugUnitTestJavaWithJavac",
+        "processDebugUnitTestJavaRes",
+        "compileDebugKotlin",
+        "compileDebugJavaWithJavac",
+        "processDebugJavaRes",
+    ).map { taskName -> tasks.named(taskName) }
+    dependsOn(compileTasks)
+    classpath = files(
+        configurations.named("debugUnitTestRuntimeClasspath"),
+        "$buildDir/tmp/kotlin-classes/debugUnitTest",
+        "$buildDir/intermediates/javac/debugUnitTest/classes",
+        "$buildDir/tmp/kotlin-classes/debug",
+        "$buildDir/intermediates/javac/debug/classes",
+    )
+    mainClass.set("com.roana.app.parity.CorridorParityFixtureGenerator")
+    args(rootProject.layout.projectDirectory.file("parity/corridor-core.json").asFile.absolutePath)
 }
