@@ -22,9 +22,17 @@ The name comes from the *roam* root — the freedom and dignity of going whereve
 
 ## Status
 
-🟡 **Pre-V0 — design and planning phase.** No code yet. This repository currently hosts the research, technical design, and decision history that the implementation will be built on.
+🟡 **V0 implementation in progress.** The repository now contains the Android
+prototype code and the first native iOS skeleton. Android V0a is implemented;
+Android V0b is blocked on target-device NPU delegate bring-up. The iOS port is
+at the S0 camera-skeleton stage, with physical iPhone proof deferred until a
+phone and full Xcode are available.
 
-Implementation begins after the docs in `docs/research/` settle. The accepted V0 implementation boundary is recorded in [`docs/plan/v0-implementation-plan.md`](docs/plan/v0-implementation-plan.md). The roadmap is V0 → V3, summarized below.
+The accepted V0 implementation boundary is recorded in
+[`docs/plan/v0-implementation-plan.md`](docs/plan/v0-implementation-plan.md).
+The accepted iOS port route is recorded in
+[`docs/plan/ios-port-plan.md`](docs/plan/ios-port-plan.md). Current active
+implementation state lives under [`docs/status/active/`](docs/status/active/).
 
 ---
 
@@ -49,10 +57,10 @@ Implementation begins after the docs in `docs/research/` settle. The accepted V0
 
 ```
 ┌──── Input ────┐   ┌──── Compute ────┐   ┌──── Output ────┐
-│ Phone camera  │ → │ Android NPU      │ → │ Bone-conduction │
-│ (V3: glasses) │   │ YOLO11n-seg      │   │ TTS (semantics) │
-│ Phone IMU     │   │ Depth Anything V2│   │ Bangle.js 2     │
-│               │   │ Geometric policy │   │ haptics (direction)│
+│ Phone camera  │ → │ Android NPU /   │ → │ Bone-conduction   │
+│ (V3: glasses) │   │ iPhone ANE      │   │ TTS (semantics)   │
+│ Phone IMU     │   │ YOLO11n + depth │   │ Bangle.js 2       │
+│               │   │ Geometric policy│   │ haptics(direction)│
 └───────────────┘   └─────────────────┘   └─────────────────┘
 ```
 
@@ -85,6 +93,10 @@ Full reasoning in [`docs/research/01-system-design.md`](docs/research/01-system-
 roana/
 ├── README.md                            # this file
 ├── LICENSE                              # AGPL-3.0-or-later
+├── app/                                 # native Android prototype
+├── ios/
+│   └── Roana/                           # native SwiftUI iOS skeleton
+├── scripts/                             # local and device verification gates
 ├── docs/
 │   ├── research/                        # research reports
 │   │   ├── 00-vision-and-naming.md      # product vision + naming research
@@ -97,6 +109,7 @@ roana/
 │   ├── plan/                            # implementation plans
 │   │   ├── v0-implementation-plan.md    # accepted V0 implementation boundary
 │   │   └── ios-port-plan.md             # iOS port plan (native Swift + Core ML)
+│   ├── status/active/                   # current implementation status capsules
 │   └── discussions/                     # condensed decision logs from design conversations
 └── .gitignore
 ```

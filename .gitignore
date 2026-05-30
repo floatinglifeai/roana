@@ -37,6 +37,11 @@ captures/
 .externalNativeBuild
 .cxx/
 
+# Xcode local state
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
 # Proguard
 proguard/
 
@@ -66,6 +71,9 @@ ENV/
 
 # Models (large binaries — track separately with Git LFS or HF Hub)
 *.tflite
+*.mlmodel
+*.mlmodelc/
+*.mlpackage/
 *.onnx
 *.pt
 *.pth
