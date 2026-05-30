@@ -112,6 +112,11 @@ def parse_log(log_path: Path) -> dict[str, object]:
             stop_corridor_feedback = line
 
     permission_seen = any("camera_authorization state=" in line for line in lifecycle_lines)
+    permission_denied_seen = any(
+        "camera_authorization state=denied" in line or "camera_authorization state=restricted" in line
+        for line in lifecycle_lines
+    )
+    camera_permission_denied = any("camera_permission_denied" in line for line in lifecycle_lines)
     camera_started = any("camera_started" in line for line in lifecycle_lines)
     camera_background_stop = any("camera_background_stop" in line for line in lifecycle_lines)
     camera_stopped = any("camera_stopped" in line for line in lifecycle_lines)
@@ -154,6 +159,8 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "normal_corridor_feedback": normal_corridor_feedback,
         "stop_corridor_feedback": stop_corridor_feedback,
         "permission_seen": permission_seen,
+        "permission_denied_seen": permission_denied_seen,
+        "camera_permission_denied": camera_permission_denied,
         "camera_started": camera_started,
         "camera_background_stop": camera_background_stop,
         "camera_stopped": camera_stopped,
@@ -175,6 +182,8 @@ def missing_evidence(
     require_orientation: bool,
     require_background_stop: bool,
     require_permission: bool,
+    require_permission_denied: bool,
+    require_camera_start: bool,
     require_inference: bool,
     max_inference_skipped: int,
 ) -> list[str]:
@@ -187,7 +196,11 @@ def missing_evidence(
         missing.append(f"dropped<={max_dropped}")
     if require_permission and not details["permission_seen"]:
         missing.append("camera_permission_state")
-    if not details["camera_started"]:
+    if require_permission_denied and not details["permission_denied_seen"]:
+        missing.append("camera_permission_denied_state")
+    if require_permission_denied and not details["camera_permission_denied"]:
+        missing.append("camera_permission_denied_ui")
+    if require_camera_start and not details["camera_started"]:
         missing.append("camera_started")
     if require_background_stop and not (
         details["camera_background_stop"] or details["camera_stopped"]
@@ -237,6 +250,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-inference", default="0")
     parser.add_argument("--require-background-stop", default="0")
     parser.add_argument("--require-permission", default="1")
+    parser.add_argument("--require-permission-denied", default="0")
+    parser.add_argument("--require-camera-start", default="1")
     return parser
 
 
@@ -257,6 +272,8 @@ def main() -> None:
         require_orientation=parse_bool(args.require_orientation),
         require_background_stop=parse_bool(args.require_background_stop),
         require_permission=parse_bool(args.require_permission),
+        require_permission_denied=parse_bool(args.require_permission_denied),
+        require_camera_start=parse_bool(args.require_camera_start),
         require_inference=parse_bool(args.require_inference),
         max_inference_skipped=args.max_inference_skipped,
     )
