@@ -2,7 +2,6 @@
 // Copyright (C) 2026 The Roana Authors.
 
 import SwiftUI
-import UIKit
 
 struct ContentView: View {
     @ObservedObject var camera: CameraSessionController
@@ -21,11 +20,7 @@ struct ContentView: View {
         .task {
             camera.start()
         }
-        .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = true
-        }
         .onDisappear {
-            UIApplication.shared.isIdleTimerDisabled = false
             camera.stop()
         }
     }
