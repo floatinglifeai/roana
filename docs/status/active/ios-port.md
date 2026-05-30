@@ -102,11 +102,11 @@ Updated: 2026-05-30.
     production Swift source for network, frame-storage, identity, cloud/VLM, and
     street-crossing guidance tokens.
 - Executable local proof:
-  - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
+  - `swiftc ios/Roana/Roana/Corridor/CorridorPlanner.swift ios/Roana/Roana/Corridor/CorridorStateMachine.swift ios/Roana/Roana/Corridor/CorridorGridFusion.swift ios/Roana/Roana/Corridor/CorridorPipeline.swift ios/Roana/Roana/Speech/CorridorFeedbackDispatcher.swift ios/Roana/RoanaTests/main.swift -o /tmp/roana-corridor-smoke && /tmp/roana-corridor-smoke`
     passes with `CorridorCoreSmoke passed`.
   - Swift parity verifier reads `parity/corridor-core.json` and passes the
-    planner, fusion, and state-machine cases mirrored from current Kotlin unit
-    tests.
+    planner, fusion, state-machine, pipeline, and feedback-dispatch cases
+    mirrored from current Kotlin unit tests.
   - Depth adapter smoke verifier passes without an iPhone or full Xcode.
   - iOS model asset checker tests pass; the default checker reports both
     expected resources as missing until real local model assets are supplied.
@@ -130,10 +130,12 @@ Updated: 2026-05-30.
     `app/src/test/java/com/roana/app/parity/CorridorParityFixtureGenerator.kt`.
   - Gradle task `:app:generateCorridorParityFixtures` is wired to regenerate
     `parity/corridor-core.json`.
-  - Running the Gradle task is still pending because local Gradle currently
-    fails before task execution under the installed OpenJDK 25 environment
-    (`What went wrong: 25.0.1`). Use JDK 17 or 21 before relying on
-    Gradle-backed Kotlin generation.
+  - Running the Gradle task is still pending because this shell's default
+    `JAVA_HOME` points at `/opt/homebrew/opt/openjdk/bin/java` instead of a JDK
+    home, and with `JAVA_HOME` corrected to the installed OpenJDK 25 home,
+    Gradle still fails before task execution with
+    `java.lang.IllegalArgumentException: 25.0.1`. Use JDK 17 or 21 before
+    relying on Gradle-backed Kotlin generation.
 
 ## Local Code Gate
 
@@ -208,8 +210,9 @@ scripts/check-ios-model-assets.py --require-present
   `.mlmodelc` / `.mlpackage` outputs out of normal source commits unless Git
   LFS or an explicit model-fetch path is added.
 - Do not treat the Swift corridor smoke as full anti-divergence proof; the
-  JSON fixture now covers the initial corridor core cases, but automatic Kotlin
-  fixture generation from source tests is still pending.
+  JSON fixture now covers planner, fusion, state-machine, pipeline, and
+  feedback-dispatch cases, but automatic Kotlin fixture generation from source
+  tests is still pending on a JDK 17/21 host.
 - Do not claim iPhone performance, preview orientation, signing, installation,
   or camera callback cadence until physical-device evidence exists.
 - Do not resume Android QNN diagnosis while this iOS port slice is active.

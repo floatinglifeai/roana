@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "source": "app/src/test/java/com/roana/app/CorridorPlannerTest.kt",
+  "source": "app/src/test/java/com/roana/app/parity/CorridorParityFixtureGenerator.kt",
   "cases": [
     {
       "name": "choosesStraightForCenteredOpenCorridor",
@@ -114,6 +114,124 @@
         "command": "STOP",
         "reason": "near_obstacle"
       }
+    },
+    {
+      "name": "pipelineKeepsNonStopCommandPendingUntilConfirmed",
+      "type": "pipeline",
+      "confirmationsRequired": 3,
+      "steps": [
+        {
+          "action": "process",
+          "grid": { "kind": "filled", "value": 0.30 },
+          "expectedDecision": { "command": "STRAIGHT", "reason": "path_found", "pathCells": 15 },
+          "expectedState": { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 1 }
+        },
+        {
+          "action": "process",
+          "grid": { "kind": "filled", "value": 0.30 },
+          "expectedDecision": { "command": "STRAIGHT", "reason": "path_found", "pathCells": 15 },
+          "expectedState": { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 2 }
+        },
+        {
+          "action": "process",
+          "grid": { "kind": "filled", "value": 0.30 },
+          "expectedDecision": { "command": "STRAIGHT", "reason": "path_found", "pathCells": 15 },
+          "expectedState": { "command": "STRAIGHT", "changed": true, "pendingCommand": null, "pendingCount": 0 }
+        }
+      ]
+    },
+    {
+      "name": "pipelineFailSafeStopInterruptsConfirmedNonStopCommand",
+      "type": "pipeline",
+      "confirmationsRequired": 3,
+      "feedback": true,
+      "steps": [
+        {
+          "action": "process",
+          "grid": { "kind": "filled", "value": 0.30 },
+          "expectedDecision": { "command": "STRAIGHT", "reason": "path_found", "pathCells": 15 },
+          "expectedState": { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 1 },
+          "expectedFeedback": { "command": "STOP", "messageKey": "stop", "reason": "path_found", "changed": false, "forced": false, "spoken": false, "utteranceId": null, "pendingCommand": "STRAIGHT", "pendingCount": 1 }
+        },
+        {
+          "action": "process",
+          "grid": { "kind": "filled", "value": 0.30 },
+          "expectedDecision": { "command": "STRAIGHT", "reason": "path_found", "pathCells": 15 },
+          "expectedState": { "command": "STOP", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 2 },
+          "expectedFeedback": { "command": "STOP", "messageKey": "stop", "reason": "path_found", "changed": false, "forced": false, "spoken": false, "utteranceId": null, "pendingCommand": "STRAIGHT", "pendingCount": 2 }
+        },
+        {
+          "action": "process",
+          "grid": { "kind": "filled", "value": 0.30 },
+          "expectedDecision": { "command": "STRAIGHT", "reason": "path_found", "pathCells": 15 },
+          "expectedState": { "command": "STRAIGHT", "changed": true, "pendingCommand": null, "pendingCount": 0 },
+          "expectedFeedback": { "command": "STRAIGHT", "messageKey": "go_straight", "reason": "path_found", "changed": true, "forced": false, "spoken": true, "utteranceId": "utterance-1", "pendingCommand": null, "pendingCount": 0 }
+        },
+        {
+          "action": "failSafeStop",
+          "reason": "low_confidence",
+          "expectedDecision": { "command": "STOP", "reason": "low_confidence", "pathCells": 0 },
+          "expectedState": { "command": "STOP", "changed": true, "pendingCommand": null, "pendingCount": 0 },
+          "expectedFeedback": { "command": "STOP", "messageKey": "stop", "reason": "low_confidence", "changed": true, "forced": false, "spoken": true, "utteranceId": "utterance-2", "pendingCommand": null, "pendingCount": 0 }
+        }
+      ],
+      "expectedSpoken": [
+        { "message": "Go straight", "queueMode": "FLUSH", "utteranceId": "utterance-1" },
+        { "message": "Stop", "queueMode": "FLUSH", "utteranceId": "utterance-2" }
+      ]
+    },
+    {
+      "name": "feedbackChangedRightCommandSpeaksTurnRight",
+      "type": "feedback",
+      "feedbackStates": [
+        { "command": "RIGHT", "sourceCommand": "RIGHT", "reason": "path_found", "changed": true, "pendingCommand": null, "pendingCount": 0, "force": false }
+      ],
+      "expectedEvents": [
+        { "command": "RIGHT", "messageKey": "turn_right", "reason": "path_found", "changed": true, "forced": false, "spoken": true, "utteranceId": "utterance-1", "pendingCommand": null, "pendingCount": 0 }
+      ],
+      "expectedSpoken": [
+        { "message": "Turn right", "queueMode": "FLUSH", "utteranceId": "utterance-1" }
+      ]
+    },
+    {
+      "name": "feedbackUnchangedPendingNonStopDoesNotSpeakInitialStop",
+      "type": "feedback",
+      "feedbackStates": [
+        { "command": "STOP", "sourceCommand": "STRAIGHT", "reason": "path_found", "changed": false, "pendingCommand": "STRAIGHT", "pendingCount": 1, "force": false }
+      ],
+      "expectedEvents": [
+        { "command": "STOP", "messageKey": "stop", "reason": "path_found", "changed": false, "forced": false, "spoken": false, "utteranceId": null, "pendingCommand": "STRAIGHT", "pendingCount": 1 }
+      ],
+      "expectedSpoken": [
+      ]
+    },
+    {
+      "name": "feedbackInitialEmergencyStopSpeaksOnce",
+      "type": "feedback",
+      "feedbackStates": [
+        { "command": "STOP", "sourceCommand": "STOP", "reason": "near_obstacle", "changed": false, "pendingCommand": null, "pendingCount": 0, "force": false },
+        { "command": "STOP", "sourceCommand": "STOP", "reason": "near_obstacle", "changed": false, "pendingCommand": null, "pendingCount": 0, "force": false }
+      ],
+      "expectedEvents": [
+        { "command": "STOP", "messageKey": "stop", "reason": "near_obstacle", "changed": false, "forced": false, "spoken": true, "utteranceId": "utterance-1", "pendingCommand": null, "pendingCount": 0 },
+        { "command": "STOP", "messageKey": "stop", "reason": "near_obstacle", "changed": false, "forced": false, "spoken": false, "utteranceId": null, "pendingCommand": null, "pendingCount": 0 }
+      ],
+      "expectedSpoken": [
+        { "message": "Stop", "queueMode": "FLUSH", "utteranceId": "utterance-1" }
+      ]
+    },
+    {
+      "name": "feedbackDebugForceSpeaksUnchangedState",
+      "type": "feedback",
+      "feedbackStates": [
+        { "command": "STRAIGHT", "sourceCommand": "STRAIGHT", "reason": "path_found", "changed": false, "pendingCommand": null, "pendingCount": 0, "force": true }
+      ],
+      "expectedEvents": [
+        { "command": "STRAIGHT", "messageKey": "go_straight", "reason": "path_found", "changed": false, "forced": true, "spoken": true, "utteranceId": "utterance-1", "pendingCommand": null, "pendingCount": 0 }
+      ],
+      "expectedSpoken": [
+        { "message": "Go straight", "queueMode": "FLUSH", "utteranceId": "utterance-1" }
+      ]
     }
   ]
 }
