@@ -63,3 +63,34 @@ python3 -m unittest scripts/test_analyze_v0b_log.py
 python3 -m unittest scripts/test_check_ios_model_assets.py scripts/test_verify_ios_device_log.py
 ```
 
+Useful groups:
+
+Android and QNN gate parsers:
+
+```bash
+python3 -m unittest scripts/test_analyze_v0b_log.py scripts/test_probe_android_acceleration_libs.py
+```
+
+LiteRT validation tooling:
+
+```bash
+python3 -m unittest scripts/test_analyze_litert_smoke_log.py scripts/test_compare_litert_qnn_logs.py
+```
+
+iOS physical/replay/model tooling:
+
+```bash
+python3 -m unittest \
+  scripts/test_check_ios_model_assets.py \
+  scripts/test_run_ios_v0b_physical.py \
+  scripts/test_verify_ios_device_log.py \
+  scripts/test_verify_ios_replay_log.py \
+  scripts/test_label_ios_replay.py \
+  scripts/test_run_ios_replay_bundle.py
+```
+
+Parity helpers:
+
+```bash
+python3 -m unittest scripts/test_generate_corridor_parity_fixtures.py
+```
