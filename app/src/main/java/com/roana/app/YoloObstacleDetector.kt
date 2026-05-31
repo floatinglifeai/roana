@@ -102,6 +102,40 @@ class YoloObstacleDetector(
         )
     }
 
+    fun detect(sampler: BitmapFrameSampler): YoloResult {
+        val startedNs = System.nanoTime()
+        val inputStartedNs = System.nanoTime()
+        sampler.fillYoloInputNearest(
+            targetWidth = inputWidth,
+            targetHeight = inputHeight,
+            output = inputBuffer,
+            scratch = inputScratch,
+            lumaOnly = true,
+        )
+        val inputMs = elapsedMs(inputStartedNs)
+
+        outputTensors.forEach { it.buffer.rewind() }
+        val inferenceStartedNs = System.nanoTime()
+        interpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputMap)
+        val modelMs = elapsedMs(inferenceStartedNs)
+        outputTensors.forEach { it.buffer.rewind() }
+
+        val decodeStartedNs = System.nanoTime()
+        val bestDetection = bestDetection()
+        val decodeMs = elapsedMs(decodeStartedNs)
+        val inferenceMs = elapsedMs(startedNs)
+        return YoloResult(
+            inferenceMs = inferenceMs,
+            bestDetection = bestDetection,
+            timing = YoloTiming(
+                inputMs = inputMs,
+                modelMs = modelMs,
+                decodeMs = decodeMs,
+                totalMs = inferenceMs,
+            ),
+        )
+    }
+
     override fun close() {
         interpreter.close()
         backend.close()

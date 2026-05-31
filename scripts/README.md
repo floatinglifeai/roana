@@ -13,6 +13,8 @@ command.
 - `check-android-env.sh` - check Android host prerequisites.
 - `verify-v0a-device.sh` - run the Android V0a device/log gate.
 - `verify-v0b-device.sh` - run the Android V0b corridor device/log gate.
+- `benchmark-android-video-replay.sh` - replay a fixed local video on a
+  connected Android phone through the TFLite/QNN corridor stack.
 - `record-v0b-corridor-test.sh` - wrap the final known-corridor proof with
   required test notes.
 - `probe-qnn-device.sh` - inspect QNN packaging/device layout.
