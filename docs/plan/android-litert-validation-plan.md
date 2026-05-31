@@ -4,8 +4,9 @@
 > acceleration layer without replacing the current proven TFLite + Qualcomm QNN
 > delegate production path prematurely.
 
-**Status:** Phase 1 executed / stopped on unproven backend proof /
-2026-05-30.
+**Status:** Phase 1 executed / Qualcomm JIT unavailable on SM8550; AOT
+positive-control reached accelerator execution with runtime warnings /
+2026-05-31.
 
 **Implementation review note / 2026-05-30:** `intuitive-flow` reconciled the
 plan-intake gate in place. Accepted execution decisions: keep this repo's
@@ -31,6 +32,280 @@ expose actual backend selection. The verifier failed by design with
 `LiteRT backend proof unproven for model(s): yolo depth.` This triggers Stop
 Condition 4, so Phase 2 QNN comparison and live V0b LiteRT trial are not
 started.
+
+**Runtime-matching follow-up / 2026-05-30:** A follow-up tried to make the
+Qualcomm LiteRT path actually run, not just classify it as unproven. Packaging
+`libLiteRtDispatch_Qualcomm.so` removed the earlier `No dispatch library found`
+blocker, but `logs/litert-smoke-20260530T131348Z.log` still fell back to
+XNNPACK after `Failed to initialize Dispatch API`. Rebuilding the smoke APK
+with LiteRT `2.1.1` and a mixed runtime set showed the underlying mismatch more
+clearly: `logs/litert-smoke-20260530T134350Z.log` reported
+`Qnn System library version 1.10.0 is used. The version LiteRT using is 1.6.0.`
+After replacing `libQnnHtp.so`, `libQnnSystem.so`, and
+`libQnnHtpV73Stub.so` with the official sample V73 binaries, the version warning
+disappeared, FastRPC created an unsigned CDSP user PD, and
+`libQnnHtpV73Skel.so` opened, but `logs/litert-smoke-20260530T141116Z.log`
+still failed at `Qnn failed to call device create, 1008`.
+
+Adding the Qualcomm compiler plugin from the official MobileNet sample and
+matching it with LiteRT `2.1.4` advanced an intermediate JIT path:
+`logs/litert-smoke-20260530T142110Z.log` shows the plugin was loaded,
+resolved, and initialized. It then failed because the packaged V73 runtime's
+`libQnnSystem.so` is version `1.6.0`, while that compiler plugin requires at
+least `1.8.0`. The MobileNet sample also ships a fuller Qualcomm runtime set
+including `libQnnHtpPrepare.so`, but for V79, not this device's SM8550/V73
+target.
+
+The best matched JIT attempt used LiteRT `2.1.1`, the official
+`litert_npu_runtime_libraries_jit.zip` V73 compiler/dispatch libraries, and
+QAIRT `2.41.0.251128` V73 QNN libraries including `libQnnHtpPrepare.so`.
+`logs/litert-smoke-20260530T144736Z.log` and
+`logs/litert-smoke-20260530T145843Z.log` show Qualcomm dispatch initializing
+with `Dispatch API vendor ID: Qualcomm` and QNN API build
+`v2.41.0.251128145156_191518`; FastRPC creates an unsigned CDSP user PD and
+opens `libQnnHtpV73Skel.so`. The JIT compiler still applies zero plugins:
+`0 compiler plugins were applied successfully`, with
+`failed to call device create, 14001`, followed by
+`Created TensorFlow Lite XNNPACK delegate for CPU`. A default-provider control
+run in `logs/litert-smoke-20260530T150158Z.log` reproduced the same `14001`,
+so the explicit Qualcomm compatibility checker is not the cause.
+
+The official EfficientDet-Lite0 TFLite positive-control model reproduced the
+same failure. `logs/litert-smoke-20260530T153551Z.log` loaded EfficientDet,
+initialized Qualcomm dispatch, opened `libQnnHtpV73Skel.so`, then failed at
+`QnnDevice_create` with `14001`, applied zero compiler plugins, and created the
+TFLite XNNPACK CPU delegate. A later instrumented run,
+`logs/litert-smoke-20260530T155100Z.log`, proved the APK native directory
+contained the expected V73 LiteRT/QNN libraries, successfully preloaded
+`QnnSystem`, `QnnHtp`, `QnnHtpPrepare`, `QnnHtpV73Stub`,
+`LiteRtDispatch_Qualcomm`, and `LiteRtCompilerPlugin_Qualcomm`, and enabled
+Qualcomm DEBUG logging/profiling. It still produced
+`QnnDevice_create` failure `14001`, with zero `QnnDevice_create done`, zero
+`QnnContext_create`, zero `QnnGraph_execute`, and XNNPACK CPU fallback.
+
+A same-session production QNN positive control,
+`logs/qnn-smoke-20260530T155245Z.log`, passed with `QNN_VARIANT=explicit_paths`
+on the same phone: `QnnDevice_create done` appeared twice,
+`QnnGraph_execute` evidence appeared 136 times, and YOLO timing was `2.79 ms`.
+`scripts/compare-litert-qnn-logs.py` classifies the delta as LiteRT Qualcomm JIT
+device setup/runtime configuration, not a global device or production QNN
+transport failure.
+
+Current decision: LiteRT Next is not proven unusable globally, but the current
+Roana SM8550/V73 Qualcomm JIT path is unavailable for product use. The logs now
+prove Qualcomm runtime/dispatch reachability, then a QNN device-create failure
+before graph compilation, followed by CPU fallback, while the existing
+production QNN path can create devices and execute graphs in the same session.
+Do not treat any LiteRT JIT timing from these runs as NPU timing. Remaining
+high-value checks are an AOT/precompiled LiteRT Qualcomm sample/model path that
+avoids on-device JIT, the official Qualcomm sample APK/model using Play Feature
+Delivery-style runtime modules and strict NPU-required logging, or a
+newer/more device-matched V73 runtime from Google/Qualcomm.
+
+**Official-sample control / 2026-05-30:** The official EfficientDet Kotlin NPU
+sample was built from `/tmp/litert-samples` after adding the same
+`android.experimental.enableDeviceTargetingConfigApi=true` flag used by the
+other LiteRT NPU samples. The AAB then packaged the V73 Qualcomm runtime module
+with `libLiteRtDispatch_Qualcomm.so`, `libLiteRtCompilerPlugin_Qualcomm.so`,
+`libQnnHtpPrepare.so`, and the V73 QNN libraries. MIUI blocked fresh
+`com.example.*` installs with `INSTALL_FAILED_USER_RESTRICTED`, so the sample
+was temporarily rebuilt with application id `com.roana.litertsmoke` and the V73
+runtime copied into base `jniLibs`; the original smoke APK was reinstalled
+after the run. The PID-filtered official-sample log
+`logs/litert-official-efficientdet-pidfiltered-20260530T162507Z.log` proves why
+sample UI/backend strings are insufficient: Java logs say
+`Selected LiteRT backend=NPU`, but native logs say
+`NPU accelerator could not be loaded and registered:
+kLiteRtStatusErrorInvalidArgument`, then `Created TensorFlow Lite XNNPACK
+delegate for CPU`. No Qualcomm dispatch, `QnnDevice_create`, or
+`QnnGraph_execute` evidence appears in that PID-filtered run.
+
+**Provider/options matrix / 2026-05-30:** The isolated smoke app now supports
+`LITERT_NPU_PROVIDER=qualcomm|default|none` and
+`LITERT_QUALCOMM_OPTIONS=full|minimal|none`. EfficientDet controls showed:
+`logs/litert-smoke-20260530T163039Z.log` (`qualcomm/full`),
+`logs/litert-smoke-20260530T163119Z.log` (`default/minimal`), and
+`logs/litert-smoke-20260530T163158Z.log` (`default/none`) all reach Qualcomm
+dispatch, create a FastRPC unsigned CDSP user PD, open `libQnnHtpV73Skel.so`,
+then fail before graph compilation at `QnnDevice_create` error `14001` and
+fall back to XNNPACK CPU. This rules out Roana model export, explicit Qualcomm
+compatibility checker selection, and full debug/profiling Qualcomm options as
+the primary blocker for the current JIT path. The remaining useful checks are
+AOT/AI Pack/precompiled LiteRT Qualcomm models or a newer/device-matched V73
+runtime/provider package.
+
+**AOT follow-up / 2026-05-30:** A precompiled EfficientDet-Lite0 AOT artifact
+for `Qualcomm_SM8550` was added to the smoke APK as
+`efficientdet_lite0_detection_Qualcomm_SM8550.tflite`. Inspecting the APK asset
+shows the expected `LiteRtStamp`, `Qualcomm`, `SM8550`, `DISPATCH_OP`, and
+`qnn_partition_0` markers, so the file is a real LiteRT dispatch/context-binary
+model rather than a plain CPU TFLite model. The AOT smoke with LiteRT Android
+core `2.1.1`, the v2.1.1 Qualcomm dispatch/compiler-plugin libraries, and QAIRT
+`2.41.0.251128` V73 QNN libraries reproduced a later failure point:
+`logs/litert-smoke-20260530T174119Z.log` initializes Qualcomm dispatch, creates
+an unsigned CDSP user PD, opens `libQnnHtpV73Skel.so`, logs
+`Compiler plugin path is provided in the environment, but the model is
+pre-compiled. Plugins won't be applied.`, finds `qnn_partition_0`, then fails
+at `Failed to create QNN context: 5000`. It records zero `QnnContext_create`
+success and zero `QnnGraph_execute`.
+
+The AOT options matrix reproduced the same context failure with
+`LITERT_QUALCOMM_OPTIONS=minimal`
+(`logs/litert-smoke-20260530T174441Z.log`) and
+`LITERT_QUALCOMM_OPTIONS=none` (`logs/litert-smoke-20260530T174520Z.log`), so
+the full debug/profiling Qualcomm options are not the primary cause. A CPU
+control (`logs/litert-smoke-20260530T173822Z.log`) also failed on
+`DISPATCH_OP`, as expected for a dispatch-only AOT model, and must not be used
+as a performance comparison. A same-session production QNN control,
+`logs/qnn-smoke-20260530T163540Z.log`, created QNN contexts twice and executed
+QNN graphs 140 times on the same phone, so the current evidence points to
+LiteRT AOT context-binary/runtime compatibility rather than a global QNN device
+or context failure.
+
+The public stable Android LiteRT Maven artifact is currently `2.1.5`, while the
+official AOT tutorial uses `ai-edge-litert-nightly` plus
+`ai-edge-litert-sdk-qualcomm-nightly`. A local dry-run resolved both nightly
+Python packages as `2.2.0.dev20260529`, but the Qualcomm AOT SDK reports that
+Qualcomm AOT compilation is only supported on Linux x86 hosts. A macOS arm64
+host cannot directly rebuild a matched Qualcomm AOT artifact. The next useful
+LiteRT check is therefore either a Linux x86 AOT build using the nightly
+Qualcomm SDK plus a matching Android runtime/provider package, or a
+Google/Qualcomm-published AI Pack/sample that ships the compiled model and
+runtime together. Until that path produces smoke-PID `QnnContext_create` and
+`QnnGraph_execute` evidence, do not compare LiteRT timings or integrate LiteRT
+into production.
+
+**Nightly AOT control / 2026-05-31:** The Linux x86 AOT branch succeeded inside
+Docker images `roana-litert-aot-sm8550:20260531` and
+`roana-litert-aot-sm8550:20260531-libcxx` after installing
+`ai-edge-litert-nightly==2.2.0.dev20260529`,
+`ai-edge-litert-sdk-qualcomm-nightly==2.2.0.dev20260529`, and the host
+`libc++`/`libunwind` packages needed by the SDK. The compiler required
+`LD_LIBRARY_PATH` to point at the SDK's
+`ai_edge_litert_sdk_qualcomm/data/lib/x86_64-linux-clang` directory and target
+`qnn_target.Target(qnn_target.SocModel.SM8550)`.
+
+The resulting artifact,
+`build/litert-aot-sm8550/efficientdet_lite0_detection_Qualcomm_SM8550_apply_plugin.tflite`,
+is 4.7 MB with SHA256
+`fd211463599e07c431cd9713f7140124205b0a63601fd7488c264635db047466`. It contains
+the expected `LiteRtStamp`, `Qualcomm`, `SM8550`, `DISPATCH_OP`, and
+`qnn_partition_0` markers. Packaging that file as
+`assets/efficientdet_lite0_detection_Qualcomm_SM8550.tflite` and rebuilding the
+smoke APK with `LITERT_EXTRA_ASSET_DIR="$PWD/build/litert-aot-sm8550/assets"`
+produced `logs/litert-smoke-20260531T012554Z.log`.
+
+`logs/litert-smoke-20260531T012554Z.log` was the first positive LiteRT AOT
+accelerator control on the target SM8550 phone: the smoke PID loaded the AOT
+asset, initialized Qualcomm dispatch with QNN API `2.35.0`, found
+`qnn_partition_0`, opened the V73 HTP skel, created an unsigned CDSP user PD,
+emitted two smoke-PID `QNN accelerator (execute) time` profiling entries plus
+RPC/cycle timing, and completed one EfficientDet timing iteration at `20.63 ms`.
+A repeat run, `logs/litert-smoke-20260531T014103Z.log`, used five timing
+iterations and emitted six smoke-PID QNN accelerator execute profiling entries
+for one load run plus five timed runs; EfficientDet averaged `21.55 ms` with
+`20.46 ms` min and `22.07 ms` max. The analyzer classifies both as
+`aot_accelerator_execute_evidence_with_runtime_warnings`.
+
+The same Docker AOT path then compiled the Roana models for SM8550:
+`build/litert-aot-sm8550-roana/yolo/yolo11n-det-int8-smart_Qualcomm_SM8550_apply_plugin.tflite`
+is 3.0 MB with SHA256
+`9bbbc250e79128d7c502fef81a81b45d73b6c6ce92b5e854a096ddd44d2ae11d`; the
+compiler reported `316 / 316 ops offloaded to 1 partitions`.
+`build/litert-aot-sm8550-roana/depth/depth_anything_v2_Qualcomm_SM8550_apply_plugin.tflite`
+is 50 MB with SHA256
+`30ba9e1b057dfd38eb4fe41b4c7e28dd66ffc72a21b378219a97d2f95016540d`; the
+compiler reported `598 / 598 ops offloaded to 1 partitions`. The packaged smoke
+assets are under `build/litert-aot-sm8550-roana/assets/`, and the process is now
+scripted by `scripts/compile-litert-qualcomm-aot.sh`.
+
+`logs/litert-smoke-20260531T022907Z.log` ran those Roana AOT assets on the
+SM8550 phone with `MODEL=all_aot`, `LITERT_VERSION=2.1.1`, Qualcomm NPU
+provider, full Qualcomm options, and five timing iterations. The analyzer
+classifies it as `aot_accelerator_execute_evidence_with_runtime_warnings`: the
+smoke PID initialized Qualcomm dispatch with QNN API `2.35.0`, found a QNN
+graph, opened the V73 HTP skel, created an unsigned CDSP user PD, and emitted
+12 smoke-PID `QNN accelerator (execute) time` entries plus RPC/cycle timing.
+Roana LiteRT AOT timing was:
+
+- YOLO AOT: `13.60 ms` average (`13.26 ms` min, `14.11 ms` max), load
+  `785.28 ms`.
+- Depth AOT: `87.53 ms` average (`87.17 ms` min, `87.93 ms` max), load
+  `213.92 ms`.
+
+Fresh same-phone TFLite+QNN controls show the current production path is still
+faster:
+
+- `logs/qnn-smoke-20260531T023528Z.log`: YOLO explicit-path QNN averaged
+  `3.74 ms` across five iterations. The earlier full-log QNN control
+  `logs/qnn-smoke-20260530T155245Z.log` averaged `2.79 ms` and contains native
+  graph-execution evidence.
+- `logs/qnn-smoke-20260531T023627Z.log`: Depth explicit-path QNN averaged
+  `52.75 ms` across five iterations. The earlier full-log QNN control
+  `logs/qnn-smoke-20260530T002450Z.log` averaged `53.47 ms` and contains native
+  graph-execution evidence.
+
+Current performance decision: LiteRT AOT is usable as a validation/spike path
+on this phone, but not as a production replacement. On the current evidence it
+is about `3.64x` slower than TFLite+QNN for YOLO using the fresh isolated
+control, and about `1.66x` slower for Depth. Against the earlier best YOLO QNN
+control (`2.79 ms`), YOLO AOT is about `4.87x` slower.
+
+The runtime mismatch warning remains unresolved. The successful Roana AOT run
+still reports `QnnSystem 1.10.0` vs LiteRT `1.6.0`, QNN API `2.35.0` vs LiteRT
+`2.31.0`, and backend `5.46.0` vs LiteRT `5.41.0`; it also contains an XNNPACK
+CPU delegate creation line and lacks smoke-PID `QnnGraph_execute done status
+0x0`. A controlled rebuild with the older v2.1.1/QAIRT `2.41.0.251128` V73
+runtime removed the mismatch (`qnn_runtime_mismatch=false`) but failed both
+Roana AOT models at `Failed to create QNN context: 5000`
+(`logs/litert-smoke-20260531T025130Z.log`). Public metadata checked during the
+run still shows stable Android Maven `com.google.ai.edge.litert:litert` latest
+`2.1.5`, while GitHub `v2.1.5` only publishes `litert_cc_sdk.zip`; the public
+Qualcomm Android runtime zip remains available only on `v2.1.1`. A matched
+Android Qualcomm dispatch/runtime bundle for the nightly QNN `2.35`/backend
+`5.46` stack is still missing.
+
+**Version/path research / 2026-05-31:** A follow-up checked whether the newer
+LiteRT release is actually worse, or whether the supported packaging path moved.
+The answer is the latter: the public `2.1.5` Java/C++ APIs still expose NPU and
+Qualcomm options, but the public stable release does not publish a matching
+Android Qualcomm dispatch/plugin bundle. `logs/litert-smoke-20260531T031238Z.log`
+rebuilt the Roana AOT smoke with `LITERT_VERSION=2.1.5` while keeping the public
+v2.1.1 Qualcomm dispatch/plugin libraries; it failed before model execution
+because `libLiteRtDispatch_Qualcomm.so` cannot resolve
+`LiteRtQualcommOptionsGet`. Symbol inspection confirms the ABI shift:
+`litert:2.1.1` `libLiteRt.so` exports `LiteRtQualcommOptionsGet*`, while
+`litert:2.1.5` no longer exports those old symbols and the C/C++ SDK uses the
+newer `LrtQualcommOptions*` API.
+
+Replacing only the QNN runtime with the latest public Qualcomm Maven
+`com.qualcomm.qti:qnn-runtime:2.46.0` does not fix this, because the missing
+symbol is between LiteRT core and the Qualcomm dispatch/plugin, not between
+dispatch and QNN. `logs/litert-smoke-20260531T032120Z.log` packaged
+`litert:2.1.5`, the old v2.1.1 dispatch/plugin, and Maven `qnn-runtime:2.46.0`;
+it failed at the same `LiteRtQualcommOptionsGet` load error. The companion
+`com.qualcomm.qti:qnn-litert-delegate:2.46.0` AAR contains
+`libQnnTFLiteDelegate.so` and `libqnn_delegate_jni.so`, so it maps to the
+traditional TFLite/QNN delegate path rather than the LiteRT `CompiledModel`
+dispatch provider path.
+
+Official samples and docs point to the correct newer packaging shape:
+`CompiledModel` plus AOT/JIT, AI Pack / Play delivery for models, and dynamic
+feature or base APK delivery for native NPU runtime libraries. AI Pack itself is
+not a native-library delivery mechanism. The checked Google samples still keep
+Qualcomm NPU examples on `litert=2.1.0` or `2.1.1`, and the C++ prebuilt NPU
+sample explicitly documents `litert:2.1.1` plus
+`libLiteRtDispatch_Qualcomm.so` from the v2.1.1 NPU runtime zip. C++ therefore
+does not bypass the blocker: the 2.1.5 C++ SDK has the newer Qualcomm option
+API, but it still needs a matching `libLiteRtDispatch_Qualcomm.so`, which is not
+present in the public v2.1.5 release assets.
+
+Production conclusion: keep Android production on the existing TFLite+QNN HTP
+path. LiteRT AOT has native accelerator evidence for Roana YOLO/Depth on SM8550,
+but current performance is worse and the only runtime combination that runs has
+version mismatch warnings. Do not run a live V0b LiteRT trial or migration until
+a matched Qualcomm dispatch/runtime package for a newer LiteRT release is
+available, removes the warnings, and meets or beats TFLite+QNN timing.
 
 ---
 
@@ -357,8 +632,13 @@ Stop and report after the first true condition:
 2. LiteRT cannot run YOLO smoke with NPU requested.
 3. LiteRT can run YOLO but cannot run Depth Anything.
 4. LiteRT smoke passes both models but backend proof is unproven.
-5. LiteRT smoke passes both models with NPU proof; proceed to Phase 2 compare.
-6. LiteRT live debug trial passes the short V0b gate; prepare a migration
+5. LiteRT native logs show Qualcomm JIT device setup failure plus CPU fallback;
+   stop the JIT path and move only to AOT/AI Pack or newer runtime checks.
+6. LiteRT AOT reaches accelerator execute profiling only for a positive-control
+   model; record it, but do not proceed to Roana timing comparison until
+   YOLO/Depth have their own native proof and runtime mismatch warnings are gone.
+7. LiteRT smoke passes both Roana models with NPU proof; proceed to Phase 2 compare.
+8. LiteRT live debug trial passes the short V0b gate; prepare a migration
    decision note.
 
 At each stop, update `docs/status/active/v0-implementation.md` with:

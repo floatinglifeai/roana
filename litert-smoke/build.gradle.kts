@@ -2,6 +2,12 @@ plugins {
     id("com.android.application")
 }
 
+val litertVersion = providers.gradleProperty("litertVersion").orElse("2.1.5").get()
+val litertExtraAssetDir = providers.gradleProperty("litertExtraAssetDir")
+val litertExtraJniDir = providers.gradleProperty("litertExtraJniDir")
+val litertUseOnlyExtraJni =
+    providers.gradleProperty("litertUseOnlyExtraJni").map(String::toBoolean).orElse(false).get()
+
 android {
     namespace = "com.roana.litertsmoke"
     compileSdk = 35
@@ -26,6 +32,13 @@ android {
     sourceSets {
         getByName("main") {
             assets.srcDir("../app/src/main/assets")
+            litertExtraAssetDir.orNull?.let { assets.srcDir(it) }
+            val jniDirs = mutableListOf<String>()
+            if (!litertUseOnlyExtraJni) {
+                jniDirs += "src/main/jniLibs"
+            }
+            litertExtraJniDir.orNull?.let { jniDirs += it }
+            jniLibs.setSrcDirs(jniDirs)
         }
     }
 
@@ -41,5 +54,5 @@ android {
 }
 
 dependencies {
-    implementation("com.google.ai.edge.litert:litert:2.1.5")
+    implementation("com.google.ai.edge.litert:litert:$litertVersion")
 }
