@@ -502,9 +502,70 @@ Updated: 2026-05-31.
     dispatch zip. Current blocker is therefore public availability of a matched
     newer Qualcomm LiteRT dispatch/runtime package, not Roana model conversion
     or C++ versus Java API shape.
-    Production conclusion: do not switch to LiteRT. It is usable for validation
-    only; the existing TFLite+QNN HTP path is faster and has the cleaner runtime
-    story.
+  - GitHub issue/PR cross-check for that blocker:
+    `google-ai-edge/LiteRT#6889` requests AAR-matched prebuilt Qualcomm dispatch
+    libraries and documents the same dispatch ABI mismatch class;
+    `google-ai-edge/LiteRT#5592` and `#5594` show Snapdragon 8 Gen 2/3/Elite
+    developers hitting missing compiler/dispatch, `No usable Dispatch runtime
+    found`, and dispatch API mismatch; `google-ai-edge/LiteRT-LM#2079`, `#2020`,
+    and `#2226` show the same native-library-dir, `libcdsprpc.so`,
+    `LiteRtQualcommOptionsGet`, and QNN version-mismatch family on LiteRT-LM.
+    LiteRT `main` remains active, with 2026-05-30 UTC merges and current
+    Qualcomm source using `LrtQualcommOptions*` plus QAIRT `2.46.0.260424`; the
+    problem is not removed support, but unreleased/missing matched Android
+    provider packaging for public stable `2.1.5`.
+  - Adjacent stack check: MediaPipe is worth monitoring for multi-model pipeline
+    structure but does not replace the underlying LiteRT/QNN runtime problem;
+    LiteRT-LM is worth tracking for future on-device LLM features but targets
+    `.litertlm` Gemma-family models and has the same native dispatch/QNN
+    packaging concerns.
+  - LiteRT `main` source-built smoke: main at
+    `2efe1c141bc6598f7dcae973c989b1bcba71fc11` was built for Android arm64 with
+    Qualcomm enabled, producing `run_model`, `libLiteRt.so`,
+    `libLiteRtDispatch_Qualcomm.so`, and `libLiteRtCompilerPlugin_Qualcomm.so`.
+    The device bundle under `build/litert-main-2efe1c1-qairt246/device/` was
+    pushed to `/data/local/tmp/litert-main-2efe1c1-qairt246` with QAIRT
+    `2.46.0.260424` V73 libraries and the Roana AOT models. On Xiaomi
+    `2211133C` / SM8550, C++ `run_model --accelerator=npu` passed for YOLO and
+    Depth. `logs/litert-main-run-model-yolo-20260531T051859Z.log` and
+    `logs/litert-main-run-model-depth-20260531T051911Z.log` both show
+    `Context binary SDK version matches current SDK: 2.46.0`,
+    `QnnDevice_create done`, `QnnContext_createFromBinary done successfully`,
+    five `QnnGraph_execute done. status 0x0` entries, and five
+    `QNN (execute) time` entries. C++ `run_model` timing averaged `3.106 ms`
+    for YOLO and `47.977 ms` for Depth across five iterations. This proves the
+    newer source stack can run and the issue is public Android provider
+    packaging/release availability, not removed Qualcomm support. It is still
+    not a production path until the same stack is available from a tagged
+    release/Maven-compatible artifact and is integrated into the Android app
+    without mixing ABI generations.
+  - LiteRT `main` AAR attempt: upstream target `//litert/kotlin:litert` exists
+    and is the right artifact shape for a coherent Java/Kotlin `CompiledModel`
+    smoke. The OSS checkout needed temporary local `android_sdk_repository` and
+    `android_ndk_repository` entries in `build/upstream-litert-main/WORKSPACE`.
+    After that, Bazel analysis and Android actions start, but the build is
+    blocked by Android toolchain friction rather than LiteRT runtime behavior:
+    NDK r28/r26 fail because Bazel legacy Android crosstool injects missing
+    `aarch64-linux-android-4.9` `-gcc-toolchain` paths; NDK r21 is supported but
+    its clang cannot compile XNNPACK/KleidiAI ARMv8.2 `i8mm`/`bf16` assembly;
+    NDK r22 passes the quick GCC-dir/clang-feature probe but then fails on
+    Android sysroot header discovery; public `--define=tflite_with_xnnpack=false`
+    flags still leave KleidiAI in the AAR dependency tree. The official
+    `ci/build_maven_with_docker.sh` path was also tried and reached
+    `//litert/kotlin:litert`, then stalled under amd64 Docker emulation on Apple
+    Silicon at `@@litert_maven//:com_google_android_gms_play_services_basement`
+    resource compilation (`4,444 / 4,485` actions) for about 40 minutes before
+    being stopped; see
+    `logs/litert-main-official-maven-build-retry-20260531T065120Z.log`.
+    Rerun that AAR build on native x86_64 Linux if we need a coherent
+    source-built Android/Kotlin smoke. The local smoke build now supports
+    `LITERT_LOCAL_AAR=/path/to/litert.aar`, so a future successful source-built
+    or published AAR can be tested without changing the Maven default.
+  - Production conclusion: do not switch to LiteRT yet. LiteRT is usable for
+    validation and the `main` C++ stack is technically promising, but the
+    existing TFLite+QNN HTP Android app path remains the supported production
+    runtime until a matched release-quality LiteRT Qualcomm provider package is
+    available and passes the live V0b gate.
 
 ## Stop Condition
 

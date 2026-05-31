@@ -18,6 +18,54 @@ if [ "${PREPARE_LITERT_QUALCOMM_RUNTIME:-0}" = "1" ]; then
   "$ROOT_DIR/scripts/prepare-litert-qualcomm-v73-runtime.sh"
 fi
 
+if [ "${PREPARE_LITERT_MAIN_NATIVE:-0}" = "1" ]; then
+  main_native_source="${LITERT_MAIN_NATIVE_DIR:-$ROOT_DIR/build/litert-main-2efe1c1-qairt246/device}"
+  main_native_dest="$ROOT_DIR/build/litert-main-native-jni/arm64-v8a"
+  if [ ! -d "$main_native_source" ]; then
+    printf 'error: LiteRT main native directory is missing: %s\n' "$main_native_source" >&2
+    exit 1
+  fi
+  mkdir -p "$main_native_dest"
+  for lib in \
+    libLiteRt.so \
+    libLiteRtCompilerPlugin_Qualcomm.so \
+    libLiteRtDispatch_Qualcomm.so \
+    libQnnHtp.so \
+    libQnnHtpPrepare.so \
+    libQnnHtpV73Skel.so \
+    libQnnHtpV73Stub.so \
+    libQnnSystem.so; do
+    if [ ! -f "$main_native_source/$lib" ]; then
+      printf 'error: LiteRT main native library is missing: %s/%s\n' "$main_native_source" "$lib" >&2
+      exit 1
+    fi
+    cp -f "$main_native_source/$lib" "$main_native_dest/$lib"
+  done
+  if [ "${LITERT_INCLUDE_VENDOR_DSPRPC:-0}" = "1" ]; then
+    adb_bin="${ADB_BIN:-}"
+    if [ -z "$adb_bin" ]; then
+      if command -v adb >/dev/null 2>&1; then
+        adb_bin="$(command -v adb)"
+      elif [ -x "$HOME/.local/android-platform-tools/platform-tools/adb" ]; then
+        adb_bin="$HOME/.local/android-platform-tools/platform-tools/adb"
+      fi
+    fi
+    if [ -z "$adb_bin" ]; then
+      printf 'error: LITERT_INCLUDE_VENDOR_DSPRPC=1 requires adb in PATH or ADB_BIN.\n' >&2
+      exit 1
+    fi
+    "$adb_bin" pull /vendor/lib64/libcdsprpc.so "$main_native_dest/libcdsprpc.so"
+    "$adb_bin" pull /vendor/lib64/libadsprpc.so "$main_native_dest/libadsprpc.so"
+  fi
+  if [ ! -f "$main_native_source/run_model" ]; then
+    printf 'error: LiteRT main run_model executable is missing: %s/run_model\n' "$main_native_source" >&2
+    exit 1
+  fi
+  cp -f "$main_native_source/run_model" "$main_native_dest/libroana_litert_main_run_model.so"
+  LITERT_EXTRA_JNI_DIR="${LITERT_EXTRA_JNI_DIR:-$ROOT_DIR/build/litert-main-native-jni}"
+  LITERT_USE_ONLY_EXTRA_JNI="${LITERT_USE_ONLY_EXTRA_JNI:-1}"
+fi
+
 gradle_args=(-Dorg.gradle.vfs.watch=false)
 litert_version="${LITERT_VERSION:-}"
 docker_extra_args=()
@@ -27,6 +75,14 @@ if [ -z "$litert_version" ] && [ "${PREPARE_LITERT_QUALCOMM_RUNTIME:-0}" = "1" ]
 fi
 if [ -n "$litert_version" ]; then
   gradle_args+=("-PlitertVersion=$litert_version")
+fi
+if [ -n "${LITERT_LOCAL_AAR:-}" ]; then
+  if [ ! -f "$LITERT_LOCAL_AAR" ]; then
+    printf 'error: LITERT_LOCAL_AAR is not a file: %s\n' "$LITERT_LOCAL_AAR" >&2
+    exit 1
+  fi
+  docker_extra_args+=(--volume "$LITERT_LOCAL_AAR:/litert-local.aar:ro")
+  gradle_args+=("-PlitertLocalAar=/litert-local.aar")
 fi
 if [ -n "${LITERT_EXTRA_ASSET_DIR:-}" ]; then
   if [ ! -d "$LITERT_EXTRA_ASSET_DIR" ]; then
