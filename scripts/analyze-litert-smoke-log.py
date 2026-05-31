@@ -11,6 +11,12 @@ from pathlib import Path
 
 LOGCAT_PID_RE = re.compile(r"\(\s*(\d+)\):")
 SMOKE_TAG_RE = re.compile(r"RoanaLiteRt\(\s*(\d+)\)")
+MAIN_NATIVE_CMD_RE = re.compile(
+    r"Cmdline: .*libroana_litert_main_run_model\.so .*--graph=.*litert-main-native-assets"
+)
+MAIN_NATIVE_PID_RE = re.compile(
+    r"pid:\s*(\d+),.*>>>\s*.*libroana_litert_main_run_model\.so"
+)
 
 
 def line_pid(line: str) -> int | None:
@@ -31,6 +37,21 @@ def filter_to_pids(lines: list[str], pids: set[int]) -> list[str]:
     if not pids:
         return lines
     return [line for line in lines if line_pid(line) in pids]
+
+
+def extract_main_native_child_pids(lines: list[str]) -> set[int]:
+    pids: set[int] = set()
+    for line in lines:
+        match = MAIN_NATIVE_PID_RE.search(line)
+        if match:
+            pids.add(int(match.group(1)))
+            continue
+        if not MAIN_NATIVE_CMD_RE.search(line):
+            continue
+        pid = line_pid(line)
+        if pid is not None:
+            pids.add(pid)
+    return pids
 
 
 def count(lines: list[str], pattern: str) -> int:
@@ -75,11 +96,26 @@ def model_timings(lines: list[str]) -> dict[str, dict[str, object]]:
     return timings
 
 
+def main_native_average_ms(lines: list[str]) -> dict[str, float]:
+    output_re = re.compile(
+        r"litert_main_native_output model=(\S+) .*All_runs_took_average_([0-9]+)_microseconds"
+    )
+    averages: dict[str, float] = {}
+    for line in lines:
+        match = output_re.search(line)
+        if not match:
+            continue
+        model, average_us = match.groups()
+        averages[model] = int(average_us) / 1000.0
+    return averages
+
+
 def analyze(path: Path) -> dict[str, object]:
     lines = path.read_text(errors="replace").splitlines()
     smoke_pids = extract_smoke_pids(lines)
+    main_native_child_pids = extract_main_native_child_pids(lines)
     smoke_lines = filter_to_pids(lines, smoke_pids)
-    native_lines = smoke_lines
+    native_lines = filter_to_pids(lines, smoke_pids | main_native_child_pids)
 
     device_create_code = first_match(native_lines, r"failed to call device create, ([0-9]+)")
     context_create_code = first_match(native_lines, r"Failed to create QNN context: ([0-9]+)")
@@ -97,6 +133,7 @@ def analyze(path: Path) -> dict[str, object]:
 
     evidence = {
         "smoke_pids": sorted(smoke_pids),
+        "main_native_child_pids": sorted(main_native_child_pids),
         "native_evidence_pid_filter": bool(smoke_pids),
         "requested_npu": count(smoke_lines, r"litert_backend requested=npu ") > 0,
         "missing_asset": missing_asset,
@@ -110,6 +147,28 @@ def analyze(path: Path) -> dict[str, object]:
         "model_loaded": count(smoke_lines, r"litert_model_smoke status=loaded ") > 0,
         "model_timing": count(smoke_lines, r"litert_model_timing status=ok ") > 0,
         "model_timings": model_timings(smoke_lines),
+        "main_native_stack": count(smoke_lines, r"litert_main_native_stack ") > 0,
+        "main_native_finished": count(smoke_lines, r"litert_main_native_stack status=finished") > 0,
+        "main_native_averages_ms": main_native_average_ms(smoke_lines),
+        "main_native_qnn_device_create_done_count": count(
+            native_lines,
+            r"litert_main_native_output .*QnnDevice_create_done|QnnDevice_create done\. device = .* status 0x0",
+        ),
+        "main_native_qnn_context_create_done_count": count(
+            native_lines,
+            r"litert_main_native_output .*QnnContext_createFromBinary_done_successfully|QnnContext_createFromBinary done successfully",
+        ),
+        "main_native_qnn_graph_execute_done_count": count(
+            native_lines,
+            r"litert_main_native_output .*QnnGraph_execute_done|QnnGraph_execute done\. status 0x0",
+        ),
+        "main_native_qnn_execute_time_count": count(
+            native_lines,
+            r"litert_main_native_output .*QNN_\\(execute\\)_time|QNN \(execute\) time",
+        ),
+        "main_native_context_binary_match": count(
+            smoke_lines, r"litert_main_native_output .*Context_binary_SDK_version_matches_current_SDK"
+        ) > 0,
         "xnnpack_delegate_created_count": count(
             native_lines, r"Created TensorFlow Lite XNNPACK delegate for CPU\."
         ),
@@ -127,6 +186,7 @@ def analyze(path: Path) -> dict[str, object]:
             native_lines,
             r"Qnn .*mismatched|Qnn .*library version .*version LiteRT using",
         ) > 0,
+        "cdsprpc_missing": count(native_lines, r'library "libcdsprpc\.so" not found') > 0,
         "qnn_backend_create_done_count": count(native_lines, r"QnnBackend_create done successfully"),
         "qnn_device_create_started_count": count(native_lines, r"QnnDevice_create started"),
         "qnn_device_create_done_count": count(native_lines, r"QnnDevice_create done\. device = .* status 0x0"),
@@ -169,6 +229,19 @@ def analyze(path: Path) -> dict[str, object]:
             "The requested LiteRT smoke model asset was not packaged in the APK; "
             "this is not NPU backend evidence."
         )
+    elif (
+        evidence["main_native_stack"]
+        and evidence["main_native_finished"]
+        and evidence["main_native_qnn_device_create_done_count"] > 0
+        and evidence["main_native_qnn_context_create_done_count"] > 0
+        and evidence["main_native_qnn_graph_execute_done_count"] > 0
+        and evidence["main_native_qnn_execute_time_count"] > 0
+    ):
+        status = "main_native_npu_runtime_execution_evidence_present"
+        decision = (
+            "The APK-launched LiteRT main run_model path shows QNN device/context "
+            "creation plus graph execution from the packaged main native stack."
+        )
     elif evidence["qnn_device_create_done_count"] and evidence["qnn_graph_execute_done_count"]:
         status = "npu_runtime_execution_evidence_present"
         decision = (
@@ -192,6 +265,12 @@ def analyze(path: Path) -> dict[str, object]:
     elif evidence["qnn_runtime_mismatch"]:
         status = "runtime_mismatch"
         decision = "LiteRT/QNN libraries are version-mismatched; do not treat this as NPU execution."
+    elif evidence["cdsprpc_missing"]:
+        status = "main_native_dsprpc_dependency_missing"
+        decision = (
+            "APK-launched LiteRT main reached Qualcomm QNN setup, but the native "
+            "run_model child could not resolve libcdsprpc.so from its linker namespace."
+        )
     elif evidence["dispatch_init_failed"]:
         status = "dispatch_init_failed"
         decision = "Qualcomm dispatch library loaded but Dispatch API did not initialize."

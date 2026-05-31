@@ -3,6 +3,7 @@ plugins {
 }
 
 val litertVersion = providers.gradleProperty("litertVersion").orElse("2.1.5").get()
+val litertLocalAar = providers.gradleProperty("litertLocalAar")
 val litertExtraAssetDir = providers.gradleProperty("litertExtraAssetDir")
 val litertExtraJniDir = providers.gradleProperty("litertExtraJniDir")
 val litertUseOnlyExtraJni =
@@ -54,5 +55,7 @@ android {
 }
 
 dependencies {
-    implementation("com.google.ai.edge.litert:litert:$litertVersion")
+    litertLocalAar.orNull?.let {
+        implementation(files(it))
+    } ?: implementation("com.google.ai.edge.litert:litert:$litertVersion")
 }

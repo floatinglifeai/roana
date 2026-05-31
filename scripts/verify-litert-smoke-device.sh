@@ -12,6 +12,7 @@ LITERT_ACCELERATOR="${LITERT_ACCELERATOR:-npu}"
 LITERT_NPU_PROVIDER="${LITERT_NPU_PROVIDER:-qualcomm}"
 LITERT_QUALCOMM_OPTIONS="${LITERT_QUALCOMM_OPTIONS:-full}"
 LITERT_TIMING_ITERATIONS="${LITERT_TIMING_ITERATIONS:-0}"
+LITERT_MAIN_NATIVE="${LITERT_MAIN_NATIVE:-0}"
 REQUIRE_LITERT_SUCCESS="${REQUIRE_LITERT_SUCCESS:-1}"
 CAPTURE_FULL_LOGCAT="${CAPTURE_FULL_LOGCAT:-1}"
 INSTALL_FIRST="${INSTALL_FIRST:-1}"
@@ -28,6 +29,7 @@ DEBUG_LITERT_ACCELERATOR_EXTRA="com.roana.app.extra.DEBUG_LITERT_ACCELERATOR"
 DEBUG_LITERT_NPU_PROVIDER_EXTRA="com.roana.app.extra.DEBUG_LITERT_NPU_PROVIDER"
 DEBUG_LITERT_QUALCOMM_OPTIONS_EXTRA="com.roana.app.extra.DEBUG_LITERT_QUALCOMM_OPTIONS"
 DEBUG_LITERT_TIMING_ITERATIONS_EXTRA="com.roana.app.extra.DEBUG_LITERT_TIMING_ITERATIONS"
+DEBUG_LITERT_MAIN_NATIVE_EXTRA="com.roana.app.extra.DEBUG_LITERT_MAIN_NATIVE"
 YOLO_AOT_ASSET="yolo11n-det-int8-smart_Qualcomm_SM8550.tflite"
 DEPTH_AOT_ASSET="depth_anything_v2_Qualcomm_SM8550.tflite"
 EFFICIENTDET_AOT_ASSET="efficientdet_lite0_detection_Qualcomm_SM8550.tflite"
@@ -44,6 +46,7 @@ json_result() {
   "accelerator": "$LITERT_ACCELERATOR",
   "npu_provider": "$LITERT_NPU_PROVIDER",
   "qualcomm_options": "$LITERT_QUALCOMM_OPTIONS",
+  "main_native": "$LITERT_MAIN_NATIVE",
   "timing_iterations": $LITERT_TIMING_ITERATIONS,
   "decision": "$decision"
 }
@@ -100,7 +103,7 @@ native_analysis_proves_litert_npu() {
   local status
   status="$(native_analysis_status)"
   case "$status" in
-    npu_log_evidence_present | npu_runtime_execution_evidence_present | aot_accelerator_execute_evidence_present)
+    npu_log_evidence_present | npu_runtime_execution_evidence_present | aot_accelerator_execute_evidence_present | main_native_npu_runtime_execution_evidence_present)
       return 0
       ;;
     *)
@@ -293,6 +296,12 @@ if [ "${#missing_aot_assets[@]}" -gt 0 ]; then
   exit 2
 fi
 
+if [ "$LITERT_MAIN_NATIVE" = "1" ] &&
+  ! apk_has_entry "lib/arm64-v8a/libroana_litert_main_run_model.so"; then
+  json_result "blocked" "" "LITERT_MAIN_NATIVE=1 requires an APK built with PREPARE_LITERT_MAIN_NATIVE=1 or LITERT_EXTRA_JNI_DIR containing libroana_litert_main_run_model.so."
+  exit 2
+fi
+
 if [ "$INSTALL_FIRST" = "1" ]; then
   "$ADB_BIN" "${DEVICE_ARG[@]}" install -r "$APK_PATH" >/dev/null
 fi
@@ -306,6 +315,9 @@ start_args+=(--es "$DEBUG_LITERT_ACCELERATOR_EXTRA" "$LITERT_ACCELERATOR")
 start_args+=(--es "$DEBUG_LITERT_NPU_PROVIDER_EXTRA" "$LITERT_NPU_PROVIDER")
 start_args+=(--es "$DEBUG_LITERT_QUALCOMM_OPTIONS_EXTRA" "$LITERT_QUALCOMM_OPTIONS")
 start_args+=(--ei "$DEBUG_LITERT_TIMING_ITERATIONS_EXTRA" "$LITERT_TIMING_ITERATIONS")
+if [ "$LITERT_MAIN_NATIVE" = "1" ]; then
+  start_args+=(--ez "$DEBUG_LITERT_MAIN_NATIVE_EXTRA" true)
+fi
 if [ "$require_yolo" = "1" ]; then
   start_args+=(--ez "$DEBUG_LITERT_YOLO_EXTRA" true)
 fi

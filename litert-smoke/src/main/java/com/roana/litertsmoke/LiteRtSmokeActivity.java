@@ -13,13 +13,18 @@ import com.google.ai.edge.litert.TensorBuffer;
 import com.google.ai.edge.litert.TensorBufferRequirements;
 import com.google.ai.edge.litert.TensorType;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import org.tensorflow.lite.Interpreter;
 import org.tensorflow.lite.Tensor;
@@ -46,6 +51,8 @@ public final class LiteRtSmokeActivity extends Activity {
             "com.roana.app.extra.DEBUG_LITERT_QUALCOMM_OPTIONS";
     private static final String EXTRA_DEBUG_LITERT_TIMING_ITERATIONS =
             "com.roana.app.extra.DEBUG_LITERT_TIMING_ITERATIONS";
+    private static final String EXTRA_DEBUG_LITERT_MAIN_NATIVE =
+            "com.roana.app.extra.DEBUG_LITERT_MAIN_NATIVE";
     private static final String YOLO_ASSET = "yolo11n-det-int8-smart.tflite";
     private static final String YOLO_AOT_ASSET = "yolo11n-det-int8-smart_Qualcomm_SM8550.tflite";
     private static final String DEPTH_ASSET = "depth_anything_v2.tflite";
@@ -73,6 +80,7 @@ public final class LiteRtSmokeActivity extends Activity {
             "LiteRtDispatch_Qualcomm",
             "LiteRtCompilerPlugin_Qualcomm",
     };
+    private static final String MAIN_NATIVE_RUN_MODEL_LIB = "libroana_litert_main_run_model.so";
     private static final double NS_PER_MS = 1_000_000.0;
 
     @Override
@@ -99,6 +107,7 @@ public final class LiteRtSmokeActivity extends Activity {
         LiteRtQualcommOptions qualcommOptions = LiteRtQualcommOptions.fromId(
                 getIntent().getStringExtra(EXTRA_DEBUG_LITERT_QUALCOMM_OPTIONS));
         int timingIterations = getIntent().getIntExtra(EXTRA_DEBUG_LITERT_TIMING_ITERATIONS, 0);
+        boolean runMainNative = getIntent().getBooleanExtra(EXTRA_DEBUG_LITERT_MAIN_NATIVE, false);
 
         Thread smokeThread = new Thread(() -> {
             Log.i(TAG, "litert_model_smoke_matrix accelerator=" + accelerator.id
@@ -110,7 +119,16 @@ public final class LiteRtSmokeActivity extends Activity {
                     + " depth_aot=" + runDepthAot
                     + " efficientdet=" + runEfficientDet
                     + " efficientdet_aot=" + runEfficientDetAot
+                    + " main_native=" + runMainNative
                     + " timing_iterations=" + timingIterations);
+            if (runMainNative) {
+                runMainNativeSmoke(
+                        runYoloAot,
+                        runDepthAot,
+                        runEfficientDetAot,
+                        timingIterations);
+                return;
+            }
             if (runYolo) {
                 runModel(
                         new ModelSpec("yolo", YOLO_ASSET),
@@ -162,6 +180,176 @@ public final class LiteRtSmokeActivity extends Activity {
         });
         smokeThread.setName("RoanaLiteRtModelSmoke");
         smokeThread.start();
+    }
+
+    private void runMainNativeSmoke(
+            boolean runYoloAot,
+            boolean runDepthAot,
+            boolean runEfficientDetAot,
+            int timingIterations
+    ) {
+        Log.i(TAG, "litert_main_native_stack status=starting commit=2efe1c1"
+                + " mode=run_model"
+                + " source=apk_native_lib_dir");
+        logNativeLibraryLayout();
+        File nativeDir = new File(getApplicationInfo().nativeLibraryDir);
+        File runModel = new File(nativeDir, MAIN_NATIVE_RUN_MODEL_LIB);
+        Log.i(TAG, "litert_main_native_binary path=" + sanitize(runModel.getAbsolutePath())
+                + " exists=" + runModel.isFile()
+                + " bytes=" + (runModel.isFile() ? runModel.length() : 0)
+                + " can_execute=" + runModel.canExecute());
+        if (!runModel.isFile()) {
+            Log.e(TAG, "litert_main_native_stack status=failed reason=run_model_missing");
+            return;
+        }
+        int iterations = timingIterations > 0 ? timingIterations : 5;
+        if (runYoloAot) {
+            runMainNativeModel(
+                    "yolo_aot",
+                    YOLO_AOT_ASSET,
+                    YOLO_ASSET,
+                    iterations,
+                    nativeDir,
+                    runModel);
+        }
+        if (runDepthAot) {
+            runMainNativeModel(
+                    "depth_aot",
+                    DEPTH_AOT_ASSET,
+                    DEPTH_ASSET,
+                    iterations,
+                    nativeDir,
+                    runModel);
+        }
+        if (runEfficientDetAot) {
+            runMainNativeModel(
+                    "efficientdet_aot",
+                    EFFICIENTDET_AOT_ASSET,
+                    EFFICIENTDET_ASSET,
+                    iterations,
+                    nativeDir,
+                    runModel);
+        }
+        Log.i(TAG, "litert_main_native_stack status=finished");
+    }
+
+    private void runMainNativeModel(
+            String modelName,
+            String asset,
+            String metadataAsset,
+            int iterations,
+            File nativeDir,
+            File runModel
+    ) {
+        long startedNs = System.nanoTime();
+        try {
+            File modelFile = extractAsset(asset);
+            Log.i(TAG, "litert_model_metadata model=" + modelName
+                    + " asset=" + asset
+                    + " bytes=" + modelFile.length()
+                    + " source=main_native");
+            Log.i(TAG, "litert_backend requested=npu model=" + modelName
+                    + " npu_provider=qualcomm qualcomm_options=main_native");
+            List<String> command = new ArrayList<>();
+            command.add(runModel.getAbsolutePath());
+            command.add("--graph=" + modelFile.getAbsolutePath());
+            command.add("--accelerator=npu");
+            command.add("--dispatch_library_dir=" + nativeDir.getAbsolutePath());
+            command.add("--compiler_plugin_library_dir=" + nativeDir.getAbsolutePath());
+            command.add("--iterations=" + iterations);
+            command.add("--cpu_kernel_mode=xnnpack");
+            Log.i(TAG, "litert_main_native_command model=" + modelName
+                    + " command=" + sanitize(command.toString()));
+            ProcessBuilder builder = new ProcessBuilder(command);
+            builder.redirectErrorStream(true);
+            Map<String, String> env = builder.environment();
+            prependEnvPath(env, "LD_LIBRARY_PATH", nativeDir.getAbsolutePath());
+            prependEnvPath(env, "ADSP_LIBRARY_PATH", nativeDir.getAbsolutePath());
+            Process process = builder.start();
+            double averageMs = Double.NaN;
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    double parsedAverageMs = parseMainNativeAverageMs(line);
+                    if (!Double.isNaN(parsedAverageMs)) {
+                        averageMs = parsedAverageMs;
+                    }
+                    Log.i(TAG, "litert_main_native_output model=" + modelName
+                            + " " + sanitize(line));
+                }
+            }
+            int exitCode = process.waitFor();
+            double loadMs = (System.nanoTime() - startedNs) / NS_PER_MS;
+            if (exitCode == 0) {
+                Log.i(TAG, "litert_backend selected=npu model=" + modelName
+                        + " source=main_native");
+                Log.i(TAG, "litert_model_smoke status=loaded model=" + modelName
+                        + " asset=" + asset
+                        + " backend=npu requested=npu"
+                        + " load_ms=" + format(loadMs)
+                        + " source=main_native");
+                Log.i(TAG, "litert_model_timing status=ok model=" + modelName
+                        + " backend=npu npu_provider=qualcomm qualcomm_options=main_native"
+                        + " iterations=" + iterations
+                        + " avg_ms=" + format(Double.isNaN(averageMs) ? loadMs : averageMs)
+                        + " source=main_native");
+            } else {
+                Log.e(TAG, "litert_model_smoke status=failed model=" + modelName
+                        + " asset=" + asset
+                        + " backend=unproven reason=main_native_exit_" + exitCode);
+            }
+        } catch (Exception error) {
+            Log.e(TAG, "litert_model_smoke status=failed model=" + modelName
+                    + " asset=" + asset
+                    + " backend=unproven reason=main_native_exception:"
+                    + sanitize(nullToEmpty(error.getMessage())), error);
+        }
+    }
+
+    private File extractAsset(String asset) throws Exception {
+        File outputDir = new File(getFilesDir(), "litert-main-native-assets");
+        if (!outputDir.isDirectory() && !outputDir.mkdirs()) {
+            throw new IllegalStateException("Failed to create " + outputDir.getAbsolutePath());
+        }
+        File output = new File(outputDir, asset);
+        try (InputStream input = getAssets().open(asset);
+             FileOutputStream outputStream = new FileOutputStream(output, false)) {
+            byte[] buffer = new byte[1024 * 1024];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, read);
+            }
+        }
+        return output;
+    }
+
+    private void prependEnvPath(Map<String, String> env, String key, String value) {
+        String previous = env.get(key);
+        if (previous == null || previous.isEmpty()) {
+            env.put(key, value);
+        } else if (!previous.contains(value)) {
+            env.put(key, value + ":" + previous);
+        }
+    }
+
+    private double parseMainNativeAverageMs(String line) {
+        String marker = "All runs took average ";
+        int start = line.indexOf(marker);
+        if (start < 0) {
+            return Double.NaN;
+        }
+        int valueStart = start + marker.length();
+        int valueEnd = line.indexOf(" microseconds", valueStart);
+        if (valueEnd < 0) {
+            return Double.NaN;
+        }
+        try {
+            long averageUs = Long.parseLong(line.substring(valueStart, valueEnd).trim());
+            return averageUs / 1000.0;
+        } catch (NumberFormatException error) {
+            return Double.NaN;
+        }
     }
 
     private void runModel(
