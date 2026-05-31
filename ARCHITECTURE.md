@@ -102,6 +102,8 @@ scripts/check-ios-model-assets.py --require-present
 
 Roana uses scripts as executable proof gates.
 
+The flat command surface is indexed in `scripts/README.md`.
+
 Android:
 
 ```bash
@@ -137,4 +139,3 @@ scripts/compile-litert-qualcomm-aot.sh
   speech carries meaning; haptics should carry direction and urgency.
 - Add a glasses camera source by preserving the corridor-domain contract and
   swapping only the frame source/platform adapter.
-
