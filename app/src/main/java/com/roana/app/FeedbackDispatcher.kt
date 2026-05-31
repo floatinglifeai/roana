@@ -37,17 +37,19 @@ class FeedbackDispatcher(
         command == CorridorCommand.STOP &&
             (
                 sourceDecision.command == CorridorCommand.STOP ||
-                    sourceDecision.reason == REASON_FRAME_LOSS ||
-                    sourceDecision.reason == REASON_LOW_CONFIDENCE
+                    CorridorContract.Reason.isEmergencyStop(sourceDecision.reason)
                 )
 
     private fun feedbackFor(command: CorridorCommand): CommandFeedback =
         when (command) {
-            CorridorCommand.LEFT -> CommandFeedback(message = "Turn left", messageKey = "turn_left")
-            CorridorCommand.STRAIGHT -> CommandFeedback(message = "Go straight", messageKey = "go_straight")
-            CorridorCommand.RIGHT -> CommandFeedback(message = "Turn right", messageKey = "turn_right")
-            CorridorCommand.STOP -> CommandFeedback(message = "Stop", messageKey = "stop")
+            CorridorCommand.LEFT -> CorridorContract.Feedback.LEFT.toCommandFeedback()
+            CorridorCommand.STRAIGHT -> CorridorContract.Feedback.STRAIGHT.toCommandFeedback()
+            CorridorCommand.RIGHT -> CorridorContract.Feedback.RIGHT.toCommandFeedback()
+            CorridorCommand.STOP -> CorridorContract.Feedback.STOP.toCommandFeedback()
         }
+
+    private fun CorridorContract.Feedback.toCommandFeedback(): CommandFeedback =
+        CommandFeedback(message = message, messageKey = messageKey)
 
     fun interface Speaker {
         fun speak(message: String, queueMode: QueueMode, utteranceId: String)
@@ -74,8 +76,4 @@ class FeedbackDispatcher(
         val messageKey: String,
     )
 
-    private companion object {
-        private const val REASON_FRAME_LOSS = "frame_loss"
-        private const val REASON_LOW_CONFIDENCE = "low_confidence"
-    }
 }

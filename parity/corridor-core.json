@@ -126,12 +126,12 @@
       "expectedDepthGrid": {
         "rows": 15,
         "cols": 15,
-        "sum": 105.0,
+        "sum": 104.999954,
         "min": 0.0,
         "max": 1.0,
         "probes": [
           { "index": 0, "value": 0.0 },
-          { "index": 14, "value": 0.33333334 },
+          { "index": 14, "value": 0.333333 },
           { "index": 112, "value": 0.0 },
           { "index": 224, "value": 1.0 }
         ]
@@ -148,14 +148,14 @@
       "expectedDepthGrid": {
         "rows": 15,
         "cols": 15,
-        "sum": 112.5,
-        "min": 0.01724138,
-        "max": 0.98275864,
+        "sum": 112.500008,
+        "min": 0.017241,
+        "max": 0.982759,
         "probes": [
-          { "index": 0, "value": 0.01724138 },
-          { "index": 14, "value": 0.048387095 },
+          { "index": 0, "value": 0.017241 },
+          { "index": 14, "value": 0.048387 },
           { "index": 112, "value": 0.5 },
-          { "index": 224, "value": 0.98275864 }
+          { "index": 224, "value": 0.982759 }
         ]
       }
     },

@@ -4,32 +4,32 @@ import kotlin.math.abs
 
 class CorridorPlanner {
     fun decide(grid: DepthGrid): CorridorDecision {
-        require(grid.rows == GRID_SIZE && grid.cols == GRID_SIZE) {
-            "Expected ${GRID_SIZE}x$GRID_SIZE depth grid, got ${grid.rows}x${grid.cols}"
+        require(grid.rows == CorridorContract.GRID_SIZE && grid.cols == CorridorContract.GRID_SIZE) {
+            "Expected ${CorridorContract.GRID_SIZE}x${CorridorContract.GRID_SIZE} depth grid, got ${grid.rows}x${grid.cols}"
         }
 
-        if (grid.nearestBottomCenter() >= NEAR_OBSTACLE_DEPTH) {
-            return CorridorDecision(CorridorCommand.STOP, emptyList(), "near_obstacle")
+        if (grid.nearestBottomCenter() >= CorridorContract.NEAR_OBSTACLE_DEPTH) {
+            return CorridorDecision(CorridorCommand.STOP, emptyList(), CorridorContract.Reason.NEAR_OBSTACLE)
         }
 
-        val start = Cell(row = GRID_SIZE - 1, col = GRID_SIZE / 2)
+        val start = Cell(row = CorridorContract.GRID_SIZE - 1, col = CorridorContract.GRID_SIZE / 2)
         val path = search(grid, start)
-        if (path.size < MIN_PATH_CELLS) {
-            return CorridorDecision(CorridorCommand.STOP, path, "no_safe_corridor")
+        if (path.size < CorridorContract.MIN_PATH_CELLS) {
+            return CorridorDecision(CorridorCommand.STOP, path, CorridorContract.Reason.NO_SAFE_CORRIDOR)
         }
 
         val endpoint = path.last()
         val offset = endpoint.col - start.col
         val command = when {
-            offset <= -TURN_OFFSET_CELLS -> CorridorCommand.LEFT
-            offset >= TURN_OFFSET_CELLS -> CorridorCommand.RIGHT
+            offset <= -CorridorContract.TURN_OFFSET_CELLS -> CorridorCommand.LEFT
+            offset >= CorridorContract.TURN_OFFSET_CELLS -> CorridorCommand.RIGHT
             else -> CorridorCommand.STRAIGHT
         }
-        return CorridorDecision(command, path, "path_found")
+        return CorridorDecision(command, path, CorridorContract.Reason.PATH_FOUND)
     }
 
     private fun search(grid: DepthGrid, start: Cell): List<Cell> {
-        val memo = arrayOfNulls<PathCandidate>(GRID_SIZE * GRID_SIZE)
+        val memo = arrayOfNulls<PathCandidate>(CorridorContract.GRID_SIZE * CorridorContract.GRID_SIZE)
         return bestPathFrom(
             grid = grid,
             current = start,
@@ -44,7 +44,7 @@ class CorridorPlanner {
         startCol: Int,
         memo: Array<PathCandidate?>,
     ): PathCandidate {
-        val memoIndex = current.row * GRID_SIZE + current.col
+        val memoIndex = current.row * CorridorContract.GRID_SIZE + current.col
         memo[memoIndex]?.let { return it }
 
         var bestNext: PathCandidate? = null
@@ -52,8 +52,8 @@ class CorridorPlanner {
             nextCandidates(current).forEach { candidate ->
                 if (
                     grid.contains(candidate) &&
-                    grid[candidate] <= SAFE_CELL_DEPTH &&
-                    grid[candidate] <= grid[current] + MAX_FORWARD_DEPTH_RISE
+                    grid[candidate] <= CorridorContract.SAFE_CELL_DEPTH &&
+                    grid[candidate] <= grid[current] + CorridorContract.MAX_FORWARD_DEPTH_RISE
                 ) {
                     val nextPath = bestPathFrom(
                         grid = grid,
@@ -87,20 +87,20 @@ class CorridorPlanner {
         )
 
     private fun horizontalClearance(grid: DepthGrid, cell: Cell): Int {
-        if (grid[cell] > SAFE_CELL_DEPTH) {
+        if (grid[cell] > CorridorContract.SAFE_CELL_DEPTH) {
             return 0
         }
 
         var left = 0
         var col = cell.col - 1
-        while (col >= 0 && grid[Cell(cell.row, col)] <= SAFE_CELL_DEPTH) {
+        while (col >= 0 && grid[Cell(cell.row, col)] <= CorridorContract.SAFE_CELL_DEPTH) {
             left += 1
             col -= 1
         }
 
         var right = 0
         col = cell.col + 1
-        while (col < GRID_SIZE && grid[Cell(cell.row, col)] <= SAFE_CELL_DEPTH) {
+        while (col < CorridorContract.GRID_SIZE && grid[Cell(cell.row, col)] <= CorridorContract.SAFE_CELL_DEPTH) {
             right += 1
             col += 1
         }
@@ -130,8 +130,8 @@ class CorridorPlanner {
         fun nearestBottomCenter(): Float {
             var nearest = Float.NEGATIVE_INFINITY
             val centerCol = cols / 2
-            for (row in rows - IMMINENT_OBSTACLE_ROWS until rows) {
-                for (col in (centerCol - IMMINENT_OBSTACLE_HALF_WIDTH)..(centerCol + IMMINENT_OBSTACLE_HALF_WIDTH)) {
+            for (row in rows - CorridorContract.IMMINENT_OBSTACLE_ROWS until rows) {
+                for (col in (centerCol - CorridorContract.IMMINENT_OBSTACLE_HALF_WIDTH)..(centerCol + CorridorContract.IMMINENT_OBSTACLE_HALF_WIDTH)) {
                     nearest = maxOf(nearest, values[row * cols + col])
                 }
             }
@@ -140,7 +140,7 @@ class CorridorPlanner {
 
         companion object {
             fun square15(values: FloatArray): DepthGrid =
-                DepthGrid(GRID_SIZE, GRID_SIZE, values)
+                DepthGrid(CorridorContract.GRID_SIZE, CorridorContract.GRID_SIZE, values)
 
             fun fromDepthMap(
                 values: FloatArray,
@@ -155,13 +155,13 @@ class CorridorPlanner {
                 val min = values.minOrNull() ?: 0f
                 val max = values.maxOrNull() ?: min
                 val range = max - min
-                val output = FloatArray(GRID_SIZE * GRID_SIZE)
-                for (gridRow in 0 until GRID_SIZE) {
-                    val sourceRowStart = gridRow * rows / GRID_SIZE
-                    val sourceRowEnd = maxOf(sourceRowStart + 1, (gridRow + 1) * rows / GRID_SIZE)
-                    for (gridCol in 0 until GRID_SIZE) {
-                        val sourceColStart = gridCol * cols / GRID_SIZE
-                        val sourceColEnd = maxOf(sourceColStart + 1, (gridCol + 1) * cols / GRID_SIZE)
+                val output = FloatArray(CorridorContract.GRID_SIZE * CorridorContract.GRID_SIZE)
+                for (gridRow in 0 until CorridorContract.GRID_SIZE) {
+                    val sourceRowStart = gridRow * rows / CorridorContract.GRID_SIZE
+                    val sourceRowEnd = maxOf(sourceRowStart + 1, (gridRow + 1) * rows / CorridorContract.GRID_SIZE)
+                    for (gridCol in 0 until CorridorContract.GRID_SIZE) {
+                        val sourceColStart = gridCol * cols / CorridorContract.GRID_SIZE
+                        val sourceColEnd = maxOf(sourceColStart + 1, (gridCol + 1) * cols / CorridorContract.GRID_SIZE)
                         var sum = 0.0
                         var count = 0
                         for (sourceRow in sourceRowStart until sourceRowEnd) {
@@ -171,7 +171,7 @@ class CorridorPlanner {
                             }
                         }
                         val average = (sum / count).toFloat()
-                        output[gridRow * GRID_SIZE + gridCol] = if (range > 0f) {
+                        output[gridRow * CorridorContract.GRID_SIZE + gridCol] = if (range > 0f) {
                             (average - min) / range
                         } else {
                             0f
@@ -236,14 +236,4 @@ class CorridorPlanner {
         }
     }
 
-    private companion object {
-        private const val GRID_SIZE = 15
-        private const val NEAR_OBSTACLE_DEPTH = 0.86f
-        private const val SAFE_CELL_DEPTH = 0.72f
-        private const val MAX_FORWARD_DEPTH_RISE = 0.12f
-        private const val MIN_PATH_CELLS = 6
-        private const val TURN_OFFSET_CELLS = 3
-        private const val IMMINENT_OBSTACLE_ROWS = 3
-        private const val IMMINENT_OBSTACLE_HALF_WIDTH = 1
-    }
 }

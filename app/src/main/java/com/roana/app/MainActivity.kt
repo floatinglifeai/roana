@@ -22,7 +22,6 @@ import androidx.core.content.ContextCompat
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
@@ -54,12 +53,7 @@ class MainActivity : ComponentActivity() {
             logger = { event ->
                 Log.i(
                     TAG,
-                    "corridor_feedback status=${if (event.spoken) "spoken" else "suppressed"} " +
-                        "id=${event.utteranceId ?: "none"} command=${event.command} " +
-                        "message=${event.messageKey} reason=${event.reason} " +
-                        "changed=${event.changed} forced=${event.forced} " +
-                        "pending=${event.pendingCommand ?: "none"} " +
-                        "pending_count=${event.pendingCount}",
+                    EvidenceLogContract.corridorFeedback(event),
                 )
             },
             utteranceIdFactory = { "roana-corridor-${SystemClock.uptimeMillis()}" },
@@ -69,10 +63,10 @@ class MainActivity : ComponentActivity() {
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                statusView.text = "Starting camera"
+                statusView.text = StatusContract.Camera.STARTING
                 startCamera()
             } else {
-                statusView.text = "Camera permission required"
+                statusView.text = StatusContract.Camera.PERMISSION_REQUIRED
                 Log.w(TAG, "camera_permission_denied")
             }
         }
@@ -122,7 +116,7 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(0x99000000.toInt())
             setPadding(24, 16, 24, 16)
             setTextColor(0xFFFFFFFF.toInt())
-            text = "Waiting for camera"
+            text = StatusContract.Camera.WAITING
             textSize = 14f
         }
 
@@ -172,7 +166,7 @@ class MainActivity : ComponentActivity() {
             ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
                 PackageManager.PERMISSION_GRANTED -> startCamera()
             shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
-                statusView.text = "Camera permission required"
+                statusView.text = StatusContract.Camera.PERMISSION_REQUIRED
                 cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
             else -> cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -217,13 +211,13 @@ class MainActivity : ComponentActivity() {
                         analysis,
                     )
                     cameraBound = true
-                    statusView.text = "Camera active"
+                    statusView.text = StatusContract.Camera.ACTIVE
                     Log.i(TAG, "camera_bound analyzer=keep_only_latest output=yuv_420_888")
                     maybeAnnounceReady()
                     maybeRunDebugDetectionProof()
                     maybeRunDebugSafeStopProof()
                 } catch (error: Exception) {
-                    statusView.text = "Camera start failed"
+                    statusView.text = StatusContract.Camera.START_FAILED
                     Log.e(TAG, "camera_bind_failed", error)
                 }
             },
@@ -233,14 +227,17 @@ class MainActivity : ComponentActivity() {
 
     private fun updateStats(stats: FrameStats) {
         runOnUiThread {
-            val detectionText = stats.bestDetection?.let {
-                " | ${it.label} ${it.scorePercent()}%"
-            }.orEmpty()
-            val corridorText = stats.corridorCommand?.let {
-                " | corridor $it ${stats.depthInferenceMs.roundToInt()} ms"
-            }.orEmpty()
-            statusView.text =
-                "Frames ${stats.frames} | yolo ${stats.inferenceMs.roundToInt()} ms | gaps ${stats.gapCount}$detectionText$corridorText"
+            statusView.text = StatusContract.frameSummary(
+                StatusContract.FrameSummary(
+                    frames = stats.frames,
+                    yoloInferenceMs = stats.inferenceMs,
+                    gapCount = stats.gapCount,
+                    detectionLabel = stats.bestDetection?.label,
+                    detectionScorePercent = stats.bestDetection?.scorePercent(),
+                    corridorCommand = stats.corridorCommand?.name,
+                    depthInferenceMs = stats.corridorCommand?.let { stats.depthInferenceMs },
+                ),
+            )
         }
     }
 
@@ -269,11 +266,10 @@ class MainActivity : ComponentActivity() {
 
         debugSafeStopProofStarted = true
         val pipeline = CorridorPipeline()
-        val result = pipeline.failSafeStop(REASON_LOW_CONFIDENCE)
+        val result = pipeline.failSafeStop(CorridorContract.Reason.LOW_CONFIDENCE)
         Log.i(
             TAG,
-            "debug_safe_stop_proof enabled=true reason=${result.decision.reason} " +
-                "decision=${result.decision.command} state=${result.state.command}",
+            EvidenceLogContract.debugSafeStopProof(result),
         )
         dispatchCorridorFeedback(result.state, force = true)
     }
@@ -464,7 +460,7 @@ class MainActivity : ComponentActivity() {
                             TAG,
                             "camera_frame_gap gap_ms=$cameraGapMs total_gaps=$gapCount",
                         )
-                        stopCorridorForSafety(REASON_FRAME_LOSS)
+                        stopCorridorForSafety(CorridorContract.Reason.FRAME_LOSS)
                     }
                 }
                 lastCameraTimestampNs = cameraTimestampNs
@@ -481,10 +477,7 @@ class MainActivity : ComponentActivity() {
                         lastResult.timing?.let { timing ->
                             Log.i(
                                 TAG,
-                                "yolo_timing input_ms=${"%.2f".format(Locale.US, timing.inputMs)} " +
-                                    "model_ms=${"%.2f".format(Locale.US, timing.modelMs)} " +
-                                    "decode_ms=${"%.2f".format(Locale.US, timing.decodeMs)} " +
-                                    "total_ms=${"%.2f".format(Locale.US, timing.totalMs)}",
+                                EvidenceLogContract.yoloTiming(timing),
                             )
                         }
                         lastResult.bestDetection?.let { detection ->
@@ -504,8 +497,8 @@ class MainActivity : ComponentActivity() {
                             inferenceMs = 0.0,
                             bestDetection = null,
                         )
-                        Log.e(TAG, "yolo_error action=safe_stop reason=$REASON_LOW_CONFIDENCE", error)
-                        stopCorridorForSafety(REASON_LOW_CONFIDENCE)
+                        Log.e(TAG, "yolo_error action=safe_stop reason=${CorridorContract.Reason.LOW_CONFIDENCE}", error)
+                        stopCorridorForSafety(CorridorContract.Reason.LOW_CONFIDENCE)
                     }
                 }
                 maybeRunLiveCorridor(image, skipForYoloFrame = ranYolo)
@@ -517,13 +510,19 @@ class MainActivity : ComponentActivity() {
                     lastLogTimeMs = nowMs
                     Log.i(
                         TAG,
-                        "frame_stats frames=$frames gap_count=$gapCount " +
-                            "analysis_ms=${"%.2f".format(Locale.US, analysisMs)} " +
-                            "inference_ms=${"%.2f".format(Locale.US, lastResult.inferenceMs)} " +
-                            "depth_ms=${"%.2f".format(Locale.US, lastDepthInferenceMs)} " +
-                            "corridor=${lastCorridorCommand ?: "none"} " +
-                            "detection=${lastResult.bestDetection?.label ?: "none"} " +
-                            "image=${image.width}x${image.height}",
+                        EvidenceLogContract.frameStats(
+                            EvidenceLogContract.FrameStatsLog(
+                                frames = frames,
+                                gapCount = gapCount,
+                                analysisMs = analysisMs,
+                                yoloInferenceMs = lastResult.inferenceMs,
+                                depthInferenceMs = lastDepthInferenceMs,
+                                corridorCommand = lastCorridorCommand,
+                                detectionLabel = lastResult.bestDetection?.label,
+                                imageWidth = image.width,
+                                imageHeight = image.height,
+                            ),
+                        ),
                     )
                     onStats(
                         FrameStats(
@@ -567,31 +566,31 @@ class MainActivity : ComponentActivity() {
                 depthResult.timing?.let { timing ->
                     Log.i(
                         TAG,
-                        "corridor_live_timing depth_input_ms=${"%.2f".format(Locale.US, timing.inputMs)} " +
-                            "depth_model_ms=${"%.2f".format(Locale.US, timing.inferenceMs)} " +
-                            "depth_grid_ms=${"%.2f".format(Locale.US, timing.outputGridMs)} " +
-                            "pipeline_ms=${"%.2f".format(Locale.US, pipelineMs)} " +
-                            "total_ms=${"%.2f".format(Locale.US, corridorTotalMs)}",
+                        EvidenceLogContract.corridorLiveTiming(
+                            depthTiming = timing,
+                            pipelineMs = pipelineMs,
+                            totalMs = corridorTotalMs,
+                        ),
                     )
                 }
                 Log.i(
                     TAG,
-                    "corridor_live status=ok depth_ms=" +
-                        "${"%.2f".format(Locale.US, depthResult.inferenceMs)} " +
-                        "decision=${corridorResult.decision.command} " +
-                        "state=${corridorResult.state.command} " +
-                        "reason=${corridorResult.decision.reason} " +
-                        "detections=${if (lastResult.bestDetection == null) 0 else 1} " +
-                        "path_cells=${corridorResult.decision.path.size}",
+                    EvidenceLogContract.corridorLiveOk(
+                        depthMs = depthResult.inferenceMs,
+                        result = corridorResult,
+                        detections = if (lastResult.bestDetection == null) 0 else 1,
+                    ),
                 )
                 onCorridorState(corridorResult.state)
             } catch (error: Exception) {
-                val stopResult = pipeline.failSafeStop(REASON_LOW_CONFIDENCE)
+                val stopResult = pipeline.failSafeStop(CorridorContract.Reason.LOW_CONFIDENCE)
                 lastCorridorCommand = stopResult.state.command
                 Log.e(
                     TAG,
-                    "corridor_live status=failed reason=$REASON_LOW_CONFIDENCE " +
-                        "state=${stopResult.state.command}",
+                    EvidenceLogContract.corridorLiveFailed(
+                        reason = CorridorContract.Reason.LOW_CONFIDENCE,
+                        state = stopResult.state.command,
+                    ),
                     error,
                 )
                 onCorridorState(stopResult.state)
@@ -607,8 +606,7 @@ class MainActivity : ComponentActivity() {
             lastCorridorCommand = stopResult.state.command
             Log.w(
                 TAG,
-                "corridor_live status=safe_stop reason=$reason " +
-                    "state=${stopResult.state.command} changed=${stopResult.state.changed}",
+                EvidenceLogContract.corridorLiveSafeStop(reason = reason, state = stopResult.state),
             )
             onCorridorState(stopResult.state)
         }
@@ -653,8 +651,6 @@ class MainActivity : ComponentActivity() {
         private const val YOLO_FRAME_INTERVAL = 10L
         private const val FRAME_GAP_WARNING_MS = 150L
         private const val NS_PER_MS = 1_000_000L
-        private const val REASON_FRAME_LOSS = "frame_loss"
-        private const val REASON_LOW_CONFIDENCE = "low_confidence"
     }
 }
 
