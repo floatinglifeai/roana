@@ -11,6 +11,7 @@ and `docs/human/**`.
 - `ARCHITECTURE.md` for the platform/runtime map.
 - `docs/human/**` for human-readable follow-up notes.
 - `ios/AGENTS.md` before editing anything under `ios/`.
+- `docs/agents/**` for agent-only runbooks that should not bloat root guidance.
 
 Treat `docs/status/active/**`, `docs/plan/**`, and `logs/**` as detailed
 planning/evidence surfaces unless a human doc promotes a specific artifact.
@@ -25,6 +26,8 @@ planning/evidence surfaces unless a human doc promotes a specific artifact.
   paths stable unless you are doing a deliberate migration.
 - `parity/` contains cross-platform corridor behavior fixtures.
 - `website/` is the static public website deployed by GitHub Actions.
+- `docs/agents/mcp-lsp.md` records current MCP/LSP status and the Serena setup
+  proposal.
 
 ## Safety Rules
 
