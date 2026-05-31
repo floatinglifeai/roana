@@ -12,10 +12,12 @@ import com.google.ai.edge.litert.NpuCompatibilityChecker;
 import com.google.ai.edge.litert.TensorBuffer;
 import com.google.ai.edge.litert.TensorBufferRequirements;
 import com.google.ai.edge.litert.TensorType;
+import java.io.File;
 import java.io.FileInputStream;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -26,16 +28,51 @@ public final class LiteRtSmokeActivity extends Activity {
     private static final String TAG = "RoanaLiteRt";
     private static final String EXTRA_DEBUG_LITERT_YOLO_SMOKE =
             "com.roana.app.extra.DEBUG_LITERT_YOLO_SMOKE";
+    private static final String EXTRA_DEBUG_LITERT_YOLO_AOT_SMOKE =
+            "com.roana.app.extra.DEBUG_LITERT_YOLO_AOT_SMOKE";
     private static final String EXTRA_DEBUG_LITERT_DEPTH_SMOKE =
             "com.roana.app.extra.DEBUG_LITERT_DEPTH_SMOKE";
+    private static final String EXTRA_DEBUG_LITERT_DEPTH_AOT_SMOKE =
+            "com.roana.app.extra.DEBUG_LITERT_DEPTH_AOT_SMOKE";
+    private static final String EXTRA_DEBUG_LITERT_EFFICIENTDET_SMOKE =
+            "com.roana.app.extra.DEBUG_LITERT_EFFICIENTDET_SMOKE";
+    private static final String EXTRA_DEBUG_LITERT_EFFICIENTDET_AOT_SMOKE =
+            "com.roana.app.extra.DEBUG_LITERT_EFFICIENTDET_AOT_SMOKE";
     private static final String EXTRA_DEBUG_LITERT_ACCELERATOR =
             "com.roana.app.extra.DEBUG_LITERT_ACCELERATOR";
+    private static final String EXTRA_DEBUG_LITERT_NPU_PROVIDER =
+            "com.roana.app.extra.DEBUG_LITERT_NPU_PROVIDER";
+    private static final String EXTRA_DEBUG_LITERT_QUALCOMM_OPTIONS =
+            "com.roana.app.extra.DEBUG_LITERT_QUALCOMM_OPTIONS";
     private static final String EXTRA_DEBUG_LITERT_TIMING_ITERATIONS =
             "com.roana.app.extra.DEBUG_LITERT_TIMING_ITERATIONS";
     private static final String YOLO_ASSET = "yolo11n-det-int8-smart.tflite";
+    private static final String YOLO_AOT_ASSET = "yolo11n-det-int8-smart_Qualcomm_SM8550.tflite";
     private static final String DEPTH_ASSET = "depth_anything_v2.tflite";
+    private static final String DEPTH_AOT_ASSET = "depth_anything_v2_Qualcomm_SM8550.tflite";
+    private static final String EFFICIENTDET_ASSET = "efficientdet_lite0_detection.tflite";
+    private static final String EFFICIENTDET_AOT_ASSET =
+            "efficientdet_lite0_detection_Qualcomm_SM8550.tflite";
     private static final String INPUT_TENSOR_NAME = "input_0";
     private static final String OUTPUT_TENSOR_NAME = "output_0";
+    private static final String DEFAULT_SIGNATURE = "";
+    private static final String[] QUALCOMM_NATIVE_LIBS = {
+            "libLiteRtCompilerPlugin_Qualcomm.so",
+            "libLiteRtDispatch_Qualcomm.so",
+            "libQnnHtp.so",
+            "libQnnHtpPrepare.so",
+            "libQnnHtpV73Stub.so",
+            "libQnnHtpV73Skel.so",
+            "libQnnSystem.so",
+    };
+    private static final String[] PRELOAD_QUALCOMM_LIBS = {
+            "QnnSystem",
+            "QnnHtp",
+            "QnnHtpPrepare",
+            "QnnHtpV73Stub",
+            "LiteRtDispatch_Qualcomm",
+            "LiteRtCompilerPlugin_Qualcomm",
+    };
     private static final double NS_PER_MS = 1_000_000.0;
 
     @Override
@@ -48,21 +85,79 @@ public final class LiteRtSmokeActivity extends Activity {
         setContentView(status);
 
         boolean runYolo = getIntent().getBooleanExtra(EXTRA_DEBUG_LITERT_YOLO_SMOKE, false);
+        boolean runYoloAot = getIntent().getBooleanExtra(EXTRA_DEBUG_LITERT_YOLO_AOT_SMOKE, false);
         boolean runDepth = getIntent().getBooleanExtra(EXTRA_DEBUG_LITERT_DEPTH_SMOKE, false);
+        boolean runDepthAot = getIntent().getBooleanExtra(EXTRA_DEBUG_LITERT_DEPTH_AOT_SMOKE, false);
+        boolean runEfficientDet =
+                getIntent().getBooleanExtra(EXTRA_DEBUG_LITERT_EFFICIENTDET_SMOKE, false);
+        boolean runEfficientDetAot =
+                getIntent().getBooleanExtra(EXTRA_DEBUG_LITERT_EFFICIENTDET_AOT_SMOKE, false);
         LiteRtAccelerator accelerator = LiteRtAccelerator.fromId(
                 getIntent().getStringExtra(EXTRA_DEBUG_LITERT_ACCELERATOR));
+        LiteRtNpuProvider npuProvider = LiteRtNpuProvider.fromId(
+                getIntent().getStringExtra(EXTRA_DEBUG_LITERT_NPU_PROVIDER));
+        LiteRtQualcommOptions qualcommOptions = LiteRtQualcommOptions.fromId(
+                getIntent().getStringExtra(EXTRA_DEBUG_LITERT_QUALCOMM_OPTIONS));
         int timingIterations = getIntent().getIntExtra(EXTRA_DEBUG_LITERT_TIMING_ITERATIONS, 0);
 
         Thread smokeThread = new Thread(() -> {
             Log.i(TAG, "litert_model_smoke_matrix accelerator=" + accelerator.id
+                    + " npu_provider=" + npuProvider.id
+                    + " qualcomm_options=" + qualcommOptions.id
                     + " yolo=" + runYolo
+                    + " yolo_aot=" + runYoloAot
                     + " depth=" + runDepth
+                    + " depth_aot=" + runDepthAot
+                    + " efficientdet=" + runEfficientDet
+                    + " efficientdet_aot=" + runEfficientDetAot
                     + " timing_iterations=" + timingIterations);
             if (runYolo) {
-                runModel(new ModelSpec("yolo", YOLO_ASSET), accelerator, timingIterations);
+                runModel(
+                        new ModelSpec("yolo", YOLO_ASSET),
+                        accelerator,
+                        npuProvider,
+                        qualcommOptions,
+                        timingIterations);
+            }
+            if (runYoloAot) {
+                runModel(
+                        new ModelSpec("yolo_aot", YOLO_AOT_ASSET, YOLO_ASSET),
+                        accelerator,
+                        npuProvider,
+                        qualcommOptions,
+                        timingIterations);
             }
             if (runDepth) {
-                runModel(new ModelSpec("depth", DEPTH_ASSET), accelerator, timingIterations);
+                runModel(
+                        new ModelSpec("depth", DEPTH_ASSET),
+                        accelerator,
+                        npuProvider,
+                        qualcommOptions,
+                        timingIterations);
+            }
+            if (runDepthAot) {
+                runModel(
+                        new ModelSpec("depth_aot", DEPTH_AOT_ASSET, DEPTH_ASSET),
+                        accelerator,
+                        npuProvider,
+                        qualcommOptions,
+                        timingIterations);
+            }
+            if (runEfficientDet) {
+                runModel(
+                        new ModelSpec("efficientdet", EFFICIENTDET_ASSET),
+                        accelerator,
+                        npuProvider,
+                        qualcommOptions,
+                        timingIterations);
+            }
+            if (runEfficientDetAot) {
+                runModel(
+                        new ModelSpec("efficientdet_aot", EFFICIENTDET_AOT_ASSET),
+                        accelerator,
+                        npuProvider,
+                        qualcommOptions,
+                        timingIterations);
             }
         });
         smokeThread.setName("RoanaLiteRtModelSmoke");
@@ -72,20 +167,24 @@ public final class LiteRtSmokeActivity extends Activity {
     private void runModel(
             ModelSpec spec,
             LiteRtAccelerator accelerator,
+            LiteRtNpuProvider npuProvider,
+            LiteRtQualcommOptions qualcommOptions,
             int timingIterations
     ) {
         long startedNs = System.nanoTime();
-        LoadedModel loadedModel;
+        LoadedModel loadedModel = null;
         ModelMetadata metadata;
         Environment environment = null;
         CompiledModel compiledModel = null;
         try {
             loadedModel = loadModel(spec.asset);
             metadata = logTensorMetadata(spec, loadedModel);
-            environment = createEnvironment(accelerator);
+            environment = createEnvironment(accelerator, npuProvider);
             Set<Accelerator> available = environment.getAvailableAccelerators();
             Log.i(TAG, "litert_backend requested=" + accelerator.id
                     + " model=" + spec.name
+                    + " npu_provider=" + npuProvider.id
+                    + " qualcomm_options=" + qualcommOptions.id
                     + " available=" + acceleratorSetToLog(available));
 
             if (accelerator == LiteRtAccelerator.NPU && !available.contains(Accelerator.NPU)) {
@@ -101,7 +200,7 @@ public final class LiteRtSmokeActivity extends Activity {
             compiledModel = CompiledModel.create(
                     getAssets(),
                     spec.asset,
-                    new CompiledModel.Options(accelerator.toLiteRtAccelerator()),
+                    createOptions(accelerator, qualcommOptions),
                     environment);
             logLiteRtTensorMetadata(spec, compiledModel);
             List<TensorBuffer> inputBuffers = compiledModel.createInputBuffers();
@@ -127,6 +226,8 @@ public final class LiteRtSmokeActivity extends Activity {
                 runTiming(
                         spec,
                         accelerator,
+                        npuProvider,
+                        qualcommOptions,
                         metadata,
                         compiledModel,
                         inputBuffers,
@@ -146,27 +247,143 @@ public final class LiteRtSmokeActivity extends Activity {
             if (environment != null) {
                 environment.close();
             }
+            if (loadedModel != null) {
+                try {
+                    loadedModel.close();
+                } catch (Exception error) {
+                    Log.w(TAG, "litert_model_close status=failed model=" + spec.name
+                            + " reason=" + sanitize(nullToEmpty(error.getMessage())), error);
+                }
+            }
         }
     }
 
-    private Environment createEnvironment(LiteRtAccelerator accelerator) throws Exception {
+    private Environment createEnvironment(
+            LiteRtAccelerator accelerator,
+            LiteRtNpuProvider npuProvider
+    ) throws Exception {
         if (accelerator == LiteRtAccelerator.NPU) {
-            return Environment.create(
-                    new BuiltinNpuAcceleratorProvider(
-                            this,
-                            NpuCompatibilityChecker.Companion.getQualcomm()));
+            logNativeLibraryLayout();
+            preloadQualcommLibraries();
+            Log.i(TAG, "litert_npu_provider selected=" + npuProvider.id);
+            switch (npuProvider) {
+                case NONE:
+                    return Environment.create();
+                case DEFAULT:
+                    return Environment.create(new BuiltinNpuAcceleratorProvider(this));
+                case QUALCOMM:
+                default:
+                    return Environment.create(
+                            new BuiltinNpuAcceleratorProvider(
+                                    this,
+                                    NpuCompatibilityChecker.Companion.getQualcomm()));
+            }
         }
         return Environment.create();
     }
 
+    private CompiledModel.Options createOptions(
+            LiteRtAccelerator accelerator,
+            LiteRtQualcommOptions qualcommOptions
+    ) {
+        if (accelerator == LiteRtAccelerator.NPU) {
+            CompiledModel.Options options =
+                    new CompiledModel.Options(Collections.singleton(Accelerator.NPU));
+            if (qualcommOptions == LiteRtQualcommOptions.NONE) {
+                Log.i(TAG, "litert_qualcomm_options mode=none");
+                return options;
+            }
+            if (qualcommOptions == LiteRtQualcommOptions.MINIMAL) {
+                options.setQualcommOptions(new CompiledModel.QualcommOptions(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        CompiledModel.QualcommOptions.HtpPerformanceMode.HIGH_PERFORMANCE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
+                Log.i(TAG, "litert_qualcomm_options mode=minimal"
+                        + " htp_performance_mode=high_performance");
+                return options;
+            }
+            options.setQualcommOptions(fullQualcommOptions());
+            Log.i(TAG, "litert_qualcomm_options mode=full"
+                    + " log_level=debug"
+                    + " use_htp_preference=true"
+                    + " htp_performance_mode=high_performance"
+                    + " profiling=detailed"
+                    + " optimization=htp_optimize_for_inference");
+            return options;
+        }
+        return new CompiledModel.Options(accelerator.toLiteRtAccelerator());
+    }
+
+    private CompiledModel.QualcommOptions fullQualcommOptions() {
+        return new CompiledModel.QualcommOptions(
+                CompiledModel.QualcommOptions.LogLevel.DEBUG,
+                true,
+                null,
+                null,
+                null,
+                null,
+                null,
+                CompiledModel.QualcommOptions.HtpPerformanceMode.HIGH_PERFORMANCE,
+                CompiledModel.QualcommOptions.Profiling.DETAILED,
+                null,
+                null,
+                null,
+                null,
+                CompiledModel.QualcommOptions.OptimizationLevel.HTP_OPTIMIZE_FOR_INFERENCE);
+    }
+
+    private void logNativeLibraryLayout() {
+        File nativeDir = new File(getApplicationInfo().nativeLibraryDir);
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < QUALCOMM_NATIVE_LIBS.length; index += 1) {
+            if (index > 0) {
+                builder.append(';');
+            }
+            File library = new File(nativeDir, QUALCOMM_NATIVE_LIBS[index]);
+            builder.append(QUALCOMM_NATIVE_LIBS[index])
+                    .append(":exists=")
+                    .append(library.isFile())
+                    .append(",bytes=");
+            builder.append(library.isFile() ? library.length() : 0);
+        }
+        Log.i(TAG, "litert_native_layout dir=" + sanitize(nativeDir.getAbsolutePath())
+                + " libs=" + builder);
+    }
+
+    private void preloadQualcommLibraries() {
+        for (String library : PRELOAD_QUALCOMM_LIBS) {
+            try {
+                System.loadLibrary(library);
+                Log.i(TAG, "litert_qualcomm_preload status=loaded lib=" + library);
+            } catch (Throwable error) {
+                Log.w(TAG, "litert_qualcomm_preload status=failed"
+                        + " lib=" + library
+                        + " reason=" + sanitize(nullToEmpty(error.getMessage())), error);
+            }
+        }
+    }
+
     private void logLiteRtTensorMetadata(ModelSpec spec, CompiledModel compiledModel) {
         try {
-            TensorType inputType = compiledModel.getInputTensorType(INPUT_TENSOR_NAME, null);
-            TensorType outputType = compiledModel.getOutputTensorType(OUTPUT_TENSOR_NAME, null);
+            TensorType inputType =
+                    compiledModel.getInputTensorType(INPUT_TENSOR_NAME, DEFAULT_SIGNATURE);
+            TensorType outputType =
+                    compiledModel.getOutputTensorType(OUTPUT_TENSOR_NAME, DEFAULT_SIGNATURE);
             TensorBufferRequirements inputRequirements =
-                    compiledModel.getInputBufferRequirements(INPUT_TENSOR_NAME, null);
+                    compiledModel.getInputBufferRequirements(INPUT_TENSOR_NAME, DEFAULT_SIGNATURE);
             TensorBufferRequirements outputRequirements =
-                    compiledModel.getOutputBufferRequirements(OUTPUT_TENSOR_NAME, null);
+                    compiledModel.getOutputBufferRequirements(OUTPUT_TENSOR_NAME, DEFAULT_SIGNATURE);
             Log.i(TAG, "litert_tensor_metadata model=" + spec.name
                     + " input=" + tensorTypeToLog(inputType)
                     + " input_buffer=" + requirementsToLog(inputRequirements)
@@ -181,6 +398,8 @@ public final class LiteRtSmokeActivity extends Activity {
     private void runTiming(
             ModelSpec spec,
             LiteRtAccelerator accelerator,
+            LiteRtNpuProvider npuProvider,
+            LiteRtQualcommOptions qualcommOptions,
             ModelMetadata metadata,
             CompiledModel compiledModel,
             List<TensorBuffer> inputBuffers,
@@ -204,6 +423,8 @@ public final class LiteRtSmokeActivity extends Activity {
         }
         Log.i(TAG, "litert_model_timing status=ok model=" + spec.name
                 + " backend=" + accelerator.id
+                + " npu_provider=" + npuProvider.id
+                + " qualcomm_options=" + qualcommOptions.id
                 + " iterations=" + iterations
                 + " avg_ms=" + format(totalMs / iterations)
                 + " min_ms=" + format(minMs)
@@ -284,7 +505,11 @@ public final class LiteRtSmokeActivity extends Activity {
     private ModelMetadata logTensorMetadata(ModelSpec spec, LoadedModel model) throws Exception {
         try (Interpreter interpreter = new Interpreter(
                 model.buffer,
-                new Interpreter.Options().setNumThreads(1).setUseXNNPACK(true))) {
+                new Interpreter.Options().setNumThreads(1).setUseXNNPACK(false))) {
+            Log.i(TAG, "litert_metadata_backend model=" + spec.name
+                    + " runtime=tflite_metadata_only"
+                    + " xnnpack=false"
+                    + " executes_model=false");
             ModelMetadata metadata = new ModelMetadata();
             for (int index = 0; index < interpreter.getInputTensorCount(); index += 1) {
                 metadata.inputs.add(TensorMetadata.from(interpreter.getInputTensor(index)));
@@ -299,6 +524,21 @@ public final class LiteRtSmokeActivity extends Activity {
                     + " outputs=" + tensorMetadataListToLog(metadata.outputs));
             return metadata;
         } catch (Exception error) {
+            if (isAotDispatchOpMetadataFailure(spec, error)) {
+                ModelMetadata metadata = aotFallbackMetadata(spec);
+                Log.w(TAG, "litert_model_metadata status=fallback model=" + spec.name
+                        + " asset=" + spec.asset
+                        + " bytes=" + model.byteCount
+                        + " source=aot_dispatch_op"
+                        + " reason=" + sanitize(nullToEmpty(error.getMessage())));
+                Log.i(TAG, "litert_model_metadata model=" + spec.name
+                        + " asset=" + spec.asset
+                        + " bytes=" + model.byteCount
+                        + " inputs=" + tensorMetadataListToLog(metadata.inputs)
+                        + " outputs=" + tensorMetadataListToLog(metadata.outputs)
+                        + " source=aot_dispatch_op_fallback");
+                return metadata;
+            }
             Log.e(TAG, "litert_model_metadata status=failed model=" + spec.name
                     + " asset=" + spec.asset
                     + " error=" + error.getClass().getSimpleName()
@@ -307,17 +547,82 @@ public final class LiteRtSmokeActivity extends Activity {
         }
     }
 
-    private LoadedModel loadModel(String asset) throws Exception {
-        try (android.content.res.AssetFileDescriptor descriptor = getAssets().openFd(asset);
-             FileInputStream inputStream = new FileInputStream(descriptor.getFileDescriptor());
-             FileChannel channel = inputStream.getChannel()) {
-            return new LoadedModel(
-                    channel.map(
-                            FileChannel.MapMode.READ_ONLY,
-                            descriptor.getStartOffset(),
-                            descriptor.getDeclaredLength()),
-                    descriptor.getDeclaredLength());
+    private boolean isAotDispatchOpMetadataFailure(ModelSpec spec, Throwable error) {
+        return spec.metadataAsset != null
+                && containsIgnoreCase(nullToEmpty(error.getMessage()), "DISPATCH_OP");
+    }
+
+    private ModelMetadata aotFallbackMetadata(ModelSpec spec) throws Exception {
+        if (spec.metadataAsset != null) {
+            return readTensorMetadataFromAsset(spec.metadataAsset);
         }
+        return efficientDetFallbackMetadata();
+    }
+
+    private ModelMetadata readTensorMetadataFromAsset(String asset) throws Exception {
+        try (LoadedModel model = loadModel(asset);
+             Interpreter interpreter = new Interpreter(
+                     model.buffer,
+                     new Interpreter.Options().setNumThreads(1).setUseXNNPACK(false))) {
+            ModelMetadata metadata = new ModelMetadata();
+            for (int index = 0; index < interpreter.getInputTensorCount(); index += 1) {
+                metadata.inputs.add(TensorMetadata.from(interpreter.getInputTensor(index)));
+            }
+            for (int index = 0; index < interpreter.getOutputTensorCount(); index += 1) {
+                metadata.outputs.add(TensorMetadata.from(interpreter.getOutputTensor(index)));
+            }
+            return metadata;
+        }
+    }
+
+    private ModelMetadata efficientDetFallbackMetadata() {
+        ModelMetadata metadata = new ModelMetadata();
+        metadata.inputs.add(new TensorMetadata(
+                0,
+                "UINT8",
+                new int[] {1, 320, 320, 3},
+                0.00781250f,
+                127));
+        metadata.outputs.add(new TensorMetadata(
+                598,
+                "FLOAT32",
+                new int[] {1, 25, 4},
+                0.0f,
+                0));
+        metadata.outputs.add(new TensorMetadata(
+                599,
+                "FLOAT32",
+                new int[] {1, 25},
+                0.0f,
+                0));
+        metadata.outputs.add(new TensorMetadata(
+                600,
+                "FLOAT32",
+                new int[] {1, 25},
+                0.0f,
+                0));
+        metadata.outputs.add(new TensorMetadata(
+                601,
+                "FLOAT32",
+                new int[] {1},
+                0.0f,
+                0));
+        return metadata;
+    }
+
+    private LoadedModel loadModel(String asset) throws Exception {
+        android.content.res.AssetFileDescriptor descriptor = getAssets().openFd(asset);
+        FileInputStream inputStream = new FileInputStream(descriptor.getFileDescriptor());
+        FileChannel channel = inputStream.getChannel();
+        return new LoadedModel(
+                descriptor,
+                inputStream,
+                channel,
+                channel.map(
+                        FileChannel.MapMode.READ_ONLY,
+                        descriptor.getStartOffset(),
+                        descriptor.getDeclaredLength()),
+                descriptor.getDeclaredLength());
     }
 
     private BackendProof backendProof(LiteRtAccelerator accelerator) {
@@ -419,23 +724,96 @@ public final class LiteRtSmokeActivity extends Activity {
         }
     }
 
-    private static final class ModelSpec {
-        final String name;
-        final String asset;
+    private enum LiteRtNpuProvider {
+        QUALCOMM("qualcomm"),
+        DEFAULT("default"),
+        NONE("none");
 
-        ModelSpec(String name, String asset) {
-            this.name = name;
-            this.asset = asset;
+        final String id;
+
+        LiteRtNpuProvider(String id) {
+            this.id = id;
+        }
+
+        static LiteRtNpuProvider fromId(String id) {
+            if (id == null) {
+                return QUALCOMM;
+            }
+            for (LiteRtNpuProvider provider : values()) {
+                if (provider.id.equals(id.toLowerCase(Locale.US))) {
+                    return provider;
+                }
+            }
+            return QUALCOMM;
         }
     }
 
-    private static final class LoadedModel {
+    private enum LiteRtQualcommOptions {
+        FULL("full"),
+        MINIMAL("minimal"),
+        NONE("none");
+
+        final String id;
+
+        LiteRtQualcommOptions(String id) {
+            this.id = id;
+        }
+
+        static LiteRtQualcommOptions fromId(String id) {
+            if (id == null) {
+                return FULL;
+            }
+            for (LiteRtQualcommOptions options : values()) {
+                if (options.id.equals(id.toLowerCase(Locale.US))) {
+                    return options;
+                }
+            }
+            return FULL;
+        }
+    }
+
+    private static final class ModelSpec {
+        final String name;
+        final String asset;
+        final String metadataAsset;
+
+        ModelSpec(String name, String asset) {
+            this(name, asset, null);
+        }
+
+        ModelSpec(String name, String asset, String metadataAsset) {
+            this.name = name;
+            this.asset = asset;
+            this.metadataAsset = metadataAsset;
+        }
+    }
+
+    private static final class LoadedModel implements AutoCloseable {
+        final android.content.res.AssetFileDescriptor descriptor;
+        final FileInputStream inputStream;
+        final FileChannel channel;
         final MappedByteBuffer buffer;
         final long byteCount;
 
-        LoadedModel(MappedByteBuffer buffer, long byteCount) {
+        LoadedModel(
+                android.content.res.AssetFileDescriptor descriptor,
+                FileInputStream inputStream,
+                FileChannel channel,
+                MappedByteBuffer buffer,
+                long byteCount
+        ) {
+            this.descriptor = descriptor;
+            this.inputStream = inputStream;
+            this.channel = channel;
             this.buffer = buffer;
             this.byteCount = byteCount;
+        }
+
+        @Override
+        public void close() throws Exception {
+            channel.close();
+            inputStream.close();
+            descriptor.close();
         }
     }
 
