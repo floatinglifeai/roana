@@ -5,15 +5,21 @@ import SwiftUI
 
 @main
 struct RoanaApp: App {
-    @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var camera = CameraSessionController()
-
     var body: some Scene {
         WindowGroup {
-            ContentView(camera: camera)
+            rootView
         }
-        .onChange(of: scenePhase) { _, newPhase in
-            camera.handleScenePhase(newPhase)
-        }
+    }
+
+    @ViewBuilder private var rootView: some View {
+        #if DEBUG
+            if let replayOptions = VideoReplayBenchmarkOptions.current() {
+                VideoReplayBenchmarkView(options: replayOptions)
+            } else {
+                CameraRootView()
+            }
+        #else
+            CameraRootView()
+        #endif
     }
 }

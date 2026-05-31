@@ -34,6 +34,7 @@
 		8F4C00412CAE000100000001 /* ModelInferenceMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00422CAE000100000001 /* ModelInferenceMode.swift */; };
 		8F4C00432CAE000100000001 /* YoloSpeechFeedbackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00442CAE000100000001 /* YoloSpeechFeedbackPolicy.swift */; };
 		8F4C00452CAE000100000001 /* MotionQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00462CAE000100000001 /* MotionQuality.swift */; };
+		8F4C00492CAE000100000001 /* VideoReplayBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00482CAE000100000001 /* VideoReplayBenchmark.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		8F4C00422CAE000100000001 /* ModelInferenceMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelInferenceMode.swift; sourceTree = "<group>"; };
 		8F4C00442CAE000100000001 /* YoloSpeechFeedbackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoloSpeechFeedbackPolicy.swift; sourceTree = "<group>"; };
 		8F4C00462CAE000100000001 /* MotionQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionQuality.swift; sourceTree = "<group>"; };
+		8F4C00482CAE000100000001 /* VideoReplayBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoReplayBenchmark.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,6 +134,7 @@
 				8F4C000D2CAE000100000001 /* DeviceDiagnostics.swift */,
 				8F4C000E2CAE000100000001 /* FrameDiagnostics.swift */,
 				8F4C000F2CAE000100000001 /* RollingPercentileWindow.swift */,
+				8F4C00482CAE000100000001 /* VideoReplayBenchmark.swift */,
 			);
 			path = Diagnostics;
 			sourceTree = "<group>";
@@ -270,6 +273,7 @@
 				8F4C003B2CAE000100000001 /* ModelDescriptionLogger.swift in Sources */,
 				8F4C00412CAE000100000001 /* ModelInferenceMode.swift in Sources */,
 				8F4C00452CAE000100000001 /* MotionQuality.swift in Sources */,
+				8F4C00492CAE000100000001 /* VideoReplayBenchmark.swift in Sources */,
 				8F4C001F2CAE000100000001 /* YoloObstacleDetector.swift in Sources */,
 				8F4C00402CAE000100000001 /* SpeechAudioSession.swift in Sources */,
 				8F4C00212CAE000100000001 /* SpeechFeedbackDispatcher.swift in Sources */,
