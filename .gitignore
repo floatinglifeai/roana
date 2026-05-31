@@ -76,7 +76,9 @@ ENV/
 # Models (large binaries — track separately with Git LFS or HF Hub)
 *.tflite
 *.mlmodel
+*.mlmodelc
 *.mlmodelc/
+*.mlpackage
 *.mlpackage/
 *.onnx
 *.pt

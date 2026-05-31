@@ -3,6 +3,18 @@
 
 import SwiftUI
 
+struct CameraRootView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var camera = CameraSessionController()
+
+    var body: some View {
+        ContentView(camera: camera)
+            .onChange(of: scenePhase) { _, newPhase in
+                camera.handleScenePhase(newPhase)
+            }
+    }
+}
+
 struct ContentView: View {
     @ObservedObject var camera: CameraSessionController
 
