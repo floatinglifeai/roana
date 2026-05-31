@@ -78,6 +78,13 @@ Android owns the Kotlin implementation. iOS owns the Swift implementation.
 Parity is checked through `parity/corridor-core.json` and local Swift/Kotlin
 tests instead of through Kotlin Multiplatform.
 
+Android now keeps the shared corridor vocabulary, thresholds, status text, and
+evidence-log field shapes behind small contract modules. This gives the native
+Android app one place to change same-concept behavior while preserving the
+platform-specific CameraX, TFLite/QNN, and TextToSpeech adapters. iOS remains a
+native Swift implementation that consumes the parity fixture and should be
+tested before any future iOS-side contract alignment lands.
+
 ## Model Assets
 
 Android model assets are app/runtime specific and are validated through device

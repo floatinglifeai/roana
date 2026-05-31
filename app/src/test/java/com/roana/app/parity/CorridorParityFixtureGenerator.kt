@@ -4,12 +4,14 @@
 package com.roana.app.parity
 
 import com.roana.app.CorridorGridFusion
+import com.roana.app.CorridorContract
 import com.roana.app.CorridorPlanner
 import com.roana.app.CorridorPipeline
 import com.roana.app.CorridorStateMachine
 import com.roana.app.DepthAnythingTensor
 import com.roana.app.FeedbackDispatcher
 import com.roana.app.YoloObstacleDetector
+import java.util.Locale
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
@@ -83,7 +85,9 @@ object CorridorParityFixtureGenerator {
 
     private fun allSafePlannerCase(): String {
         val decision = CorridorPlanner().decide(
-            CorridorPlanner.DepthGrid.square15(FloatArray(GRID_SIZE * GRID_SIZE) { 0.30f }),
+            CorridorPlanner.DepthGrid.square15(
+                FloatArray(CorridorContract.GRID_SIZE * CorridorContract.GRID_SIZE) { 0.30f },
+            ),
         )
         return """
 {
@@ -146,7 +150,11 @@ object CorridorParityFixtureGenerator {
             CorridorPlanner.CorridorDecision(CorridorPlanner.CorridorCommand.STRAIGHT, emptyList(), "test"),
             CorridorPlanner.CorridorDecision(CorridorPlanner.CorridorCommand.STRAIGHT, emptyList(), "test"),
             CorridorPlanner.CorridorDecision(CorridorPlanner.CorridorCommand.STRAIGHT, emptyList(), "test"),
-            CorridorPlanner.CorridorDecision(CorridorPlanner.CorridorCommand.STRAIGHT, emptyList(), "frame_loss"),
+            CorridorPlanner.CorridorDecision(
+                CorridorPlanner.CorridorCommand.STRAIGHT,
+                emptyList(),
+                CorridorContract.Reason.FRAME_LOSS,
+            ),
         )
         val states = decisions.map(stateMachine::update)
         return stateMachineCase(
@@ -229,11 +237,11 @@ ${states.joinToString(",\n") { state ->
   "expectedDepthGrid": {
     "rows": ${grid.rows},
     "cols": ${grid.cols},
-    "sum": ${values.sum()},
-    "min": ${values.minOrNull() ?: 0f},
-    "max": ${values.maxOrNull() ?: 0f},
+    "sum": ${values.sum().fixtureNumber()},
+    "min": ${(values.minOrNull() ?: 0f).fixtureNumber()},
+    "max": ${(values.maxOrNull() ?: 0f).fixtureNumber()},
     "probes": [
-${depthProbes(values).joinToString(",\n") { """      { "index": ${it.index}, "value": ${it.value} }""" }}
+${depthProbes(values).joinToString(",\n") { """      { "index": ${it.index}, "value": ${it.value.fixtureNumber()} }""" }}
     ]
   }
 }""".trimIndent()
@@ -296,7 +304,13 @@ ${steps.joinToString(",\n") { pipelineProcessStepJson(it, includeFeedback = fals
         )
         val steps = buildList {
             repeat(3) { add(PipelineFixtureStep("process", pipeline.process(filledGrid(0.30f)))) }
-            add(PipelineFixtureStep("failSafeStop", pipeline.failSafeStop("low_confidence"), reason = "low_confidence"))
+            add(
+                PipelineFixtureStep(
+                    "failSafeStop",
+                    pipeline.failSafeStop(CorridorContract.Reason.LOW_CONFIDENCE),
+                    reason = CorridorContract.Reason.LOW_CONFIDENCE,
+                ),
+            )
         }
 
         return """
@@ -308,9 +322,7 @@ ${steps.joinToString(",\n") { pipelineProcessStepJson(it, includeFeedback = fals
   "steps": [
 ${steps.joinToString(",\n") { pipelineStepJson(it, includeFeedback = true) }}
   ],
-  "expectedSpoken": [
-${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode": "${it.queueMode}", "utteranceId": "${it.utteranceId}" }""" }}
-  ]
+${expectedSpokenJson(spoken)}
 }""".trimIndent()
     }
 
@@ -335,7 +347,10 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
                 FeedbackDispatch(
                     state = CorridorStateMachine.CorridorState(
                         command = CorridorPlanner.CorridorCommand.STOP,
-                        sourceDecision = decision(CorridorPlanner.CorridorCommand.STRAIGHT, "path_found"),
+                        sourceDecision = decision(
+                            CorridorPlanner.CorridorCommand.STRAIGHT,
+                            CorridorContract.Reason.PATH_FOUND,
+                        ),
                         pendingCommand = CorridorPlanner.CorridorCommand.STRAIGHT,
                         pendingCount = 1,
                         changed = false,
@@ -352,7 +367,7 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
                     state = state(
                         command = CorridorPlanner.CorridorCommand.STOP,
                         sourceCommand = CorridorPlanner.CorridorCommand.STOP,
-                        reason = "near_obstacle",
+                        reason = CorridorContract.Reason.NEAR_OBSTACLE,
                         changed = false,
                     ),
                 ),
@@ -360,7 +375,7 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
                     state = state(
                         command = CorridorPlanner.CorridorCommand.STOP,
                         sourceCommand = CorridorPlanner.CorridorCommand.STOP,
-                        reason = "near_obstacle",
+                        reason = CorridorContract.Reason.NEAR_OBSTACLE,
                         changed = false,
                     ),
                 ),
@@ -405,9 +420,7 @@ ${dispatches.joinToString(",\n") { feedbackStateJson(it) }}
   "expectedEvents": [
 ${events.joinToString(",\n") { feedbackEventJson(it) }}
   ],
-  "expectedSpoken": [
-${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode": "${it.queueMode}", "utteranceId": "${it.utteranceId}" }""" }}
-  ]
+${expectedSpokenJson(spoken)}
 }""".trimIndent()
     }
 
@@ -463,7 +476,7 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
     private fun state(
         command: CorridorPlanner.CorridorCommand,
         sourceCommand: CorridorPlanner.CorridorCommand,
-        reason: String = "path_found",
+        reason: String = CorridorContract.Reason.PATH_FOUND,
         changed: Boolean,
     ): CorridorStateMachine.CorridorState =
         CorridorStateMachine.CorridorState(
@@ -481,11 +494,11 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
         CorridorPlanner.CorridorDecision(command = command, path = emptyList(), reason = reason)
 
     private fun carvedCorridor(colsFromBottom: List<Int>): FloatArray =
-        FloatArray(GRID_SIZE * GRID_SIZE) { 0.95f }.also { grid ->
+        FloatArray(CorridorContract.GRID_SIZE * CorridorContract.GRID_SIZE) { 0.95f }.also { grid ->
             colsFromBottom.forEachIndexed { offset, col ->
-                val row = GRID_SIZE - 1 - offset
+                val row = CorridorContract.GRID_SIZE - 1 - offset
                 for (safeCol in (col - 1)..(col + 1)) {
-                    if (safeCol in 0 until GRID_SIZE) {
+                    if (safeCol in 0 until CorridorContract.GRID_SIZE) {
                         grid[index(row, safeCol)] = 0.35f - offset * 0.02f
                     }
                 }
@@ -493,11 +506,34 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
         }
 
     private fun filledGrid(value: Float): CorridorPlanner.DepthGrid =
-        CorridorPlanner.DepthGrid.square15(FloatArray(GRID_SIZE * GRID_SIZE) { value })
+        CorridorPlanner.DepthGrid.square15(FloatArray(CorridorContract.GRID_SIZE * CorridorContract.GRID_SIZE) { value })
 
-    private fun index(row: Int, col: Int): Int = row * GRID_SIZE + col
+    private fun index(row: Int, col: Int): Int = row * CorridorContract.GRID_SIZE + col
 
     private fun List<Int>.toJsonArray(): String = joinToString(prefix = "[", postfix = "]")
+
+    private fun expectedSpokenJson(spoken: List<SpokenFeedback>): String =
+        buildString {
+            appendLine("""  "expectedSpoken": [""")
+            if (spoken.isNotEmpty()) {
+                appendLine(spokenJson(spoken))
+            }
+            append("""  ]""")
+        }
+
+    private fun spokenJson(spoken: List<SpokenFeedback>): String =
+        if (spoken.isEmpty()) {
+            ""
+        } else {
+            spoken.joinToString(",\n") {
+                """    { "message": "${it.message}", "queueMode": "${it.queueMode}", "utteranceId": "${it.utteranceId}" }"""
+            }
+        }
+
+    private fun Float.fixtureNumber(): String =
+        String.format(Locale.US, "%.6f", this)
+            .trimEnd('0')
+            .let { if (it.endsWith(".")) "${it}0" else it }
 
     private data class PipelineFixtureStep(
         val action: String,
@@ -520,6 +556,4 @@ ${spoken.joinToString(",\n") { """    { "message": "${it.message}", "queueMode":
         val index: Int,
         val value: Float,
     )
-
-    private const val GRID_SIZE = 15
 }

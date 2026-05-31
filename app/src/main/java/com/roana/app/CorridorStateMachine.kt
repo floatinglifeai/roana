@@ -4,7 +4,7 @@ import com.roana.app.CorridorPlanner.CorridorCommand
 import com.roana.app.CorridorPlanner.CorridorDecision
 
 class CorridorStateMachine(
-    private val confirmationsRequired: Int = DEFAULT_CONFIRMATIONS_REQUIRED,
+    private val confirmationsRequired: Int = CorridorContract.DEFAULT_CONFIRMATIONS_REQUIRED,
 ) {
     private var currentCommand = CorridorCommand.STOP
     private var pendingCommand: CorridorCommand? = null
@@ -60,7 +60,7 @@ class CorridorStateMachine(
         )
 
     private fun CorridorDecision.requiresEmergencyStop(): Boolean =
-        reason == REASON_FRAME_LOSS || reason == REASON_LOW_CONFIDENCE
+        CorridorContract.Reason.isEmergencyStop(reason)
 
     data class CorridorState(
         val command: CorridorCommand,
@@ -69,10 +69,4 @@ class CorridorStateMachine(
         val pendingCount: Int,
         val changed: Boolean,
     )
-
-    private companion object {
-        private const val DEFAULT_CONFIRMATIONS_REQUIRED = 3
-        private const val REASON_FRAME_LOSS = "frame_loss"
-        private const val REASON_LOW_CONFIDENCE = "low_confidence"
-    }
 }
