@@ -204,7 +204,7 @@ object CameraFrameConverter {
         private val yPlane: YuvPlane,
         private val uPlane: YuvPlane,
         private val vPlane: YuvPlane,
-    ) : DepthFramePreprocessor.RgbSampler {
+    ) : DepthFramePreprocessor.FastDepthInputSampler {
         init {
             require(sourceWidth > 0 && sourceHeight > 0) { "YUV frame dimensions must be positive" }
             require(rotationDegrees in SUPPORTED_ROTATIONS) {
@@ -255,7 +255,7 @@ object CameraFrameConverter {
             )
         }
 
-        fun fillDepthInputNearest(
+        override fun fillDepthInputNearest(
             targetWidth: Int,
             targetHeight: Int,
             output: ByteBuffer,

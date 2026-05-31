@@ -14,9 +14,9 @@ class DepthFramePreprocessor(
     }
 
     val inputByteCount: Int = targetWidth * targetHeight * RGB_CHANNELS * FLOAT_SIZE
-    private val yuvInputScratch = FloatArray(targetWidth * targetHeight * RGB_CHANNELS)
-    private val yuvSourceXs = IntArray(targetWidth)
-    private val yuvSourceYs = IntArray(targetHeight)
+    private val fastInputScratch = FloatArray(targetWidth * targetHeight * RGB_CHANNELS)
+    private val fastSourceXs = IntArray(targetWidth)
+    private val fastSourceYs = IntArray(targetHeight)
 
     fun newInputBuffer(): ByteBuffer =
         ByteBuffer.allocateDirect(inputByteCount).order(ByteOrder.nativeOrder())
@@ -28,14 +28,14 @@ class DepthFramePreprocessor(
         fillInputBuffer(frame.asSampler(), output)
 
     fun fillInputBuffer(sampler: RgbSampler, output: ByteBuffer): ByteBuffer {
-        if (sampler is CameraFrameConverter.YuvFrame) {
+        if (sampler is FastDepthInputSampler) {
             return sampler.fillDepthInputNearest(
                 targetWidth = targetWidth,
                 targetHeight = targetHeight,
                 output = output,
-                scratch = yuvInputScratch,
-                sourceXs = yuvSourceXs,
-                sourceYs = yuvSourceYs,
+                scratch = fastInputScratch,
+                sourceXs = fastSourceXs,
+                sourceYs = fastSourceYs,
             )
         }
 
@@ -158,6 +158,17 @@ class DepthFramePreprocessor(
         val height: Int
 
         fun rgbAt(x: Int, y: Int): RgbFloat
+    }
+
+    interface FastDepthInputSampler : RgbSampler {
+        fun fillDepthInputNearest(
+            targetWidth: Int,
+            targetHeight: Int,
+            output: ByteBuffer,
+            scratch: FloatArray,
+            sourceXs: IntArray,
+            sourceYs: IntArray,
+        ): ByteBuffer
     }
 
     companion object {
