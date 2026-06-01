@@ -40,12 +40,12 @@ enum DepthAnythingOutputAdapter {
             }
         }
 
-        let range = maximum - minimum
-        let gridValues = sums.indices.map { index -> Float in
-            let average = Float(sums[index] / Double(counts[index]))
-            return range > 0 ? (average - minimum) / range : 0
-        }
-        return DepthGrid.square15(gridValues)
+        return normalizedPlannerGrid(
+            minimum: minimum,
+            maximum: maximum,
+            sums: sums,
+            counts: counts,
+        )
     }
 
     static func plannerGrid(from multiArray: MLMultiArray) throws -> DepthGrid {
@@ -75,14 +75,33 @@ enum DepthAnythingOutputAdapter {
             throw DepthAdapterError.missingPixelBufferBaseAddress
         }
 
-        let values = try extractDepthValues(
-            from: baseAddress,
-            rows: rows,
-            cols: cols,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
-            pixelFormat: CVPixelBufferGetPixelFormatType(pixelBuffer),
-        )
-        return plannerGrid(values: values, rows: rows, cols: cols)
+        if rows < CorridorConstants.gridSize || cols < CorridorConstants.gridSize {
+            let values = try extractDepthValues(
+                from: baseAddress,
+                rows: rows,
+                cols: cols,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+                pixelFormat: CVPixelBufferGetPixelFormatType(pixelBuffer),
+            )
+            return plannerGrid(values: values, rows: rows, cols: cols)
+        }
+
+        switch CVPixelBufferGetPixelFormatType(pixelBuffer) {
+        case kCVPixelFormatType_OneComponent16Half,
+             kCVPixelFormatType_DepthFloat16,
+             kCVPixelFormatType_DisparityFloat16:
+            return plannerGridFromFloat16PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer))
+        case kCVPixelFormatType_OneComponent32Float,
+             kCVPixelFormatType_DepthFloat32,
+             kCVPixelFormatType_DisparityFloat32:
+            return plannerGridFromFloat32PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer))
+        case kCVPixelFormatType_OneComponent8:
+            return plannerGridFromUInt8PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer))
+        case kCVPixelFormatType_OneComponent16:
+            return plannerGridFromUInt16PixelValues(from: baseAddress, rows: rows, cols: cols, bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer))
+        default:
+            throw DepthAdapterError.unsupportedPixelBuffer(width: cols, height: rows, pixelFormat: CVPixelBufferGetPixelFormatType(pixelBuffer))
+        }
     }
 
     private static func parseDepthShape(_ shape: [Int]) throws -> ParsedDepthShape {
@@ -145,6 +164,157 @@ enum DepthAnythingOutputAdapter {
         default:
             throw DepthAdapterError.unsupportedPixelBuffer(width: cols, height: rows, pixelFormat: pixelFormat)
         }
+    }
+
+    private static func plannerGridFromFloat16PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> DepthGrid {
+        var minimum = Float.greatestFiniteMagnitude
+        var maximum = -Float.greatestFiniteMagnitude
+        var sums = Array<Double>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+        var counts = Array<Int>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: UInt16.self)
+            let gridRow = row * CorridorConstants.gridSize / rows
+            for col in 0..<cols {
+                let value = Float(Float16(bitPattern: rowPointer[col]))
+                minimum = min(minimum, value)
+                maximum = max(maximum, value)
+                let gridCol = col * CorridorConstants.gridSize / cols
+                let gridIndex = gridRow * CorridorConstants.gridSize + gridCol
+                sums[gridIndex] += Double(value)
+                counts[gridIndex] += 1
+            }
+        }
+
+        return normalizedPlannerGrid(
+            minimum: minimum,
+            maximum: maximum,
+            sums: sums,
+            counts: counts,
+        )
+    }
+
+    private static func plannerGridFromFloat32PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> DepthGrid {
+        var minimum = Float.greatestFiniteMagnitude
+        var maximum = -Float.greatestFiniteMagnitude
+        var sums = Array<Double>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+        var counts = Array<Int>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: Float.self)
+            let gridRow = row * CorridorConstants.gridSize / rows
+            for col in 0..<cols {
+                let value = rowPointer[col]
+                minimum = min(minimum, value)
+                maximum = max(maximum, value)
+                let gridCol = col * CorridorConstants.gridSize / cols
+                let gridIndex = gridRow * CorridorConstants.gridSize + gridCol
+                sums[gridIndex] += Double(value)
+                counts[gridIndex] += 1
+            }
+        }
+
+        return normalizedPlannerGrid(
+            minimum: minimum,
+            maximum: maximum,
+            sums: sums,
+            counts: counts,
+        )
+    }
+
+    private static func plannerGridFromUInt8PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> DepthGrid {
+        var minimum = Float.greatestFiniteMagnitude
+        var maximum = -Float.greatestFiniteMagnitude
+        var sums = Array<Double>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+        var counts = Array<Int>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: UInt8.self)
+            let gridRow = row * CorridorConstants.gridSize / rows
+            for col in 0..<cols {
+                let value = Float(rowPointer[col])
+                minimum = min(minimum, value)
+                maximum = max(maximum, value)
+                let gridCol = col * CorridorConstants.gridSize / cols
+                let gridIndex = gridRow * CorridorConstants.gridSize + gridCol
+                sums[gridIndex] += Double(value)
+                counts[gridIndex] += 1
+            }
+        }
+
+        return normalizedPlannerGrid(
+            minimum: minimum,
+            maximum: maximum,
+            sums: sums,
+            counts: counts,
+        )
+    }
+
+    private static func plannerGridFromUInt16PixelValues(
+        from baseAddress: UnsafeMutableRawPointer,
+        rows: Int,
+        cols: Int,
+        bytesPerRow: Int,
+    ) -> DepthGrid {
+        var minimum = Float.greatestFiniteMagnitude
+        var maximum = -Float.greatestFiniteMagnitude
+        var sums = Array<Double>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+        var counts = Array<Int>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+
+        for row in 0..<rows {
+            let rowPointer = baseAddress.advanced(by: row * bytesPerRow).assumingMemoryBound(to: UInt16.self)
+            let gridRow = row * CorridorConstants.gridSize / rows
+            for col in 0..<cols {
+                let value = Float(rowPointer[col])
+                minimum = min(minimum, value)
+                maximum = max(maximum, value)
+                let gridCol = col * CorridorConstants.gridSize / cols
+                let gridIndex = gridRow * CorridorConstants.gridSize + gridCol
+                sums[gridIndex] += Double(value)
+                counts[gridIndex] += 1
+            }
+        }
+
+        return normalizedPlannerGrid(
+            minimum: minimum,
+            maximum: maximum,
+            sums: sums,
+            counts: counts,
+        )
+    }
+
+    private static func normalizedPlannerGrid(
+        minimum: Float,
+        maximum: Float,
+        sums: [Double],
+        counts: [Int],
+    ) -> DepthGrid {
+        let range = maximum - minimum
+        var gridValues = Array<Float>(repeating: 0, count: CorridorConstants.gridSize * CorridorConstants.gridSize)
+        for index in sums.indices {
+            let count = counts[index]
+            guard count > 0 else {
+                continue
+            }
+            let average = Float(sums[index] / Double(count))
+            gridValues[index] = range > 0 ? (average - minimum) / range : 0
+        }
+        return DepthGrid.square15(gridValues)
     }
 
     private static func extractFloat16PixelValues(
