@@ -265,6 +265,24 @@ def parse_log(log_path: Path) -> dict[str, object]:
         for value in [numeric_field(line_fields(line), "elapsed_ms")]
         if value is not None
     ]
+    depth_vision_request_elapsed = [
+        value
+        for line in depth_ok
+        for value in [numeric_field(line_fields(line), "vision_request_ms")]
+        if value is not None
+    ]
+    depth_grid_elapsed = [
+        value
+        for line in depth_ok
+        for value in [numeric_field(line_fields(line), "grid_ms")]
+        if value is not None
+    ]
+    depth_overhead_elapsed = [
+        value
+        for line in depth_ok
+        for value in [numeric_field(line_fields(line), "overhead_ms")]
+        if value is not None
+    ]
 
     max_thermal_state = "none"
     max_thermal_severity = -1
@@ -284,6 +302,11 @@ def parse_log(log_path: Path) -> dict[str, object]:
         "max_thermal_state": max_thermal_state,
         "avg_yolo_ms": rounded(mean(yolo_elapsed), 2) if yolo_elapsed else 0.0,
         "avg_depth_ms": rounded(mean(depth_elapsed), 2) if depth_elapsed else 0.0,
+        "avg_depth_vision_request_ms": rounded(mean(depth_vision_request_elapsed), 2)
+        if depth_vision_request_elapsed
+        else 0.0,
+        "avg_depth_grid_ms": rounded(mean(depth_grid_elapsed), 2) if depth_grid_elapsed else 0.0,
+        "avg_depth_overhead_ms": rounded(mean(depth_overhead_elapsed), 2) if depth_overhead_elapsed else 0.0,
         "yolo_description_count": len(yolo_descriptions),
         "depth_description_count": len(depth_descriptions),
         "yolo_description_resources": sorted(yolo_description_resources),
