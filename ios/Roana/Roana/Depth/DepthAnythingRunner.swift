@@ -28,6 +28,8 @@ final class DepthAnythingRunner {
     struct Result {
         let state: State
         let inferenceMilliseconds: Double
+        let visionRequestMilliseconds: Double
+        let outputGridMilliseconds: Double
         let grid: DepthGrid?
     }
 
@@ -66,22 +68,33 @@ final class DepthAnythingRunner {
             return Result(
                 state: state,
                 inferenceMilliseconds: elapsedMilliseconds(since: started),
+                visionRequestMilliseconds: 0,
+                outputGridMilliseconds: 0,
                 grid: nil,
             )
         }
 
         do {
             let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: orientation.cgImageOrientation)
+            let requestStarted = CFAbsoluteTimeGetCurrent()
             try handler.perform([request])
+            let visionRequestMilliseconds = elapsedMilliseconds(since: requestStarted)
+            let gridStarted = CFAbsoluteTimeGetCurrent()
             let grid = try plannerGrid(from: request.results)
+            let outputGridMilliseconds = elapsedMilliseconds(since: gridStarted)
             let inferenceMilliseconds = elapsedMilliseconds(since: started)
+            let overheadMilliseconds = max(0, inferenceMilliseconds - visionRequestMilliseconds - outputGridMilliseconds)
             print(
                 "roana_ios_depth status=ok elapsed_ms=\(format(inferenceMilliseconds)) " +
+                    "vision_request_ms=\(format(visionRequestMilliseconds)) " +
+                    "grid_ms=\(format(outputGridMilliseconds)) overhead_ms=\(format(overheadMilliseconds)) " +
                     "vision=\(orientation.visionOrientationName) grid_rows=\(grid.rows) grid_cols=\(grid.cols)",
             )
             return Result(
                 state: .ready,
                 inferenceMilliseconds: inferenceMilliseconds,
+                visionRequestMilliseconds: visionRequestMilliseconds,
+                outputGridMilliseconds: outputGridMilliseconds,
                 grid: grid,
             )
         } catch {
@@ -93,6 +106,8 @@ final class DepthAnythingRunner {
             return Result(
                 state: .failed(sanitizeDepthLogValue(error.localizedDescription)),
                 inferenceMilliseconds: inferenceMilliseconds,
+                visionRequestMilliseconds: 0,
+                outputGridMilliseconds: 0,
                 grid: nil,
             )
         }

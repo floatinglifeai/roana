@@ -9,6 +9,7 @@ Start here:
 - [Architecture](../../ARCHITECTURE.md)
 - [Main README](../../README.md)
 - [Script index](../../scripts/README.md)
+- [Android/iOS fixed video benchmark comparison](android-ios-video-benchmark-comparison.md)
 - [LiteRT Qualcomm follow-up](litert-qualcomm-follow-up.md)
 
 Agent/process logs and detailed implementation history live elsewhere:

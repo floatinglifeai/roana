@@ -88,7 +88,10 @@ def fake_log(
             "outputs=coordinates:multiarray_1x100x4_float32,confidence:multiarray_1x100x80_float32"
         )
     if include_depth:
-        lines.append("roana_ios_depth status=ok elapsed_ms=31.00 vision=right grid_rows=15 grid_cols=15")
+        lines.append(
+            "roana_ios_depth status=ok elapsed_ms=31.00 vision_request_ms=28.00 "
+            "grid_ms=2.00 overhead_ms=1.00 vision=right grid_rows=15 grid_cols=15"
+        )
     if include_depth_description:
         lines.append(
             "roana_ios_depth status=model_description resource=DepthAnythingV2Small "
@@ -223,6 +226,10 @@ class AnalyzeIosLogTest(unittest.TestCase):
         self.assertEqual(1, data["details"]["yolo_ok_count"])
         self.assertEqual(1, data["details"]["yolo_description_count"])
         self.assertEqual(1, data["details"]["depth_ok_count"])
+        self.assertEqual(31.0, data["details"]["avg_depth_ms"])
+        self.assertEqual(28.0, data["details"]["avg_depth_vision_request_ms"])
+        self.assertEqual(2.0, data["details"]["avg_depth_grid_ms"])
+        self.assertEqual(1.0, data["details"]["avg_depth_overhead_ms"])
         self.assertEqual(1, data["details"]["depth_description_count"])
         self.assertEqual(["YOLO11n"], data["details"]["yolo_description_resources"])
         self.assertEqual(["DepthAnythingV2Small"], data["details"]["depth_description_resources"])
