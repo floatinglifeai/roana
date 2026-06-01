@@ -13,6 +13,7 @@ to explain where the iOS depth time goes.
 | Android | Xiaomi `2211133C`, SM8550/kalama | TFLite + QNN HTP | `logs/android-video-replay-iphone_0530-20260531T161819Z.json` |
 | iOS | `iPhone18,4`, iOS `26.3.1 (a)` | Core ML + Vision, `computeUnits=.all` | `logs/ios-video-replay-iphone_0530-20260531T234355Z.json` |
 | iOS split probe | `iPhone18,4`, iOS `26.3.1 (a)` | Core ML + Vision, `computeUnits=.all` | `logs/ios-video-replay-iphone_0530-20260601T001005Z.json` |
+| iOS optimized split probe | `iPhone18,4`, iOS `26.3.1 (a)` | Core ML + Vision, `computeUnits=.all` | `logs/ios-video-replay-iphone_0530-20260601T001836Z.json` |
 
 ## Timing Summary
 
@@ -56,15 +57,18 @@ On future physical iPhone runs, `scripts/analyze-ios-log.py` exposes
 time with Android `depth_model_ms`, and iOS grid time with Android
 `depth_grid_ms`.
 
-A short `2 s` iPhone split probe already passed on the same video and showed:
+A short `2 s` iPhone split probe on the same video showed:
 
-| iOS split probe metric | Average |
-| --- | ---: |
-| Depth total | `61.20 ms` |
-| Vision/Core ML request | `25.17 ms` |
-| Output-to-grid conversion | `36.03 ms` |
-| Runner overhead | `0.00 ms` |
+| iOS split probe metric | Before direct pixel-buffer grid | After direct pixel-buffer grid |
+| --- | ---: | ---: |
+| Depth total | `61.20 ms` | `44.14 ms` |
+| Vision/Core ML request | `25.17 ms` | `25.22 ms` |
+| Output-to-grid conversion | `36.03 ms` | `18.92 ms` |
+| Runner overhead | `0.00 ms` | `0.00 ms` |
 
 That points to the iOS output adapter/grid conversion as the main depth-side
-hotspot, not Core ML model execution. Android spends about `7.77 ms` on the
-same output-grid phase, while iOS currently spends about `36 ms`.
+hotspot, not Core ML model execution. The first fix removes the full
+pixel-buffer-to-`[Float]` copy before grid reduction and roughly halves the
+measured grid conversion time in the debug benchmark. Android still spends less
+on this phase (`7.77 ms`), so there is room to continue optimizing the Swift
+post-processing path.
