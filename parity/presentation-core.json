@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "purpose": "Cross-platform presentation parity. corridor-core.json fixes the DECISION (grid -> command). This file fixes how that decision is DRAWN, so Android and iOS render identically.",
+  "grid": {
+    "size": 15,
+    "sizeSource": "CorridorContract.GRID_SIZE"
+  },
+  "depthThresholds": {
+    "safe": 0.72,
+    "near": 0.86,
+    "source": "CorridorContract.SAFE_CELL_DEPTH / NEAR_OBSTACLE_DEPTH",
+    "note": "Do not hardcode these in UI code; read from the shared corridor constants."
+  },
+  "depthRamp": {
+    "note": "Far -> near = cool -> warm. Linear interpolation between stops on the normalized depth value.",
+    "stops": [
+      { "v": 0.00, "hex": "#08183A" },
+      { "v": 0.35, "hex": "#0C5C78" },
+      { "v": 0.55, "hex": "#189678" },
+      { "v": 0.72, "hex": "#B4BE3C" },
+      { "v": 0.86, "hex": "#E68C28" },
+      { "v": 1.00, "hex": "#DC3232" }
+    ]
+  },
+  "commands": {
+    "STRAIGHT": { "glyph": "↑", "colorHex": "#62E08A", "caption": "Go straight", "pathTargetCol": 7 },
+    "LEFT":     { "glyph": "←", "colorHex": "#5CC8FF", "caption": "Turn left",   "pathTargetCol": 4 },
+    "RIGHT":    { "glyph": "→", "colorHex": "#C89BFF", "caption": "Turn right",  "pathTargetCol": 10 },
+    "STOP":     { "glyph": "■", "colorHex": "#FF5563", "caption": "Stop",        "pathTargetCol": 7 }
+  },
+  "detectionBox": {
+    "strokeHex": "#3AD6C0",
+    "dashed": true,
+    "labelFormat": "{label} {score2}",
+    "scoreStyle": "two-decimal-fraction"
+  },
+  "telemetry": {
+    "order": ["frames", "yoloMs", "depthMs", "gaps"],
+    "labels": { "frames": "FRM", "yoloMs": "YOLO ms", "depthMs": "DEPTH ms", "gaps": "GAPS" },
+    "msFormat": "integer"
+  },
+  "ambient": {
+    "purpose": "Default real-user surface. Blind / low-vision users rely on speech + haptics, not the screen.",
+    "backgroundHex": "#03050A",
+    "lowPower": true,
+    "showsCameraFrame": false,
+    "glyph": "command.glyph",
+    "glyphColor": "command.colorHex",
+    "caption": "command.caption",
+    "alivePulse": true,
+    "stopEdge": { "enabled": true, "colorHex": "#FF5563", "appliesTo": "STOP" }
+  },
+  "debugHud": {
+    "purpose": "For developers / testing / sighted helpers. Shows what the system sees.",
+    "backgroundHex": "#06080C",
+    "showsCameraFrameByDefault": false,
+    "cameraUnderlay": { "default": "off", "toggleable": true, "dimWhenOn": true },
+    "layers": ["depthHeatmap", "corridorPath", "detectionBox", "commandChip", "telemetryStrip"]
+  },
+  "gesture": {
+    "action": "toggle ambient <-> debugHud",
+    "type": "longPress",
+    "corner": "bottomRight",
+    "regionDp": 88,
+    "holdMs": 2000,
+    "availableInRelease": true,
+    "persisted": false,
+    "rationale": "Single double-tap collides with VoiceOver/TalkBack activate. Corner long-press is least likely to be triggered accidentally."
+  }
+}
