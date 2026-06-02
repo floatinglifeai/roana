@@ -18,7 +18,7 @@ struct CommandStyle {
 }
 
 enum RoanaPresentation {
-    static let grid = 15            // == CorridorContract.gridSize
+    static let grid = CorridorConstants.gridSize   // shared corridor constant, not a magic number
 
     static func style(_ command: RoanaCommand) -> CommandStyle {
         switch command {
@@ -102,5 +102,23 @@ struct PresentationFrame {
          ("YOLO ms", "\(Int(yoloMs))"),
          ("DEPTH ms", "\(Int(depthMs))"),
          ("GAPS", "\(gaps)")]
+    }
+
+    /// Synthetic frame for previews and the presentation parity test.
+    static var sample: PresentationFrame {
+        let g = RoanaPresentation.grid
+        var d = [Float](repeating: 0, count: g * g)
+        for r in 0 ..< g {
+            for c in 0 ..< g {
+                var v = 0.20 + Float(r) / Float(g) * 0.34
+                if abs(c - 9) < 2 { v = max(v, 0.60 + Float(r) / Float(g) * 0.35) } // obstacle right-of-center
+                d[r * g + c] = min(1, v)
+            }
+        }
+        return PresentationFrame(
+            command: .left, reason: "path_found", depth: d, depthCols: g,
+            detections: [DetectionBox(label: "person", score: 0.99,
+                                      centerX: 0.62, centerY: 0.55, width: 0.22, height: 0.50)],
+            frames: 1280, yoloMs: 22, depthMs: 13, gaps: 0)
     }
 }

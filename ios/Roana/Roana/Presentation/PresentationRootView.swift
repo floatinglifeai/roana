@@ -32,3 +32,7 @@ struct PresentationRootView: View {
         }
     }
 }
+
+#Preview("Presentation Root") {
+    PresentationRootView(frame: .sample)
+}

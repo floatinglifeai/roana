@@ -88,3 +88,7 @@ struct DebugHudView: View {
         switch c { case .straight: return "STRAIGHT"; case .left: return "LEFT"; case .right: return "RIGHT"; case .stop: return "STOP" }
     }
 }
+
+#Preview("Debug HUD") {
+    DebugHudView(frame: .sample).frame(width: 300, height: 560)
+}
