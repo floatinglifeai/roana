@@ -10,6 +10,7 @@ app/src/main/java/com/roana/app/RoanaHudView.kt        # debug HUD (custom View)
 app/src/main/java/com/roana/app/RoanaAmbientView.kt    # ambient (custom View)
 app/src/main/java/com/roana/app/RoanaPresentationView.kt # container + gesture
 ios/Roana/Roana/Presentation/PresentationContract.swift
+ios/Roana/Roana/Presentation/PresentationFrame+Live.swift   # adapter from live types
 ios/Roana/Roana/Presentation/DebugHudView.swift
 ios/Roana/Roana/Presentation/AmbientView.swift
 ios/Roana/Roana/Presentation/PresentationRootView.swift
@@ -76,28 +77,21 @@ constructor alongside the existing `onStats` / `onCorridorState`.)
 ```
 
 In `runInference`, after the corridor result is computed (where `grid`,
-`detections`, and the command are available), map and publish on the main actor:
+`detections`, and the state are available), build and publish on the main actor
+using the provided adapter (`PresentationFrame+Live.swift`):
 
 ```swift
-let f = PresentationFrame(
-    command: roanaCommand(corridorResult.state.command),
-    reason: corridorResult.state.sourceDecision.reason,
-    depth: grid.toFloatArray(),          // adapt to your DepthGrid accessor
-    depthCols: grid.cols,
-    detections: detections.map { DetectionBox(label: $0.label, score: $0.score,
-        centerX: $0.centerX, centerY: $0.centerY, width: $0.width, height: $0.height) },
+let f = PresentationFrame.from(
+    grid: grid,                       // CorridorPlanner.DepthGrid
+    detections: detections,           // [YoloObstacleDetector.Detection]
+    state: corridorResult.state,      // CorridorState
     frames: frameCount, yoloMs: yoloMs, depthMs: depthMs, gaps: gapCount)
 Task { @MainActor in self.presentation = f }
 ```
 
-Map your corridor enum to the presentation enum (keeps the render decoupled):
-
-```swift
-func roanaCommand(_ c: CorridorPlanner.CorridorCommand) -> RoanaCommand {
-    switch c { case .straight: return .straight; case .left: return .left
-               case .right: return .right; case .stop: return .stop }
-}
-```
+The adapter maps the real types verbatim (`DepthGrid.toFloatArray()` / `.cols`,
+`CorridorState.command` → `RoanaCommand`, `Detection.confidence` → score). No
+hand-mapping needed at the call site.
 
 **2. Render it.** Replace the body of `ContentView` (the camera-feed + diagnostics
 panel) with:
@@ -118,10 +112,29 @@ struct ContentView: View {
 The capture session keeps running for analysis even though `CameraPreviewView`
 is no longer shown — that is intended (no bright feed by default).
 
-## Parity test (recommended next)
+## Parity test (deferred to local — needs the toolchain)
 
-Add a `presentation` case type to the fixture harness both platforms already run
-(`CorridorParityFixtureGenerator.kt` / `RoanaTests/Parity/main.swift`): render the
-four commands plus a near-obstacle STOP and an all-safe STRAIGHT, and assert the
-structured descriptor (command → colour / glyph / caption / pathTargetCol /
-telemetry text) equals `presentation-core.json`. Compare descriptors, not pixels.
+Both fixture harnesses are already path-aware:
+
+- iOS `RoanaTests/Parity/main.swift` is a CommandLine executable that reads its
+  fixture relative to CWD (`arguments.dropFirst().first ?? "parity/corridor-core.json"`).
+  Add a `presentation-core.json` pass the same way.
+- Android tests run with the module dir (`app/`) as CWD (see
+  `PrivacyBoundaryTest.kt` reading `src/main/...`), so a test reaches the fixture
+  at `../parity/presentation-core.json`.
+
+The test should render the four commands plus a near-obstacle STOP and an
+all-safe STRAIGHT and assert the structured descriptor (command → colour / glyph
+/ caption / pathTargetCol / telemetry text) equals `presentation-core.json`.
+Compare descriptors, not pixels. Left for local because it can't be run / proven
+green here.
+
+## What is verified vs. not
+
+- ✅ Render modules + the iOS adapter are written against the **actual** repo
+  types (`DepthGrid`, `CorridorState`, `CorridorCommand`, `YoloObstacleDetector.Detection`,
+  `CorridorConstants`). SwiftUI views have `#Preview`s.
+- ⚠️ Not compiled against the Android/iOS toolchains yet — expect a small build
+  pass.
+- ⚠️ The two wiring edits above are **not applied** in this PR; apply them
+  locally so the build stays green before the compile pass.

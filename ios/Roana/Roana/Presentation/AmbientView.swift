@@ -42,3 +42,6 @@ struct AmbientView: View {
         .onAppear { pulse = true }
     }
 }
+
+#Preview("Ambient · STOP") { AmbientView(command: .stop) }
+#Preview("Ambient · STRAIGHT") { AmbientView(command: .straight) }
