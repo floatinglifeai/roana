@@ -3,6 +3,8 @@ package com.roana.app
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -25,6 +27,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
+    private lateinit var presentationView: RoanaPresentationView
     private lateinit var statusView: TextView
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var textToSpeech: TextToSpeech
@@ -40,7 +43,9 @@ class MainActivity : ComponentActivity() {
     private var debugDepthSmokeStarted = false
     private var debugQnnSmokeStarted = false
     private var debugSafeStopProofStarted = false
+    private var debugPresentationDemoStarted = false
     private var pendingCorridorFeedback: PendingCorridorFeedback? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private val corridorFeedbackDispatcher: FeedbackDispatcher by lazy {
         FeedbackDispatcher(
@@ -88,6 +93,7 @@ class MainActivity : ComponentActivity() {
         setupTextToSpeech()
         maybeRunDebugDepthSmoke()
         requestCameraPermissionOrStart()
+        maybeRunDebugPresentationDemo()
     }
 
     override fun onDestroy() {
@@ -101,6 +107,7 @@ class MainActivity : ComponentActivity() {
         }
         depthRunner?.close()
         super.onDestroy()
+        mainHandler.removeCallbacksAndMessages(null)
     }
 
     private fun setupUi() {
@@ -120,16 +127,28 @@ class MainActivity : ComponentActivity() {
             textSize = 14f
         }
 
+        presentationView = RoanaPresentationView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
+        }
+
         val statusLayoutParams = FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply {
             gravity = Gravity.BOTTOM
+            bottomMargin = (
+                RoanaPresentation.GESTURE_REGION_DP *
+                    resources.displayMetrics.density
+                ).toInt()
         }
 
         setContentView(
             FrameLayout(this).apply {
                 addView(previewView)
+                addView(presentationView)
                 addView(statusView, statusLayoutParams)
             },
         )
@@ -197,6 +216,9 @@ class MainActivity : ComponentActivity() {
                                 onDetection = { detection -> announceDetection(detection) },
                                 onCorridorState = { state ->
                                     dispatchCorridorFeedback(state, force = false)
+                                },
+                                onPresentation = { frame ->
+                                    runOnUiThread { presentationView.submit(frame) }
                                 },
                             ),
                         )
@@ -272,6 +294,35 @@ class MainActivity : ComponentActivity() {
             EvidenceLogContract.debugSafeStopProof(result),
         )
         dispatchCorridorFeedback(result.state, force = true)
+    }
+
+    private fun maybeRunDebugPresentationDemo() {
+        if (
+            !BuildConfig.DEBUG ||
+            !intent.getBooleanExtra(EXTRA_DEBUG_PRESENTATION_DEMO, false) ||
+            debugPresentationDemoStarted
+        ) {
+            return
+        }
+
+        debugPresentationDemoStarted = true
+        val commands = listOf(
+            CorridorPlanner.CorridorCommand.STRAIGHT,
+            CorridorPlanner.CorridorCommand.LEFT,
+            CorridorPlanner.CorridorCommand.RIGHT,
+            CorridorPlanner.CorridorCommand.STOP,
+        )
+        val frame = longArrayOf(0L)
+        val task = object : Runnable {
+            override fun run() {
+                val index = ((frame[0] / DEBUG_PRESENTATION_DEMO_INTERVAL_FRAMES) % commands.size).toInt()
+                presentationView.submit(PresentationFrame.debugDemo(commands[index], frame[0]))
+                frame[0] += DEBUG_PRESENTATION_DEMO_INTERVAL_FRAMES
+                mainHandler.postDelayed(this, DEBUG_PRESENTATION_DEMO_INTERVAL_MS)
+            }
+        }
+        Log.i(TAG, "debug_presentation_demo enabled=true")
+        mainHandler.post(task)
     }
 
     private fun announceDetection(detection: YoloObstacleDetector.YoloDetection) {
@@ -427,6 +478,7 @@ class MainActivity : ComponentActivity() {
         private val onStats: (FrameStats) -> Unit,
         private val onDetection: (YoloObstacleDetector.YoloDetection) -> Unit,
         private val onCorridorState: (CorridorStateMachine.CorridorState) -> Unit,
+        private val onPresentation: (PresentationFrame) -> Unit,
     ) : ImageAnalysis.Analyzer {
         private var frames = 0L
         private var gapCount = 0L
@@ -582,6 +634,17 @@ class MainActivity : ComponentActivity() {
                     ),
                 )
                 onCorridorState(corridorResult.state)
+                onPresentation(
+                    PresentationFrame.from(
+                        grid = depthResult.depthGrid,
+                        detections = listOfNotNull(lastResult.bestDetection),
+                        state = corridorResult.state,
+                        frames = frames,
+                        yoloMs = lastResult.inferenceMs,
+                        depthMs = depthResult.inferenceMs,
+                        gaps = gapCount,
+                    ),
+                )
             } catch (error: Exception) {
                 val stopResult = pipeline.failSafeStop(CorridorContract.Reason.LOW_CONFIDENCE)
                 lastCorridorCommand = stopResult.state.command
@@ -594,6 +657,15 @@ class MainActivity : ComponentActivity() {
                     error,
                 )
                 onCorridorState(stopResult.state)
+                onPresentation(
+                    PresentationFrame.failSafeStop(
+                        state = stopResult.state,
+                        frames = frames,
+                        yoloMs = lastResult.inferenceMs,
+                        depthMs = lastDepthInferenceMs,
+                        gaps = gapCount,
+                    ),
+                )
             }
         }
 
@@ -609,6 +681,15 @@ class MainActivity : ComponentActivity() {
                 EvidenceLogContract.corridorLiveSafeStop(reason = reason, state = stopResult.state),
             )
             onCorridorState(stopResult.state)
+            onPresentation(
+                PresentationFrame.failSafeStop(
+                    state = stopResult.state,
+                    frames = frames,
+                    yoloMs = lastResult.inferenceMs,
+                    depthMs = lastDepthInferenceMs,
+                    gaps = gapCount,
+                ),
+            )
         }
     }
 
@@ -647,10 +728,14 @@ class MainActivity : ComponentActivity() {
             "com.roana.app.extra.DEBUG_QNN_TIMING_ITERATIONS"
         private const val EXTRA_DEBUG_SAFE_STOP =
             "com.roana.app.extra.DEBUG_SAFE_STOP"
+        private const val EXTRA_DEBUG_PRESENTATION_DEMO =
+            "com.roana.app.extra.DEBUG_PRESENTATION_DEMO"
         private const val LOG_INTERVAL_MS = 1_000L
         private const val YOLO_FRAME_INTERVAL = 10L
         private const val FRAME_GAP_WARNING_MS = 150L
         private const val NS_PER_MS = 1_000_000L
+        private const val DEBUG_PRESENTATION_DEMO_INTERVAL_MS = 2_000L
+        private const val DEBUG_PRESENTATION_DEMO_INTERVAL_FRAMES = 60L
     }
 }
 

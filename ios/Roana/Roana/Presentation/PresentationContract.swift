@@ -121,4 +121,23 @@ struct PresentationFrame {
                                       centerX: 0.62, centerY: 0.55, width: 0.22, height: 0.50)],
             frames: 1280, yoloMs: 22, depthMs: 13, gaps: 0)
     }
+
+    static func failSafeStop(
+        state: CorridorState,
+        frames: Int,
+        yoloMs: Double,
+        depthMs: Double,
+        gaps: Int
+    ) -> PresentationFrame {
+        PresentationFrame(
+            command: .stop,
+            reason: state.sourceDecision.reason,
+            depth: Array(repeating: CorridorConstants.nearObstacleDepth, count: RoanaPresentation.grid * RoanaPresentation.grid),
+            depthCols: RoanaPresentation.grid,
+            detections: [],
+            frames: frames,
+            yoloMs: yoloMs,
+            depthMs: depthMs,
+            gaps: gaps)
+    }
 }

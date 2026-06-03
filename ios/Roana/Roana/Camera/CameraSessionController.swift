@@ -14,6 +14,7 @@ final class CameraSessionController: NSObject, ObservableObject {
     @Published private(set) var statusText = "Preparing camera"
     @Published private(set) var latestFrameSummary = "waiting"
     @Published private(set) var deviceDiagnostics = DeviceDiagnostics.current()
+    @Published private(set) var presentation = PresentationFrame()
 
     private let sessionQueue = DispatchQueue(label: "app.roana.ios.camera.session")
     private let captureQueue = DispatchQueue(label: "app.roana.ios.camera.frames")
@@ -319,13 +320,25 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
             let depthResult = depthRunner.infer(sampleBuffer: sampleBuffer, orientation: orientation)
             if let grid = depthResult.grid {
                 corridorOwnsSpeech = true
-                _ = corridorPipeline.process(
+                let corridorResult = corridorPipeline.process(
                     grid: grid,
                     detections: detections.map(\.corridorDetection),
                 )
+                publishPresentation(
+                    grid: grid,
+                    detections: detections,
+                    state: corridorResult.state,
+                    yoloMs: detectionResult.inferenceMilliseconds,
+                    depthMs: depthResult.inferenceMilliseconds,
+                )
             } else if depthResult.state != .modelMissing {
                 corridorOwnsSpeech = true
-                _ = corridorPipeline.failSafeStop(reason: "low_confidence")
+                let corridorResult = corridorPipeline.failSafeStop(reason: "low_confidence")
+                publishFailSafePresentation(
+                    state: corridorResult.state,
+                    yoloMs: detectionResult.inferenceMilliseconds,
+                    depthMs: depthResult.inferenceMilliseconds,
+                )
             }
         }
 
@@ -345,7 +358,55 @@ extension CameraSessionController: AVCaptureVideoDataOutputSampleBufferDelegate 
 
         print("roana_ios_safety event=fail_safe_stop reason=\(sanitize(reason))")
         captureQueue.async { [weak self] in
-            _ = self?.corridorPipeline.failSafeStop(reason: reason)
+            guard let self else {
+                return
+            }
+            let result = self.corridorPipeline.failSafeStop(reason: reason)
+            self.publishFailSafePresentation(
+                state: result.state,
+                yoloMs: 0,
+                depthMs: 0,
+            )
+        }
+    }
+
+    private func publishPresentation(
+        grid: DepthGrid,
+        detections: [YoloObstacleDetector.Detection],
+        state: CorridorState,
+        yoloMs: Double,
+        depthMs: Double,
+    ) {
+        let snapshot = inferenceCoordinator.snapshot()
+        let next = PresentationFrame.from(
+            grid: grid,
+            detections: detections,
+            state: state,
+            frames: snapshot.acceptedFrames,
+            yoloMs: yoloMs,
+            depthMs: depthMs,
+            gaps: snapshot.skippedFrames,
+        )
+        Task { @MainActor in
+            self.presentation = next
+        }
+    }
+
+    private func publishFailSafePresentation(
+        state: CorridorState,
+        yoloMs: Double,
+        depthMs: Double,
+    ) {
+        let snapshot = inferenceCoordinator.snapshot()
+        let next = PresentationFrame.failSafeStop(
+            state: state,
+            frames: snapshot.acceptedFrames,
+            yoloMs: yoloMs,
+            depthMs: depthMs,
+            gaps: snapshot.skippedFrames,
+        )
+        Task { @MainActor in
+            self.presentation = next
         }
     }
 

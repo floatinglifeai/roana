@@ -35,6 +35,11 @@
 		8F4C00432CAE000100000001 /* YoloSpeechFeedbackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00442CAE000100000001 /* YoloSpeechFeedbackPolicy.swift */; };
 		8F4C00452CAE000100000001 /* MotionQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00462CAE000100000001 /* MotionQuality.swift */; };
 		8F4C00492CAE000100000001 /* VideoReplayBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00482CAE000100000001 /* VideoReplayBenchmark.swift */; };
+		8F4C004B2CAE000100000001 /* AmbientView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C004C2CAE000100000001 /* AmbientView.swift */; };
+		8F4C004D2CAE000100000001 /* DebugHudView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C004E2CAE000100000001 /* DebugHudView.swift */; };
+		8F4C004F2CAE000100000001 /* PresentationContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00502CAE000100000001 /* PresentationContract.swift */; };
+		8F4C00512CAE000100000001 /* PresentationFrame+Live.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00522CAE000100000001 /* PresentationFrame+Live.swift */; };
+		8F4C00532CAE000100000001 /* PresentationRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4C00542CAE000100000001 /* PresentationRootView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +73,11 @@
 		8F4C00442CAE000100000001 /* YoloSpeechFeedbackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoloSpeechFeedbackPolicy.swift; sourceTree = "<group>"; };
 		8F4C00462CAE000100000001 /* MotionQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionQuality.swift; sourceTree = "<group>"; };
 		8F4C00482CAE000100000001 /* VideoReplayBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoReplayBenchmark.swift; sourceTree = "<group>"; };
+		8F4C004C2CAE000100000001 /* AmbientView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientView.swift; sourceTree = "<group>"; };
+		8F4C004E2CAE000100000001 /* DebugHudView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugHudView.swift; sourceTree = "<group>"; };
+		8F4C00502CAE000100000001 /* PresentationContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentationContract.swift; sourceTree = "<group>"; };
+		8F4C00522CAE000100000001 /* PresentationFrame+Live.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PresentationFrame+Live.swift"; sourceTree = "<group>"; };
+		8F4C00542CAE000100000001 /* PresentationRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentationRootView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +119,7 @@
 				8F4C00382CAE000100000001 /* ModelAssets */,
 				8F4C00232CAE000100000001 /* Models */,
 				8F4C00472CAE000100000001 /* Motion */,
+				8F4C004A2CAE000100000001 /* Presentation */,
 				8F4C00242CAE000100000001 /* Speech */,
 				8F4C00102CAE000100000001 /* Assets.xcassets */,
 				8F4C00112CAE000100000001 /* Info.plist */,
@@ -176,6 +187,18 @@
 				8F4C00462CAE000100000001 /* MotionQuality.swift */,
 			);
 			path = Motion;
+			sourceTree = "<group>";
+		};
+		8F4C004A2CAE000100000001 /* Presentation */ = {
+			isa = PBXGroup;
+			children = (
+				8F4C004C2CAE000100000001 /* AmbientView.swift */,
+				8F4C004E2CAE000100000001 /* DebugHudView.swift */,
+				8F4C00502CAE000100000001 /* PresentationContract.swift */,
+				8F4C00522CAE000100000001 /* PresentationFrame+Live.swift */,
+				8F4C00542CAE000100000001 /* PresentationRootView.swift */,
+			);
+			path = Presentation;
 			sourceTree = "<group>";
 		};
 		8F4C00242CAE000100000001 /* Speech */ = {
@@ -274,6 +297,11 @@
 				8F4C00412CAE000100000001 /* ModelInferenceMode.swift in Sources */,
 				8F4C00452CAE000100000001 /* MotionQuality.swift in Sources */,
 				8F4C00492CAE000100000001 /* VideoReplayBenchmark.swift in Sources */,
+				8F4C004B2CAE000100000001 /* AmbientView.swift in Sources */,
+				8F4C004D2CAE000100000001 /* DebugHudView.swift in Sources */,
+				8F4C004F2CAE000100000001 /* PresentationContract.swift in Sources */,
+				8F4C00512CAE000100000001 /* PresentationFrame+Live.swift in Sources */,
+				8F4C00532CAE000100000001 /* PresentationRootView.swift in Sources */,
 				8F4C001F2CAE000100000001 /* YoloObstacleDetector.swift in Sources */,
 				8F4C00402CAE000100000001 /* SpeechAudioSession.swift in Sources */,
 				8F4C00212CAE000100000001 /* SpeechFeedbackDispatcher.swift in Sources */,

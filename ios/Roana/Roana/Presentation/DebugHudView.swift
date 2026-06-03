@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 The Roana Authors.
 
+import Foundation
 import SwiftUI
 
 /// Developer / testing surface. Mirrors Android's RoanaHudView. Camera frame is
@@ -69,10 +70,12 @@ struct DebugHudView: View {
 
             // telemetry strip
             HStack(spacing: 1) {
-                ForEach(frame.telemetry, id: \.0) { k, v in
+                let telemetry = frame.telemetry
+                ForEach(telemetry.indices, id: \.self) { index in
+                    let item = telemetry[index]
                     VStack(spacing: 1) {
-                        Text(k).font(.system(size: 7.5, design: .monospaced)).foregroundStyle(.secondary)
-                        Text(v).font(.system(size: 13, weight: .medium, design: .monospaced))
+                        Text(item.0).font(.system(size: 7.5, design: .monospaced)).foregroundStyle(.secondary)
+                        Text(item.1).font(.system(size: 13, weight: .medium, design: .monospaced))
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 6)
                     .background(RoanaPresentation.hudBackground)
