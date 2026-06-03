@@ -68,4 +68,12 @@ class PresentationContractTest {
             frame.telemetry().map { it.first },
         )
     }
+
+    @Test
+    fun debugDemoFramesAreMarkedSynthetic() {
+        val frame = PresentationFrame.debugDemo(CorridorCommand.LEFT, frame = 60)
+
+        assertEquals(PresentationFrame.Source.DEMO, frame.source)
+        assertTrue(frame.detections.isNotEmpty())
+    }
 }

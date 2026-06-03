@@ -98,7 +98,13 @@ data class PresentationFrame(
     val yoloMs: Double,
     val depthMs: Double,
     val gaps: Long,
+    val source: Source = Source.LIVE,
 ) {
+    enum class Source {
+        LIVE,
+        DEMO,
+    }
+
     fun depthAt(row: Int, col: Int): Float = depth[row * depthCols + col]
 
     fun telemetry(): List<Pair<String, String>> = listOf(
@@ -188,6 +194,7 @@ data class PresentationFrame(
                 yoloMs = 21.0,
                 depthMs = 14.0,
                 gaps = 0,
+                source = Source.DEMO,
             )
         }
     }

@@ -10,6 +10,7 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -79,6 +80,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         cameraExecutor = Executors.newSingleThreadExecutor()
         setupUi()
         obstacleDetector = YoloObstacleDetector(
@@ -132,6 +134,13 @@ class MainActivity : ComponentActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
+            onModeChanged = { mode ->
+                statusView.visibility = if (mode == RoanaPresentationView.Mode.DEBUG) {
+                    android.view.View.GONE
+                } else {
+                    android.view.View.VISIBLE
+                }
+            }
         }
 
         val statusLayoutParams = FrameLayout.LayoutParams(
