@@ -54,6 +54,11 @@ command.
 - `run-ios-replay-bundle.py` - run replay, verification, and labeling together.
 - `analyze-ios-log.py` - parse iOS physical/replay log evidence.
 
+## Assets
+
+- `generate-app-icons.py` - regenerate Android and iOS app icons from the shared
+  Roana app-icon source.
+
 ## Shared / Parity
 
 - `generate-corridor-parity-fixtures.py` - helper for cross-platform corridor
