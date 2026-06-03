@@ -7,6 +7,7 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -84,6 +85,65 @@ def install_command(*, device: str, app_path: Path) -> list[str]:
         device,
         str(app_path),
     ]
+
+
+def materialize_app_model_asset_symlinks(app: Path) -> list[str]:
+    materialized: list[str] = []
+    assets = app / "ModelAssets"
+    if not assets.is_dir():
+        return materialized
+    for path in sorted(assets.iterdir()):
+        if not path.is_symlink():
+            continue
+        target = path.resolve(strict=True)
+        temporary_path = path.with_name(f".{path.name}.materialized")
+        if temporary_path.exists() or temporary_path.is_symlink():
+            if temporary_path.is_dir() and not temporary_path.is_symlink():
+                shutil.rmtree(temporary_path)
+            else:
+                temporary_path.unlink()
+        shutil.copytree(target, temporary_path, symlinks=False)
+        path.unlink()
+        temporary_path.rename(path)
+        materialized.append(path.name)
+    return materialized
+
+
+def signing_identity_for_app(app: Path) -> str:
+    status, output = run(["codesign", "-dvv", str(app)])
+    if status != 0:
+        return ""
+    for line in output.splitlines():
+        if line.startswith("Authority=Apple Development:"):
+            return line.removeprefix("Authority=").strip()
+    return ""
+
+
+def app_entitlements_path(*, derived_data_path: Path) -> Path:
+    return (
+        derived_data_path /
+        "Build/Intermediates.noindex/Roana.build/Debug-iphoneos/Roana.build/Roana.app.xcent"
+    )
+
+
+def resign_app(app: Path, *, derived_data_path: Path) -> tuple[int, str]:
+    identity = signing_identity_for_app(app)
+    if not identity:
+        return 1, "Could not infer app signing identity."
+    entitlements = app_entitlements_path(derived_data_path=derived_data_path)
+    if not entitlements.is_file():
+        return 1, f"Missing entitlements file: {entitlements}"
+    return run(
+        [
+            "codesign",
+            "--force",
+            "--sign",
+            identity,
+            "--entitlements",
+            str(entitlements),
+            str(app),
+        ],
+    )
 
 
 def capture_command(*, device: str, log_dir: Path, capture_seconds: float) -> list[str]:
@@ -192,7 +252,7 @@ def main() -> int:
             details={"commands": commands},
         )
 
-    for command in commands:
+    for index, command in enumerate(commands):
         status, output = run(command)
         if status != 0:
             return json_result(
@@ -201,6 +261,25 @@ def main() -> int:
                 message="iOS V0b physical command failed.",
                 details={"command": command, "output": output},
             )
+        if index == 0:
+            materialized_assets = materialize_app_model_asset_symlinks(
+                app_path(derived_data_path=args.derived_data_path),
+            )
+            if materialized_assets:
+                resign_status, resign_output = resign_app(
+                    app_path(derived_data_path=args.derived_data_path),
+                    derived_data_path=args.derived_data_path,
+                )
+                if resign_status != 0:
+                    return json_result(
+                        status="failed",
+                        missing=["codesign_failed"],
+                        message="iOS V0b physical app re-sign failed after materializing model assets.",
+                        details={
+                            "output": resign_output,
+                            "materializedModelAssets": materialized_assets,
+                        },
+                    )
 
     return json_result(
         status="passed",

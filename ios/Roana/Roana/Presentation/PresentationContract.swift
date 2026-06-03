@@ -31,6 +31,7 @@ enum RoanaPresentation {
 
     static let detectionStroke = hex(0x3AD6C0)
     static let hudBackground = hex(0x06080C)
+    static let hudCameraScrim = Color(.sRGB, red: 0.02, green: 0.03, blue: 0.05, opacity: 0.67)
     static let ambientBackground = hex(0x03050A)
     static let stopEdge = hex(0xFF5563)
 

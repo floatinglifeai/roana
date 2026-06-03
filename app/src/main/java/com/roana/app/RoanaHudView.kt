@@ -109,14 +109,18 @@ class RoanaHudView @JvmOverloads constructor(
 
         val w = width.toFloat()
         val teleH = if (settings.showTelemetry) dp(40f) else 0f
-        val topH = dp(84f)
+        val topH = dp(40f)
+        val railW = dp(72f)
+        val gridLeft = railW
+        val gridW = (w - gridLeft).coerceAtLeast(1f)
         val gridTop = topH
         val gridBottom = height - teleH
         val gridH = gridBottom - gridTop
         val grid = RoanaPresentation.GRID
-        val cw = w / grid
+        val cw = gridW / grid
         val ch = gridH / grid
         val gap = dp(1.2f)
+        drawLayerControls(canvas, railW)
 
         // 1) depth heatmap
         if (settings.showDepth) {
@@ -124,7 +128,7 @@ class RoanaHudView @JvmOverloads constructor(
                 for (c in 0 until grid) {
                     cellPaint.color = RoanaPresentation.depthColor(f.depthAt(r, c))
                     cellPaint.alpha = if (settings.showCameraUnderlay) 145 else 255
-                    val x = c * cw
+                    val x = gridLeft + c * cw
                     val y = gridTop + r * ch
                     canvas.drawRect(x + gap / 2, y + gap / 2, x + cw - gap / 2, y + ch - gap / 2, cellPaint)
                 }
@@ -133,10 +137,10 @@ class RoanaHudView @JvmOverloads constructor(
         } else if (!settings.showCameraUnderlay) {
             for (r in 0..grid) {
                 val y = gridTop + r * ch
-                canvas.drawLine(0f, y, w, y, gridLinePaint)
+                canvas.drawLine(gridLeft, y, w, y, gridLinePaint)
             }
             for (c in 0..grid) {
-                val x = c * cw
+                val x = gridLeft + c * cw
                 canvas.drawLine(x, gridTop, x, gridBottom, gridLinePaint)
             }
         }
@@ -147,10 +151,10 @@ class RoanaHudView @JvmOverloads constructor(
         if (settings.showPath) {
             pathPaint.color = style.color
             pathPaint.strokeWidth = dp(3.2f)
-            val targetX = (style.pathTargetCol + 0.5f) * cw
+            val targetX = gridLeft + (style.pathTargetCol + 0.5f) * cw
             val path = Path().apply {
-                moveTo(w / 2f, gridBottom)
-                quadTo(w / 2f, gridTop + gridH * 0.62f, targetX, gridTop + gridH * 0.30f)
+                moveTo(gridLeft + gridW / 2f, gridBottom)
+                quadTo(gridLeft + gridW / 2f, gridTop + gridH * 0.62f, targetX, gridTop + gridH * 0.30f)
             }
             canvas.drawPath(path, pathPaint)
         }
@@ -159,9 +163,9 @@ class RoanaHudView @JvmOverloads constructor(
         textPaint.textSize = dp(11f)
         if (settings.showDetections) {
             for (d in f.detections) {
-                val bw = d.width * w
+                val bw = d.width * gridW
                 val bh = d.height * gridH
-                val bx = d.centerX * w - bw / 2
+                val bx = gridLeft + d.centerX * gridW - bw / 2
                 val by = gridTop + d.centerY * gridH - bh / 2
                 canvas.drawRect(bx, by, bx + bw, by + bh, boxPaint)
                 val label = "${d.label} ${"%.2f".format(d.score)}"
@@ -179,22 +183,22 @@ class RoanaHudView @JvmOverloads constructor(
         textPaint.textSize = dp(14f)
         val chipLabel = "${style.glyph} ${f.command.name}"
         val chipW = textPaint.measureText(chipLabel) + dp(18f)
-        canvas.drawRoundRect(dp(8f), dp(6f), dp(8f) + chipW, dp(28f), dp(6f), dp(6f), chipPaint)
+        val chipX = gridLeft + dp(8f)
+        canvas.drawRoundRect(chipX, dp(6f), chipX + chipW, dp(28f), dp(6f), dp(6f), chipPaint)
         textPaint.color = Color.parseColor("#04150F")
-        canvas.drawText(chipLabel, dp(17f), dp(22f), textPaint)
+        canvas.drawText(chipLabel, chipX + dp(9f), dp(22f), textPaint)
         textPaint.color = Color.WHITE
         if (f.source == PresentationFrame.Source.DEMO) {
-            drawDemoChip(canvas, dp(14f) + chipW, dp(6f))
+            drawDemoChip(canvas, chipX + chipW + dp(6f), dp(6f))
         }
-        drawLayerControls(canvas)
 
         // 5) telemetry strip
         if (settings.showTelemetry) {
             val tele = f.telemetry()
-            val colW = w / tele.size
+            val colW = gridW / tele.size
             textPaint.textAlign = Paint.Align.CENTER
             tele.forEachIndexed { i, (k, v) ->
-                val cx = colW * i + colW / 2
+                val cx = gridLeft + colW * i + colW / 2
                 dimPaint.textSize = dp(7.5f)
                 dimPaint.textAlign = Paint.Align.CENTER
                 canvas.drawText(k, cx, gridBottom + dp(15f), dimPaint)
@@ -205,7 +209,7 @@ class RoanaHudView @JvmOverloads constructor(
         }
     }
 
-    private fun drawLayerControls(canvas: Canvas) {
+    private fun drawLayerControls(canvas: Canvas, railW: Float) {
         controlBounds.clear()
         val controls = listOf(
             RoanaHudControl("CAM", Layer.CAMERA),
@@ -214,22 +218,26 @@ class RoanaHudView @JvmOverloads constructor(
             RoanaHudControl("BOX", Layer.DETECTIONS),
             RoanaHudControl("TEL", Layer.TELEMETRY),
         )
-        var x = dp(8f)
-        val y = dp(38f)
-        textPaint.textAlign = Paint.Align.LEFT
+        chipPaint.color = Color.parseColor("#090D12")
+        canvas.drawRect(0f, 0f, railW, height.toFloat(), chipPaint)
+        val x = dp(8f)
+        var y = dp(56f)
+        val chipW = railW - dp(16f)
+        val chipH = dp(30f)
+        textPaint.textAlign = Paint.Align.CENTER
         textPaint.textSize = dp(10.5f)
         for (control in controls) {
-            val chipW = textPaint.measureText(control.label) + dp(18f)
-            val visualRect = RectF(x, y + dp(5f), x + chipW, y + dp(35f))
-            hitScratch.set(x - dp(3f), y - dp(4f), x + chipW + dp(3f), y + dp(44f))
+            val visualRect = RectF(x, y, x + chipW, y + chipH)
+            hitScratch.set(x - dp(4f), y - dp(4f), x + chipW + dp(4f), y + chipH + dp(4f))
             controlBounds[control.layer] = RectF(hitScratch)
             val enabled = settings.enabled(control.layer)
             chipPaint.color = if (enabled) Color.parseColor("#CFE7D2") else Color.parseColor("#27313B")
             canvas.drawRoundRect(visualRect, dp(7f), dp(7f), chipPaint)
             textPaint.color = if (enabled) Color.parseColor("#06140A") else Color.parseColor("#AAB3BD")
-            canvas.drawText(control.label, visualRect.left + dp(9f), visualRect.top + dp(19.5f), textPaint)
-            x = visualRect.right + dp(8f)
+            canvas.drawText(control.label, visualRect.centerX(), visualRect.top + dp(19.5f), textPaint)
+            y = visualRect.bottom + dp(8f)
         }
+        textPaint.textAlign = Paint.Align.LEFT
         textPaint.color = Color.WHITE
     }
 

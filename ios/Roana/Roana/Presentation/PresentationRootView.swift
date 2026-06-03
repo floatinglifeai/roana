@@ -8,12 +8,14 @@ import SwiftUI
 /// starts in ambient. Mirrors Android's RoanaPresentationView.
 struct PresentationRootView: View {
     let frame: PresentationFrame
+    @Binding var debugMode: Bool
+    @Binding var debugSettings: DebugHudSettings
     @State private var debug = false
 
     var body: some View {
         ZStack {
             if debug {
-                DebugHudView(frame: frame)
+                DebugHudView(frame: frame, settings: $debugSettings)
             } else {
                 AmbientView(command: frame.command)
             }
@@ -27,12 +29,33 @@ struct PresentationRootView: View {
                               y: geo.size.height - RoanaPresentation.gestureRegion / 2)
                     .onLongPressGesture(minimumDuration: RoanaPresentation.gestureHold) {
                         debug.toggle()
+                        debugMode = debug
                     }
             }
+        }
+        .onAppear {
+            debug = false
+            debugMode = false
+            debugSettings = DebugHudSettings()
+        }
+        .onChange(of: debugSettings.showCameraUnderlay) { _, _ in
+            guard !debug else {
+                return
+            }
+            debugSettings.showCameraUnderlay = false
         }
     }
 }
 
 #Preview("Presentation Root") {
-    PresentationRootView(frame: .sample)
+    PresentationRootPreview()
+}
+
+private struct PresentationRootPreview: View {
+    @State private var debugMode = false
+    @State private var settings = DebugHudSettings()
+
+    var body: some View {
+        PresentationRootView(frame: .sample, debugMode: $debugMode, debugSettings: $settings)
+    }
 }
