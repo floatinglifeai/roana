@@ -22,7 +22,12 @@ struct ContentView: View {
         ZStack(alignment: .bottomLeading) {
             CameraPreviewView(session: camera.session, onOrientationChange: camera.updateOrientation)
                 .ignoresSafeArea()
-                .overlay(permissionOverlay)
+                .opacity(0.001)
+
+            PresentationRootView(frame: camera.presentation)
+                .ignoresSafeArea()
+
+            permissionOverlay
 
             diagnosticsPanel
                 .padding(16)
@@ -65,6 +70,7 @@ struct ContentView: View {
         .minimumScaleFactor(0.75)
         .padding(12)
         .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.bottom, 42)
         .accessibilityElement(children: .combine)
     }
 

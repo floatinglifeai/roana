@@ -3,7 +3,6 @@
 
 package com.roana.app
 
-import android.graphics.Color
 import com.roana.app.CorridorPlanner.CorridorCommand
 
 /**
@@ -22,6 +21,7 @@ object RoanaPresentation {
 
     const val DETECTION_STROKE = 0xFF3AD6C0.toInt()
     const val HUD_BACKGROUND = 0xFF06080C.toInt()
+    const val HUD_CAMERA_SCRIM = 0xAA06080C.toInt()
     const val AMBIENT_BACKGROUND = 0xFF03050A.toInt()
     const val STOP_EDGE = 0xFFFF5563.toInt()
 
@@ -41,12 +41,12 @@ object RoanaPresentation {
 
     /** Far -> near = cool -> warm. Stops sit on the corridor thresholds. */
     private val rampStops = listOf(
-        0.00f to Color.rgb(8, 24, 58),
-        0.35f to Color.rgb(12, 92, 120),
-        0.55f to Color.rgb(24, 150, 120),
-        0.72f to Color.rgb(180, 190, 60),
-        0.86f to Color.rgb(230, 140, 40),
-        1.00f to Color.rgb(220, 50, 50),
+        0.00f to rgb(8, 24, 58),
+        0.35f to rgb(12, 92, 120),
+        0.55f to rgb(24, 150, 120),
+        0.72f to rgb(180, 190, 60),
+        0.86f to rgb(230, 140, 40),
+        1.00f to rgb(220, 50, 50),
     )
 
     fun depthColor(value: Float): Int {
@@ -56,10 +56,10 @@ object RoanaPresentation {
             val (b, cb) = rampStops[i + 1]
             if (v in a..b) {
                 val f = if (b == a) 0f else (v - a) / (b - a)
-                return Color.rgb(
-                    lerp(Color.red(ca), Color.red(cb), f),
-                    lerp(Color.green(ca), Color.green(cb), f),
-                    lerp(Color.blue(ca), Color.blue(cb), f),
+                return rgb(
+                    lerp(red(ca), red(cb), f),
+                    lerp(green(ca), green(cb), f),
+                    lerp(blue(ca), blue(cb), f),
                 )
             }
         }
@@ -67,6 +67,10 @@ object RoanaPresentation {
     }
 
     private fun lerp(a: Int, b: Int, f: Float): Int = (a + (b - a) * f).toInt()
+    private fun rgb(r: Int, g: Int, b: Int): Int = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+    private fun red(color: Int): Int = (color shr 16) and 0xFF
+    private fun green(color: Int): Int = (color shr 8) and 0xFF
+    private fun blue(color: Int): Int = color and 0xFF
 
     /** Gesture: bottom-right corner long-press. */
     const val GESTURE_REGION_DP = 88f
@@ -127,5 +131,64 @@ data class PresentationFrame(
             depthMs = depthMs,
             gaps = gaps,
         )
+
+        fun failSafeStop(
+            state: CorridorStateMachine.CorridorState,
+            frames: Long,
+            yoloMs: Double,
+            depthMs: Double,
+            gaps: Long,
+        ): PresentationFrame = PresentationFrame(
+            command = CorridorCommand.STOP,
+            reason = state.sourceDecision.reason,
+            depth = FloatArray(RoanaPresentation.GRID * RoanaPresentation.GRID) { RoanaPresentation.NEAR_DEPTH },
+            depthCols = RoanaPresentation.GRID,
+            detections = emptyList(),
+            frames = frames,
+            yoloMs = yoloMs,
+            depthMs = depthMs,
+            gaps = gaps,
+        )
+
+        fun debugDemo(command: CorridorCommand, frame: Long): PresentationFrame {
+            val values = FloatArray(RoanaPresentation.GRID * RoanaPresentation.GRID)
+            for (row in 0 until RoanaPresentation.GRID) {
+                for (col in 0 until RoanaPresentation.GRID) {
+                    var value = 0.18f + row.toFloat() / RoanaPresentation.GRID * 0.34f
+                    when (command) {
+                        CorridorCommand.LEFT -> if (col >= 8 && row >= 4) value = 0.78f
+                        CorridorCommand.RIGHT -> if (col <= 6 && row >= 4) value = 0.78f
+                        CorridorCommand.STOP -> if (row >= RoanaPresentation.GRID - 4 && col in 5..9) value = 0.92f
+                        CorridorCommand.STRAIGHT -> Unit
+                    }
+                    values[row * RoanaPresentation.GRID + col] = value.coerceIn(0f, 1f)
+                }
+            }
+
+            return PresentationFrame(
+                command = command,
+                reason = if (command == CorridorCommand.STOP) {
+                    CorridorContract.Reason.NEAR_OBSTACLE
+                } else {
+                    CorridorContract.Reason.PATH_FOUND
+                },
+                depth = values,
+                depthCols = RoanaPresentation.GRID,
+                detections = listOf(
+                    DetectionBox(
+                        label = "person",
+                        score = 0.91f,
+                        centerX = 0.62f,
+                        centerY = 0.54f,
+                        width = 0.22f,
+                        height = 0.46f,
+                    ),
+                ),
+                frames = frame,
+                yoloMs = 21.0,
+                depthMs = 14.0,
+                gaps = 0,
+            )
+        }
     }
 }

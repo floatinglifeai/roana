@@ -78,7 +78,19 @@ for path in "${required_files[@]}"; do
   fi
 done
 
-/usr/bin/plutil -lint "$INFO_PLIST" >/dev/null
+if [ -x /usr/bin/plutil ]; then
+  /usr/bin/plutil -lint "$INFO_PLIST" >/dev/null
+elif command -v plutil >/dev/null 2>&1; then
+  plutil -lint "$INFO_PLIST" >/dev/null
+else
+  python3 - <<'PY' "$INFO_PLIST"
+import plistlib
+import sys
+
+with open(sys.argv[1], "rb") as handle:
+    plistlib.load(handle)
+PY
+fi
 python3 -m json.tool "$IOS_DIR/Roana/Assets.xcassets/Contents.json" >/dev/null
 python3 -m json.tool "$IOS_DIR/Roana/ModelAssets/manifest.json" >/dev/null
 python3 -m unittest "$ROOT_DIR/scripts/test_analyze_ios_log.py" >/dev/null
@@ -226,6 +238,11 @@ grep -q "Do not upload video frames" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "Low confidence, missing frames" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "scripts/verify-ios-s0-local.sh" "$ROOT_DIR/ios/AGENTS.md"
 grep -q "scripts/analyze-ios-log.py" "$ROOT_DIR/ios/AGENTS.md"
+
+if ! command -v swiftc >/dev/null 2>&1; then
+  echo "swiftc unavailable; iOS local structural checks passed, build deferred" >&2
+  exit 2
+fi
 
 swiftc \
   -D DEBUG \

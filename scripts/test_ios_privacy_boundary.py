@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import plistlib
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -17,6 +18,9 @@ SWIFT_SOURCE = ROOT / "ios" / "Roana" / "RoanaTests" / "Privacy" / "main.swift"
 class IosPrivacyBoundaryTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        if shutil.which("swiftc") is None:
+            raise unittest.SkipTest("swiftc unavailable")
+
         cls._tmp = tempfile.TemporaryDirectory()
         cls.binary = Path(cls._tmp.name) / "privacy-boundary"
         subprocess.run(

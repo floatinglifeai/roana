@@ -32,13 +32,16 @@ class RoanaPresentationView @JvmOverloads constructor(
     private val ambient = RoanaAmbientView(context)
     private val hud = RoanaHudView(context)
     private var mode = Mode.AMBIENT
+    private var hudSettings = RoanaHudView.Settings()
 
     private val handler = Handler(Looper.getMainLooper())
     private var holdRunnable: Runnable? = null
+    private var holdTriggered = false
 
     init {
         addView(ambient, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(hud, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        hud.setSettings(hudSettings)
         applyMode()
     }
 
@@ -62,14 +65,32 @@ class RoanaPresentationView @JvmOverloads constructor(
         val inCorner = event.x >= width - region && event.y >= height - region
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                holdTriggered = false
                 if (inCorner) {
-                    holdRunnable = Runnable { toggleMode(); holdRunnable = null }
+                    holdRunnable = Runnable {
+                        holdTriggered = true
+                        toggleMode()
+                        holdRunnable = null
+                    }
                     handler.postDelayed(holdRunnable!!, RoanaPresentation.GESTURE_HOLD_MS)
+                    return true
+                }
+                if (mode == Mode.DEBUG && hud.hitControl(event.x, event.y) != null) {
                     return true
                 }
             }
             MotionEvent.ACTION_MOVE -> if (!inCorner) cancelHold()
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> cancelHold()
+            MotionEvent.ACTION_UP -> {
+                cancelHold()
+                if (!holdTriggered && mode == Mode.DEBUG) {
+                    hud.hitControl(event.x, event.y)?.let { layer ->
+                        hudSettings = hudSettings.toggled(layer)
+                        hud.setSettings(hudSettings)
+                        return true
+                    }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> cancelHold()
         }
         return super.onTouchEvent(event)
     }

@@ -6,6 +6,21 @@ IOS_DIR="$ROOT_DIR/ios/Roana"
 BINARY="$IOS_DIR/.video-replay"
 MODEL_ASSETS_DIR="${ROANA_IOS_MODEL_ASSETS_DIR:-$IOS_DIR/Roana/ModelAssets}"
 
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'USAGE'
+usage: replay-ios-video.sh <video-path> [--fps N] [--max-seconds N] [--orientation name]
+
+Compiles and runs the local iOS video replay harness. Set
+ROANA_IOS_MODEL_ASSETS_DIR to point at staged Core ML assets.
+USAGE
+  exit 0
+fi
+
+if ! command -v swiftc >/dev/null 2>&1; then
+  echo "swiftc unavailable; iOS replay requires a Swift toolchain" >&2
+  exit 2
+fi
+
 cleanup() {
   rm -f "$BINARY"
 }

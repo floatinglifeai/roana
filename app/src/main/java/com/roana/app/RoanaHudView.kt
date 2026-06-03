@@ -9,9 +9,9 @@ import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
-import kotlin.math.min
 
 /**
  * Developer / testing surface. Renders what the system sees:
@@ -24,9 +24,48 @@ class RoanaHudView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
 
+    enum class Layer {
+        CAMERA,
+        DEPTH,
+        PATH,
+        DETECTIONS,
+        TELEMETRY,
+    }
+
+    data class Settings(
+        val showCameraUnderlay: Boolean = false,
+        val showDepth: Boolean = true,
+        val showPath: Boolean = true,
+        val showDetections: Boolean = true,
+        val showTelemetry: Boolean = true,
+    ) {
+        fun toggled(layer: Layer): Settings = when (layer) {
+            Layer.CAMERA -> copy(showCameraUnderlay = !showCameraUnderlay)
+            Layer.DEPTH -> copy(showDepth = !showDepth)
+            Layer.PATH -> copy(showPath = !showPath)
+            Layer.DETECTIONS -> copy(showDetections = !showDetections)
+            Layer.TELEMETRY -> copy(showTelemetry = !showTelemetry)
+        }
+
+        fun enabled(layer: Layer): Boolean = when (layer) {
+            Layer.CAMERA -> showCameraUnderlay
+            Layer.DEPTH -> showDepth
+            Layer.PATH -> showPath
+            Layer.DETECTIONS -> showDetections
+            Layer.TELEMETRY -> showTelemetry
+        }
+    }
+
     private var frame: PresentationFrame? = null
+    private var settings = Settings()
+    private val controlBounds = mutableMapOf<Layer, RectF>()
 
     private val cellPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val gridLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.parseColor("#334456")
+        strokeWidth = 1f
+    }
     private val pathPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -44,18 +83,32 @@ class RoanaHudView @JvmOverloads constructor(
     }
     private val dimPaint = Paint().apply { color = Color.parseColor("#7C8696") }
 
+    fun setSettings(next: Settings) {
+        settings = next
+        postInvalidateOnAnimation()
+    }
+
     fun setFrame(next: PresentationFrame) {
         frame = next
         postInvalidateOnAnimation()
     }
 
+    fun hitControl(x: Float, y: Float): Layer? =
+        controlBounds.entries.firstOrNull { (_, bounds) -> bounds.contains(x, y) }?.key
+
     override fun onDraw(canvas: Canvas) {
-        canvas.drawColor(RoanaPresentation.HUD_BACKGROUND)
+        canvas.drawColor(
+            if (settings.showCameraUnderlay) {
+                RoanaPresentation.HUD_CAMERA_SCRIM
+            } else {
+                RoanaPresentation.HUD_BACKGROUND
+            },
+        )
         val f = frame ?: return
 
         val w = width.toFloat()
-        val teleH = dp(40f)
-        val topH = dp(34f)
+        val teleH = if (settings.showTelemetry) dp(40f) else 0f
+        val topH = dp(72f)
         val gridTop = topH
         val gridBottom = height - teleH
         val gridH = gridBottom - gridTop
@@ -65,42 +118,59 @@ class RoanaHudView @JvmOverloads constructor(
         val gap = dp(1.2f)
 
         // 1) depth heatmap
-        for (r in 0 until grid) {
-            for (c in 0 until grid) {
-                cellPaint.color = RoanaPresentation.depthColor(f.depthAt(r, c))
-                val x = c * cw
+        if (settings.showDepth) {
+            for (r in 0 until grid) {
+                for (c in 0 until grid) {
+                    cellPaint.color = RoanaPresentation.depthColor(f.depthAt(r, c))
+                    cellPaint.alpha = if (settings.showCameraUnderlay) 145 else 255
+                    val x = c * cw
+                    val y = gridTop + r * ch
+                    canvas.drawRect(x + gap / 2, y + gap / 2, x + cw - gap / 2, y + ch - gap / 2, cellPaint)
+                }
+            }
+            cellPaint.alpha = 255
+        } else if (!settings.showCameraUnderlay) {
+            for (r in 0..grid) {
                 val y = gridTop + r * ch
-                canvas.drawRect(x + gap / 2, y + gap / 2, x + cw - gap / 2, y + ch - gap / 2, cellPaint)
+                canvas.drawLine(0f, y, w, y, gridLinePaint)
+            }
+            for (c in 0..grid) {
+                val x = c * cw
+                canvas.drawLine(x, gridTop, x, gridBottom, gridLinePaint)
             }
         }
 
         val style = RoanaPresentation.styleFor(f.command)
 
         // 2) corridor path ribbon (bottom-center -> target column)
-        pathPaint.color = style.color
-        pathPaint.strokeWidth = dp(3.2f)
-        val targetX = (style.pathTargetCol + 0.5f) * cw
-        val path = Path().apply {
-            moveTo(w / 2f, gridBottom)
-            quadTo(w / 2f, gridTop + gridH * 0.62f, targetX, gridTop + gridH * 0.30f)
+        if (settings.showPath) {
+            pathPaint.color = style.color
+            pathPaint.strokeWidth = dp(3.2f)
+            val targetX = (style.pathTargetCol + 0.5f) * cw
+            val path = Path().apply {
+                moveTo(w / 2f, gridBottom)
+                quadTo(w / 2f, gridTop + gridH * 0.62f, targetX, gridTop + gridH * 0.30f)
+            }
+            canvas.drawPath(path, pathPaint)
         }
-        canvas.drawPath(path, pathPaint)
 
         // 3) detection boxes
         textPaint.textSize = dp(11f)
-        for (d in f.detections) {
-            val bw = d.width * w
-            val bh = d.height * gridH
-            val bx = d.centerX * w - bw / 2
-            val by = gridTop + d.centerY * gridH - bh / 2
-            canvas.drawRect(bx, by, bx + bw, by + bh, boxPaint)
-            val label = "${d.label} ${"%.2f".format(d.score)}"
-            val tw = textPaint.measureText(label)
-            chipPaint.color = RoanaPresentation.DETECTION_STROKE
-            canvas.drawRect(bx, by - dp(15f), bx + tw + dp(10f), by, chipPaint)
-            textPaint.color = Color.parseColor("#04201C")
-            canvas.drawText(label, bx + dp(5f), by - dp(4f), textPaint)
-            textPaint.color = Color.WHITE
+        if (settings.showDetections) {
+            for (d in f.detections) {
+                val bw = d.width * w
+                val bh = d.height * gridH
+                val bx = d.centerX * w - bw / 2
+                val by = gridTop + d.centerY * gridH - bh / 2
+                canvas.drawRect(bx, by, bx + bw, by + bh, boxPaint)
+                val label = "${d.label} ${"%.2f".format(d.score)}"
+                val tw = textPaint.measureText(label)
+                chipPaint.color = RoanaPresentation.DETECTION_STROKE
+                canvas.drawRect(bx, by - dp(15f), bx + tw + dp(10f), by, chipPaint)
+                textPaint.color = Color.parseColor("#04201C")
+                canvas.drawText(label, bx + dp(5f), by - dp(4f), textPaint)
+                textPaint.color = Color.WHITE
+            }
         }
 
         // 4) command chip (top-left)
@@ -112,21 +182,56 @@ class RoanaHudView @JvmOverloads constructor(
         textPaint.color = Color.parseColor("#04150F")
         canvas.drawText(chipLabel, dp(17f), dp(22f), textPaint)
         textPaint.color = Color.WHITE
+        drawLayerControls(canvas)
 
         // 5) telemetry strip
-        val tele = f.telemetry()
-        val colW = w / tele.size
-        textPaint.textAlign = Paint.Align.CENTER
-        tele.forEachIndexed { i, (k, v) ->
-            val cx = colW * i + colW / 2
-            dimPaint.textSize = dp(7.5f)
-            dimPaint.textAlign = Paint.Align.CENTER
-            canvas.drawText(k, cx, gridBottom + dp(15f), dimPaint)
-            textPaint.textSize = dp(13f)
-            canvas.drawText(v, cx, gridBottom + dp(30f), textPaint)
+        if (settings.showTelemetry) {
+            val tele = f.telemetry()
+            val colW = w / tele.size
+            textPaint.textAlign = Paint.Align.CENTER
+            tele.forEachIndexed { i, (k, v) ->
+                val cx = colW * i + colW / 2
+                dimPaint.textSize = dp(7.5f)
+                dimPaint.textAlign = Paint.Align.CENTER
+                canvas.drawText(k, cx, gridBottom + dp(15f), dimPaint)
+                textPaint.textSize = dp(13f)
+                canvas.drawText(v, cx, gridBottom + dp(30f), textPaint)
+            }
+            textPaint.textAlign = Paint.Align.LEFT
         }
+    }
+
+    private fun drawLayerControls(canvas: Canvas) {
+        controlBounds.clear()
+        val controls = listOf(
+            RoanaHudControl("CAM", Layer.CAMERA),
+            RoanaHudControl("DEPTH", Layer.DEPTH),
+            RoanaHudControl("PATH", Layer.PATH),
+            RoanaHudControl("BOX", Layer.DETECTIONS),
+            RoanaHudControl("TEL", Layer.TELEMETRY),
+        )
+        var x = dp(8f)
+        val y = dp(38f)
         textPaint.textAlign = Paint.Align.LEFT
+        textPaint.textSize = dp(10.5f)
+        for (control in controls) {
+            val chipW = textPaint.measureText(control.label) + dp(18f)
+            val rect = RectF(x, y, x + chipW, y + dp(24f))
+            controlBounds[control.layer] = rect
+            val enabled = settings.enabled(control.layer)
+            chipPaint.color = if (enabled) Color.parseColor("#CFE7D2") else Color.parseColor("#27313B")
+            canvas.drawRoundRect(rect, dp(6f), dp(6f), chipPaint)
+            textPaint.color = if (enabled) Color.parseColor("#06140A") else Color.parseColor("#AAB3BD")
+            canvas.drawText(control.label, rect.left + dp(9f), rect.top + dp(16.5f), textPaint)
+            x = rect.right + dp(6f)
+        }
+        textPaint.color = Color.WHITE
     }
 
     private fun dp(v: Float): Float = v * resources.displayMetrics.density
+
+    private data class RoanaHudControl(
+        val label: String,
+        val layer: Layer,
+    )
 }
