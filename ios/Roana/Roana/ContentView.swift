@@ -17,20 +17,28 @@ struct CameraRootView: View {
 
 struct ContentView: View {
     @ObservedObject var camera: CameraSessionController
+    @State private var presentationDebugMode = false
+    @State private var presentationDebugSettings = DebugHudSettings()
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             CameraPreviewView(session: camera.session, onOrientationChange: camera.updateOrientation)
                 .ignoresSafeArea()
-                .opacity(0.001)
+                .opacity(presentationDebugMode && presentationDebugSettings.showCameraUnderlay ? 1 : 0.001)
 
-            PresentationRootView(frame: camera.presentation)
+            PresentationRootView(
+                frame: camera.presentation,
+                debugMode: $presentationDebugMode,
+                debugSettings: $presentationDebugSettings
+            )
                 .ignoresSafeArea()
 
             permissionOverlay
 
-            diagnosticsPanel
-                .padding(16)
+            if !presentationDebugMode {
+                diagnosticsPanel
+                    .padding(16)
+            }
         }
         .background(Color.black)
         .foregroundStyle(.white)
