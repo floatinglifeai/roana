@@ -10,6 +10,9 @@ command.
 - `build-debug.sh` - build the main Android debug APK in Docker.
 - `install-debug.sh` - install the main Android debug APK on a connected
   Android device.
+- `preview-android-presentation-demo.sh` - install and launch the debug-only
+  presentation demo with synthetic depth/path/person data, useful on phones
+  without the production depth runtime.
 - `check-android-env.sh` - check Android host prerequisites.
 - `verify-v0a-device.sh` - run the Android V0a device/log gate.
 - `verify-v0b-device.sh` - run the Android V0b corridor device/log gate.

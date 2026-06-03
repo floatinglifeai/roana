@@ -82,6 +82,7 @@ class RoanaHudView @JvmOverloads constructor(
         isFakeBoldText = true
     }
     private val dimPaint = Paint().apply { color = Color.parseColor("#7C8696") }
+    private val hitScratch = RectF()
 
     fun setSettings(next: Settings) {
         settings = next
@@ -108,7 +109,7 @@ class RoanaHudView @JvmOverloads constructor(
 
         val w = width.toFloat()
         val teleH = if (settings.showTelemetry) dp(40f) else 0f
-        val topH = dp(72f)
+        val topH = dp(84f)
         val gridTop = topH
         val gridBottom = height - teleH
         val gridH = gridBottom - gridTop
@@ -182,6 +183,9 @@ class RoanaHudView @JvmOverloads constructor(
         textPaint.color = Color.parseColor("#04150F")
         canvas.drawText(chipLabel, dp(17f), dp(22f), textPaint)
         textPaint.color = Color.WHITE
+        if (f.source == PresentationFrame.Source.DEMO) {
+            drawDemoChip(canvas, dp(14f) + chipW, dp(6f))
+        }
         drawLayerControls(canvas)
 
         // 5) telemetry strip
@@ -216,15 +220,27 @@ class RoanaHudView @JvmOverloads constructor(
         textPaint.textSize = dp(10.5f)
         for (control in controls) {
             val chipW = textPaint.measureText(control.label) + dp(18f)
-            val rect = RectF(x, y, x + chipW, y + dp(24f))
-            controlBounds[control.layer] = rect
+            val visualRect = RectF(x, y + dp(5f), x + chipW, y + dp(35f))
+            hitScratch.set(x - dp(3f), y - dp(4f), x + chipW + dp(3f), y + dp(44f))
+            controlBounds[control.layer] = RectF(hitScratch)
             val enabled = settings.enabled(control.layer)
             chipPaint.color = if (enabled) Color.parseColor("#CFE7D2") else Color.parseColor("#27313B")
-            canvas.drawRoundRect(rect, dp(6f), dp(6f), chipPaint)
+            canvas.drawRoundRect(visualRect, dp(7f), dp(7f), chipPaint)
             textPaint.color = if (enabled) Color.parseColor("#06140A") else Color.parseColor("#AAB3BD")
-            canvas.drawText(control.label, rect.left + dp(9f), rect.top + dp(16.5f), textPaint)
-            x = rect.right + dp(6f)
+            canvas.drawText(control.label, visualRect.left + dp(9f), visualRect.top + dp(19.5f), textPaint)
+            x = visualRect.right + dp(8f)
         }
+        textPaint.color = Color.WHITE
+    }
+
+    private fun drawDemoChip(canvas: Canvas, x: Float, y: Float) {
+        textPaint.textSize = dp(10f)
+        val label = "DEMO"
+        val w = textPaint.measureText(label) + dp(16f)
+        chipPaint.color = Color.parseColor("#FFD166")
+        canvas.drawRoundRect(x, y, x + w, y + dp(22f), dp(6f), dp(6f), chipPaint)
+        textPaint.color = Color.parseColor("#1C1400")
+        canvas.drawText(label, x + dp(8f), y + dp(15.5f), textPaint)
         textPaint.color = Color.WHITE
     }
 

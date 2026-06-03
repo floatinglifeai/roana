@@ -33,6 +33,7 @@ class RoanaPresentationView @JvmOverloads constructor(
     private val hud = RoanaHudView(context)
     private var mode = Mode.AMBIENT
     private var hudSettings = RoanaHudView.Settings()
+    var onModeChanged: ((Mode) -> Unit)? = null
 
     private val handler = Handler(Looper.getMainLooper())
     private var holdRunnable: Runnable? = null
@@ -58,6 +59,7 @@ class RoanaPresentationView @JvmOverloads constructor(
     private fun toggleMode() {
         mode = if (mode == Mode.AMBIENT) Mode.DEBUG else Mode.AMBIENT
         applyMode()
+        onModeChanged?.invoke(mode)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

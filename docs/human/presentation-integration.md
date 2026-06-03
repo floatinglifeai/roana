@@ -17,9 +17,29 @@ inference failure, and low-confidence corridor failures publish a STOP
 presentation frame so the screen does not keep showing stale guidance after a
 safe-stop state.
 
+The Android activity keeps the screen awake while it is foregrounded. This keeps
+the camera guidance surface and the debug HUD from disappearing during active
+testing; normal Android lifecycle stop/destroy still releases camera and TTS
+resources when the activity leaves foreground.
+
 Android build and JVM tests are expected to run through the containerized repo
 scripts because the host Java may be older than the Android Gradle plugin
 requires.
+
+For visual-only review on a phone that cannot run the production depth path,
+use:
+
+```bash
+scripts/build-debug.sh
+scripts/preview-android-presentation-demo.sh
+```
+
+The preview mode is debug-only and synthetic: it cycles command states with fake
+depth/path data and a fake `person` detection box. Long-press the bottom-right
+app corner for 2 seconds to switch into the debug HUD. In the HUD, `CAM`,
+`DEPTH`, `PATH`, `BOX`, and `TEL` toggle the camera underlay, depth heatmap,
+corridor path, detection boxes, and telemetry. When `CAM` and `DEPTH` are both
+enabled, the depth layer is translucent so both can be inspected together.
 
 ## iOS
 
